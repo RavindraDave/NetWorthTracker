@@ -1,0 +1,69 @@
+.milestone-timeline {
+  padding: 1.5rem;
+}
+
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1rem;
+  position: relative;
+  min-height: 4rem;
+}
+
+.timeline-item.achieved .timeline-title {
+  color: var(--accent-green);
+}
+
+.timeline-item.achieved .timeline-amount {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timeline-line {
+  width: 2px;
+  flex-grow: 1;
+  background: rgba(255,255,255,0.1);
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.timeline-item.achieved .timeline-line {
+  background: var(--accent-green);
+  opacity: 0.3;
+}
+
+.timeline-content {
+  padding-bottom: 1.5rem;
+}
+
+.timeline-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 0.1rem;
+}
+
+.timeline-amount {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.timeline-date {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--accent-green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}

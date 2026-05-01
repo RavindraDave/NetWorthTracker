@@ -1,0 +1,67 @@
+.portfolio-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.portfolio-header {
+  margin-bottom: 2rem;
+}
+
+.portfolio-charts {
+  margin-bottom: 2rem;
+}
+
+.portfolio-table-section {
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.portfolio-table-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.holdings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.holdings-table th,
+.holdings-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.holdings-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+.holdings-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.holdings-table tr.excluded {
+  opacity: 0.5;
+}
+
+.asset-name-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.text-right {
+  text-align: right !important;
+}

@@ -1,0 +1,38 @@
+.top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background: transparent;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.icon-btn {
+  padding: 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+.new-snapshot-btn {
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .top-header {
+    padding: 1rem;
+    position: sticky;
+    top: 0;
+    background: rgba(13, 17, 23, 0.9);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .new-snapshot-btn span {
+    display: none;
+  }
+}

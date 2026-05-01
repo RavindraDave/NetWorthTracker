@@ -1,0 +1,88 @@
+.snapshot-editor {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.editor-header__left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.editor-header__right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.live-networth {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1.25rem;
+  background: rgba(74, 222, 128, 0.05);
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
+.live-networth__label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.live-networth__amount {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.editor-column__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid rgba(255,255,255,0.05);
+}
+
+.editor-column__total {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.editor-column__total.positive { color: var(--accent-green); }
+.editor-column__total.negative { color: var(--accent-red); }
+
+@media (max-width: 900px) {
+  .editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .editor-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .editor-header__right {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+}
