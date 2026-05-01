@@ -31,6 +31,12 @@ export interface LineItem {
 
 export type GoalType = 'net_worth_target' | 'fire' | 'savings' | 'debt_freedom' | 'custom';
 
+export interface Milestone {
+  id: string;
+  label: string;
+  targetAmount: number;
+}
+
 export interface Goal {
   id: string;
   type: GoalType;
@@ -41,19 +47,25 @@ export interface Goal {
   annualExpenses?: number;
   withdrawalRate?: number; // Default 4
   multiplier?: number; // Default 25
-  milestones: Milestone[];
+  milestones?: Milestone[];
+  // Phase 3.4 — FIRE calculator improvements
+  expectedReturn?: number; // % annual nominal return, default 7
+  inflationRate?: number;  // % annual inflation, default 3
+  annualSavingsGrowth?: number; // % increase in monthly savings per year, default 0
 }
 
-export interface Milestone {
-  id: string;
-  amount: number;
-  name: string;
-  reachedDate?: string;
+export interface FlattenedItem extends LineItem {
+  categoryName: string;
+  isLiquid?: boolean;
 }
+
+// Phase 3.1 — stored in UserPreferences to support custom category templates
+export type CategoryTemplate = Omit<Category, 'id' | 'items'>;
 
 export interface UserPreferences {
   baseCurrency: string;
   enabledCurrencies: string[];
-  theme: 'dark';
+  theme: 'dark' | 'light' | 'system';
   profileName: string;
+  customCategories?: CategoryTemplate[];
 }

@@ -75,3 +75,32 @@
   padding-top: 1rem;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
+
+.milestone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.milestone-list__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.75rem;
+}
+
+.milestone-list__label { flex: 1; font-size: 0.875rem; }
+.milestone-list__amount { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
+
+.fire-advanced-row { flex-wrap: wrap; }
+.fire-advanced-row .form-group { flex: 1; min-width: 120px; }
+
+.milestone-add-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}

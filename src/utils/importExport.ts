@@ -62,8 +62,9 @@ export function parseBackupJSON(jsonString: string): BackupData {
       throw new Error('preferences.enabledCurrencies is missing or invalid.');
 
     return data as BackupData;
-  } catch (err: any) {
-    throw new Error(`Failed to parse backup: ${err.message}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to parse backup: ${msg}`);
   }
 }
 

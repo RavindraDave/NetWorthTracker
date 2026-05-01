@@ -25,8 +25,8 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
             {goal.name}
           </h2>
           <p className="text-muted" style={{ marginTop: '0.25rem' }}>
-            Target: <CurrencyDisplay amount={metrics.fiNumber} currency={baseCurrency} abbreviated /> 
-            {' '}({goal.multiplier}x Annual Expenses)
+            Target: <CurrencyDisplay amount={metrics.fiNumber} currency={baseCurrency} abbreviated />
+            {' '}({goal.multiplier}x Annual Expenses) · {metrics.realReturnRate.toFixed(1)}% real return
           </p>
         </div>
         {metrics.isFI && (

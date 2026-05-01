@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { calcNetWorth, calcMonthChange } from '../../utils/calculations';
+import { calcNetWorth, calcMonthChange, ViewMode } from '../../utils/calculations';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import './NetWorthHero.css';
 
-const VIEWS = ['Overall', 'Liquid', 'Investable'] as const;
+const VIEWS: { label: string; value: ViewMode }[] = [
+  { label: 'Overall', value: 'overall' },
+  { label: 'Liquid', value: 'liquid' },
+  { label: 'Investable', value: 'investable' },
+];
 
 function useCountUp(target: number, duration = 1200) {
   const [value, setValue] = useState(0);
@@ -73,11 +77,12 @@ export const NetWorthHero: React.FC = () => {
         <div className="nw-hero__view-toggle">
           {VIEWS.map(v => (
             <button
-              key={v}
-              className={`view-toggle-btn ${viewMode === v.toLowerCase() ? 'active' : ''}`}
-              onClick={() => setViewMode(v.toLowerCase() as any)}
+              key={v.value}
+              className={`view-toggle-btn ${viewMode === v.value ? 'active' : ''}`}
+              onClick={() => setViewMode(v.value)}
+              aria-pressed={viewMode === v.value}
             >
-              {v}
+              {v.label}
             </button>
           ))}
         </div>

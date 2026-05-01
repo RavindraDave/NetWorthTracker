@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { AppProvider } from './context/AppContext';
+import { ToastProvider } from './components/common/Toast';
 import { Dashboard } from './pages/Dashboard';
 import { SnapshotEditor } from './pages/SnapshotEditor';
 import { Goals } from './pages/Goals';
@@ -14,19 +15,21 @@ function App() {
   return (
     <ErrorBoundary>
       <AppProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="editor/:id" element={<SnapshotEditor />} />
-            <Route path="portfolio" element={<Portfolio />} />
-            <Route path="history" element={<History />} />
-            <Route path="goals" element={<Goals />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AppProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="editor/:id" element={<SnapshotEditor />} />
+                <Route path="portfolio" element={<Portfolio />} />
+                <Route path="history" element={<History />} />
+                <Route path="goals" element={<Goals />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </AppProvider>
     </ErrorBoundary>
   );
 }

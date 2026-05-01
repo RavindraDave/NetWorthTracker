@@ -1,0 +1,59 @@
+.cat-manager__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.cat-manager__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius-sm);
+}
+
+.cat-manager__badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+}
+
+.cat-manager__badge[data-type="asset"]     { background: rgba(74,222,128,0.12); color: var(--accent-green); }
+.cat-manager__badge[data-type="liability"] { background: rgba(248,113,113,0.12); color: var(--accent-red); }
+
+.cat-manager__name  { flex: 1; font-size: 0.875rem; }
+.cat-manager__flags { display: flex; gap: 0.3rem; }
+
+.cat-flag {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: rgba(96,165,250,0.1);
+  color: #60a5fa;
+}
+
+.cat-manager__form { border-top: 1px solid var(--border-color); padding-top: 1rem; }
+
+.cat-form-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.cat-form-row--flags { margin-bottom: 0; }
+
+.cat-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}

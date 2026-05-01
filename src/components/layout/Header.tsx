@@ -13,7 +13,7 @@ export const Header: React.FC<HeaderProps> = ({ title = 'Dashboard' }) => {
         <h2 className="text-h2">{title}</h2>
       </div>
       <div className="header-actions">
-        <button className="btn btn-outline icon-btn">
+        <button className="btn btn-outline icon-btn" aria-label="Notifications (coming soon)" title="Notifications coming soon" disabled>
           <Bell size={20} />
         </button>
         <button className="btn btn-primary new-snapshot-btn">

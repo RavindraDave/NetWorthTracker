@@ -13,7 +13,7 @@ interface LineItemRowProps {
   onRemove: () => void;
 }
 
-export const LineItemRow: React.FC<LineItemRowProps> = ({ item, exchangeRates, onChange, onRemove }) => {
+const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onChange, onRemove }) => {
   const { preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const enabledCurrencies = preferences?.enabledCurrencies || ['INR', 'USD', 'EUR', 'GBP', 'SGD'];
@@ -47,7 +47,8 @@ export const LineItemRow: React.FC<LineItemRowProps> = ({ item, exchangeRates, o
           value={item.amount === 0 ? '' : item.amount}
           onChange={e => {
             const val = parseFloat(e.target.value);
-            onChange({ ...item, amount: isNaN(val) ? 0 : val });
+            const safe = isNaN(val) || !isFinite(val) ? 0 : Math.min(Math.abs(val), 1e15);
+            onChange({ ...item, amount: safe });
           }}
           placeholder="0.00"
         />
@@ -76,3 +77,5 @@ export const LineItemRow: React.FC<LineItemRowProps> = ({ item, exchangeRates, o
     </div>
   );
 };
+
+export const LineItemRow = React.memo(LineItemRowBase);

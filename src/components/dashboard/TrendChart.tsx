@@ -1,33 +1,13 @@
 import React, { useMemo } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, TooltipProps
+  ResponsiveContainer
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
 import { buildTrendData } from '../../utils/calculations';
+import { formatCompactNumber } from '../../utils/numberFormat';
+import { ChartTooltip } from './ChartTooltip';
 import './TrendChart.css';
-
-function formatShortAmount(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 1_00_00_000) return `${(value / 1_00_00_000).toFixed(1)}Cr`;
-  if (abs >= 1_00_000)    return `${(value / 1_00_000).toFixed(1)}L`;
-  if (abs >= 1_000)       return `${(value / 1_000).toFixed(0)}K`;
-  return String(Math.round(value));
-}
-
-const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip__label">{label}</p>
-      {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.color }} className="chart-tooltip__value">
-          {p.name}: {formatShortAmount(p.value as number)}
-        </p>
-      ))}
-    </div>
-  );
-};
 
 export const TrendChart: React.FC = () => {
   const { snapshots, preferences, viewMode } = useApp();
@@ -78,13 +58,13 @@ export const TrendChart: React.FC = () => {
             tickLine={false}
           />
           <YAxis
-            tickFormatter={formatShortAmount}
+            tickFormatter={formatCompactNumber}
             tick={{ fill: '#6b7280', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             width={55}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<ChartTooltip />} />
           <Area
             type="monotone"
             dataKey="assets"

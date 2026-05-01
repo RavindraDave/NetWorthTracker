@@ -30,7 +30,7 @@ export async function initializePreferences() {
     await db.preferences.add({
       baseCurrency: 'INR',
       enabledCurrencies: ['INR', 'USD', 'SGD', 'EUR', 'GBP'],
-      theme: 'dark',
+      theme: 'dark' as 'dark' | 'light' | 'system',
       profileName: 'User',
     });
   }

@@ -52,27 +52,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Apply theme to <html> so CSS selectors can use [data-theme]
+  useEffect(() => {
+    if (!preferences) return;
+    const root = document.documentElement;
+    if (preferences.theme === 'system') {
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', preferences.theme);
+    }
+  }, [preferences?.theme]);
+
   const currentSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
   const previousSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
 
   const saveSnapshot = async (snapshot: Snapshot) => {
     await db.snapshots.put(snapshot);
-    setSnapshots(await db.snapshots.orderBy('month').toArray());
+    setSnapshots(prev => {
+      const idx = prev.findIndex(s => s.id === snapshot.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = snapshot;
+        return updated;
+      }
+      return [...prev, snapshot].sort((a, b) => a.month.localeCompare(b.month));
+    });
   };
 
   const deleteSnapshot = async (id: string) => {
     await db.snapshots.delete(id);
-    setSnapshots(await db.snapshots.orderBy('month').toArray());
+    setSnapshots(prev => prev.filter(s => s.id !== id));
   };
 
   const saveGoal = async (goal: Goal) => {
     await db.goals.put(goal);
-    setGoals(await db.goals.toArray());
+    setGoals(prev => {
+      const idx = prev.findIndex(g => g.id === goal.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = goal;
+        return updated;
+      }
+      return [...prev, goal];
+    });
   };
 
   const deleteGoal = async (id: string) => {
     await db.goals.delete(id);
-    setGoals(await db.goals.toArray());
+    setGoals(prev => prev.filter(g => g.id !== id));
   };
 
   const updatePreferences = async (prefs: Partial<UserPreferences>) => {
@@ -109,22 +136,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createNewSnapshot = (): Snapshot => {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const defaultCats = generateDefaultCategories();
+    const customCats = (preferences?.customCategories ?? []).map(t => ({
+      ...t,
+      id: crypto.randomUUID(),
+      items: [],
+    }));
     return {
       id: crypto.randomUUID(),
       month,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
       exchangeRates: { USD: 83, SGD: 62, EUR: 90, GBP: 105, AED: 22.6, AUD: 54 },
-      categories: generateDefaultCategories(),
+      categories: [...defaultCats, ...customCats],
     };
   };
 
   const cloneLatestSnapshot = (): Snapshot => {
     if (!currentSnapshot) return createNewSnapshot();
     const now = new Date();
-    const d = new Date(currentSnapshot.month + '-01');
-    d.setMonth(d.getMonth() + 1);
-    const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const [yearStr, monthStr] = currentSnapshot.month.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const newMonth = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
     return {
       ...currentSnapshot,
       id: crypto.randomUUID(),

@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
@@ -25,8 +27,11 @@
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.3.3",
+    "@vitest/ui": "^4.1.5",
+    "jsdom": "^29.1.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vite-plugin-pwa": "latest"
+    "vite-plugin-pwa": "latest",
+    "vitest": "^4.1.5"
   }
 }

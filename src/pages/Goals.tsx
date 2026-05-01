@@ -1,21 +1,39 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../components/common/Toast';
 import { GoalEditor } from '../components/goals/GoalEditor';
 import { FIREDashboard } from '../components/goals/FIREDashboard';
 import { GoalCard } from '../components/goals/GoalCard';
 import { MilestoneTimeline } from '../components/goals/MilestoneTimeline';
+import { Goal } from '../types';
 import { Plus } from 'lucide-react';
 import './Goals.css';
 
 export const Goals: React.FC = () => {
-  const { goals, currentSnapshot, preferences } = useApp();
+  const { goals, deleteGoal, currentSnapshot, preferences } = useApp();
+  const { confirm } = useToast();
   const baseCurrency = preferences?.baseCurrency || 'INR';
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | undefined>(undefined);
 
-  // Separate FIRE goals from normal goals
   const fireGoals = goals.filter(g => g.type === 'fire');
   const otherGoals = goals.filter(g => g.type !== 'fire');
+
+  const handleEdit = (goal: Goal) => {
+    setEditingGoal(goal);
+    setIsEditorOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    const ok = await confirm('Delete this goal? This action cannot be undone.');
+    if (ok) await deleteGoal(id);
+  };
+
+  const handleCloseEditor = () => {
+    setIsEditorOpen(false);
+    setEditingGoal(undefined);
+  };
 
   return (
     <div className="goals-page">
@@ -42,13 +60,22 @@ export const Goals: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Main FIRE Dashboard (assuming the first FIRE goal is the primary one) */}
           {fireGoals.length > 0 && (
-            <FIREDashboard 
-              goal={fireGoals[0]} 
-              currentSnapshot={currentSnapshot} 
-              baseCurrency={baseCurrency} 
-            />
+            <div style={{ position: 'relative' }}>
+              <FIREDashboard
+                goal={fireGoals[0]}
+                currentSnapshot={currentSnapshot}
+                baseCurrency={baseCurrency}
+              />
+              <div style={{ display: 'flex', gap: '0.5rem', position: 'absolute', top: '1.25rem', right: '1.25rem' }}>
+                <button className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={() => handleEdit(fireGoals[0])}>
+                  Edit
+                </button>
+                <button className="btn btn-outline danger" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={() => handleDelete(fireGoals[0].id)}>
+                  Delete
+                </button>
+              </div>
+            </div>
           )}
 
           <div className="goals-grid-container">
@@ -59,29 +86,31 @@ export const Goals: React.FC = () => {
               ) : (
                 <div className="other-goals-grid">
                   {otherGoals.map(goal => (
-                    <GoalCard 
-                      key={goal.id} 
-                      goal={goal} 
-                      currentSnapshot={currentSnapshot} 
-                      baseCurrency={baseCurrency} 
+                    <GoalCard
+                      key={goal.id}
+                      goal={goal}
+                      currentSnapshot={currentSnapshot}
+                      baseCurrency={baseCurrency}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
                     />
                   ))}
                 </div>
               )}
             </div>
-            
+
             <div className="goals-sidebar-col">
-              <MilestoneTimeline 
-                goals={goals} 
-                currentSnapshot={currentSnapshot} 
-                baseCurrency={baseCurrency} 
+              <MilestoneTimeline
+                goals={goals}
+                currentSnapshot={currentSnapshot}
+                baseCurrency={baseCurrency}
               />
             </div>
           </div>
         </>
       )}
 
-      {isEditorOpen && <GoalEditor onClose={() => setIsEditorOpen(false)} />}
+      {isEditorOpen && <GoalEditor onClose={handleCloseEditor} editGoal={editingGoal} />}
     </div>
   );
 };

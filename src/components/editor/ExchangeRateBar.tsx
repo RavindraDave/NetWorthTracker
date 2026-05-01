@@ -62,9 +62,9 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
     try {
       const result = await fetchLiveRates(baseCurrency, displayCurrencies);
 
-      // Apply fetched rates
       for (const [currency, rate] of Object.entries(result.rates)) {
-        onChange(currency, parseFloat(rate.toFixed(4)));
+        const parsed = parseFloat(rate.toFixed(4));
+        if (parsed > 0 && isFinite(parsed)) onChange(currency, parsed);
       }
 
       onRatesRefreshed(result.rates, result.updatedAt);
@@ -89,9 +89,10 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         setFetchState('idle');
         setFetchMessage('');
       }, 5000);
-    } catch (err: any) {
+    } catch (err) {
       setFetchState('error');
-      setFetchMessage(err.message || 'Failed to fetch rates. Check your connection and try again.');
+      const msg = err instanceof Error ? err.message : 'Failed to fetch rates. Check your connection and try again.';
+      setFetchMessage(msg);
     }
   };
 

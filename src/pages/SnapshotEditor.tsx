@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../components/common/Toast';
 import { Snapshot, Category } from '../types';
 import { calcNetWorth } from '../utils/calculations';
 import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
@@ -14,18 +15,32 @@ export const SnapshotEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { snapshots, saveSnapshot, preferences } = useApp();
+  const { confirm } = useToast();
   const baseCurrency = preferences?.baseCurrency || 'INR';
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const isDirtyRef = useRef(false);
 
   useEffect(() => {
     if (id) {
       const existing = snapshots.find(s => s.id === id);
       if (existing) {
-        setSnapshot(JSON.parse(JSON.stringify(existing))); // deep copy for editing
+        setSnapshot(JSON.parse(JSON.stringify(existing)));
+        isDirtyRef.current = false;
       }
     }
   }, [id, snapshots]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   const handleExportCSV = () => {
     if (!snapshot) return;
@@ -38,14 +53,16 @@ export const SnapshotEditor: React.FC = () => {
   }
 
   const handleRateChange = (currency: string, rate: number) => {
+    isDirtyRef.current = true;
     setSnapshot({
       ...snapshot,
       exchangeRates: { ...snapshot.exchangeRates, [currency]: rate },
-      ratesLastUpdated: new Date().toISOString(), // stamp every manual edit
+      ratesLastUpdated: new Date().toISOString(),
     });
   };
 
   const handleRatesRefreshed = (rates: Record<string, number>, updatedAt: string) => {
+    isDirtyRef.current = true;
     setSnapshot(prev => {
       if (!prev) return prev;
       return {
@@ -57,6 +74,7 @@ export const SnapshotEditor: React.FC = () => {
   };
 
   const handleCategoryChange = (updated: Category) => {
+    isDirtyRef.current = true;
     setSnapshot({
       ...snapshot,
       categories: snapshot.categories.map(c => c.id === updated.id ? updated : c)
@@ -64,17 +82,21 @@ export const SnapshotEditor: React.FC = () => {
   };
 
   const handleSave = async () => {
+    const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
+    if (duplicate) {
+      const ok = await confirm(`A snapshot for ${monthDisplay} already exists. Saving will overwrite it. Continue?`);
+      if (!ok) return;
+    }
+    isDirtyRef.current = false;
     await saveSnapshot({ ...snapshot, updatedAt: new Date().toISOString() });
     navigate('/');
   };
 
+  const monthDisplay = new Date(snapshot.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const breakdown = calcNetWorth(snapshot, baseCurrency);
 
-  // Group categories by type
   const assets = snapshot.categories.filter(c => c.type === 'asset');
   const liabilities = snapshot.categories.filter(c => c.type === 'liability');
-
-  const monthDisplay = new Date(snapshot.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div className="snapshot-editor">
@@ -147,7 +169,7 @@ export const SnapshotEditor: React.FC = () => {
               className="exchange-rate-input"
               style={{ width: '100px' }}
               value={snapshot.monthlyIncome || ''}
-              onChange={e => setSnapshot({ ...snapshot, monthlyIncome: parseFloat(e.target.value) || 0 })}
+              onChange={e => { isDirtyRef.current = true; setSnapshot({ ...snapshot, monthlyIncome: parseFloat(e.target.value) || 0 }); }}
               placeholder="0.00"
             />
           </div>
@@ -158,7 +180,7 @@ export const SnapshotEditor: React.FC = () => {
               className="exchange-rate-input"
               style={{ width: '100px' }}
               value={snapshot.monthlyExpenses || ''}
-              onChange={e => setSnapshot({ ...snapshot, monthlyExpenses: parseFloat(e.target.value) || 0 })}
+              onChange={e => { isDirtyRef.current = true; setSnapshot({ ...snapshot, monthlyExpenses: parseFloat(e.target.value) || 0 }); }}
               placeholder="0.00"
             />
           </div>

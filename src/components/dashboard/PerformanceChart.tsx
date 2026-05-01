@@ -1,34 +1,15 @@
 import React, { useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, TooltipProps
+  ResponsiveContainer, Cell
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
 import { buildAllocationData } from '../../utils/calculations';
+import { formatCompactNumber as fmt } from '../../utils/numberFormat';
+import { ChartTooltip } from './ChartTooltip';
 import './PerformanceChart.css';
 
-function fmt(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 1_00_00_000) return `${(value / 1_00_00_000).toFixed(1)}Cr`;
-  if (abs >= 1_00_000)    return `${(value / 1_00_000).toFixed(1)}L`;
-  if (abs >= 1_000)       return `${(value / 1_000).toFixed(0)}K`;
-  return String(Math.round(value));
-}
-
 const COLORS = ['#4ade80', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6', '#fb923c', '#facc15'];
-
-const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-  const item = payload[0].payload;
-  return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip__label">{item.name}</p>
-      <p className="chart-tooltip__value" style={{ color: '#4ade80' }}>
-        {fmt(item.value)} ({item.percentage.toFixed(1)}%)
-      </p>
-    </div>
-  );
-};
 
 export const PerformanceChart: React.FC = () => {
   const { currentSnapshot, preferences } = useApp();
@@ -83,7 +64,7 @@ export const PerformanceChart: React.FC = () => {
             tickLine={false}
             width={52}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Tooltip content={<ChartTooltip usePayloadName showPercentage />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
           <Bar dataKey="value" radius={[4, 4, 0, 0]}>
             {data.map((_, index) => (
               <Cell key={index} fill={COLORS[index % COLORS.length]} fillOpacity={0.85} />

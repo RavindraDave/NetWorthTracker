@@ -17,6 +17,11 @@ export const Dashboard: React.FC = () => {
 
   const handleCreateSnapshot = async () => {
     const snap = snapshots.length > 0 ? cloneLatestSnapshot() : createNewSnapshot();
+    const existing = snapshots.find(s => s.month === snap.month);
+    if (existing) {
+      navigate(`/editor/${existing.id}`);
+      return;
+    }
     await saveSnapshot(snap);
     navigate(`/editor/${snap.id}`);
   };

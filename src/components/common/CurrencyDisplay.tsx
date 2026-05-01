@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCompactNumber } from '../../utils/numberFormat';
 
 interface CurrencyDisplayProps {
   amount: number;
@@ -13,14 +14,6 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   AUD: 'A$', CAD: 'C$', JPY: '¥', CHF: 'Fr', HKD: 'HK$', NZD: 'NZ$',
 };
 
-function abbreviateNumber(n: number): string {
-  const abs = Math.abs(n);
-  if (abs >= 1_00_00_000) return (n / 1_00_00_000).toFixed(2) + 'Cr';
-  if (abs >= 1_00_000)    return (n / 1_00_000).toFixed(2) + 'L';
-  if (abs >= 1_000)       return (n / 1_000).toFixed(1) + 'K';
-  return n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-}
-
 export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
   amount,
   currency = 'INR',
@@ -34,7 +27,7 @@ export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
 
   let formatted: string;
   if (abbreviated) {
-    formatted = abbreviateNumber(abs);
+    formatted = formatCompactNumber(abs);
   } else {
     if (currency === 'INR') {
       formatted = abs.toLocaleString('en-IN', { maximumFractionDigits: 0 });

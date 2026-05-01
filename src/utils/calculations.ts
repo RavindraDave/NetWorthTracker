@@ -11,7 +11,10 @@ export function convertToBase(
 ): number {
   if (currency === baseCurrency) return amount;
   const rate = exchangeRates[currency];
-  if (!rate) return amount; // fallback: treat as 1:1
+  if (!rate || rate <= 0) {
+    console.warn(`[WealthPulse] No valid exchange rate for ${currency} → ${baseCurrency}. Value may be inaccurate.`);
+    return amount; // fallback: treat as 1:1
+  }
   return amount * rate;
 }
 

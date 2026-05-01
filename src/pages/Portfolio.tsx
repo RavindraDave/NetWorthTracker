@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { calcNetWorth, convertToBase } from '../utils/calculations';
-import { LineItem } from '../types';
+import { FlattenedItem } from '../types';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { Badge } from '../components/common/Badge';
 import { DonutChart } from '../components/dashboard/DonutChart';
@@ -16,21 +16,14 @@ export const Portfolio: React.FC = () => {
     
     const breakdown = calcNetWorth(currentSnapshot, baseCurrency, 'overall');
     
-    // Flatten line items with category info
-    const assetsList = currentSnapshot.categories
+    const assetsList: FlattenedItem[] = currentSnapshot.categories
       .filter(c => c.type === 'asset')
       .flatMap(c => c.items.map(i => ({ ...i, categoryName: c.name, isLiquid: c.isLiquid })));
-      
-    const liabList = currentSnapshot.categories
+
+    const liabList: FlattenedItem[] = currentSnapshot.categories
       .filter(c => c.type === 'liability')
       .flatMap(c => c.items.map(i => ({ ...i, categoryName: c.name })));
 
-    interface FlattenedItem extends LineItem {
-      categoryName: string;
-      isLiquid?: boolean;
-    }
-
-    // Sort by converted amount (descending)
     const sortByAmountDesc = (a: FlattenedItem, b: FlattenedItem) => {
       const aAmt = convertToBase(a.amount, a.currency, baseCurrency, currentSnapshot.exchangeRates);
       const bAmt = convertToBase(b.amount, b.currency, baseCurrency, currentSnapshot.exchangeRates);

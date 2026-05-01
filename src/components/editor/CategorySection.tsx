@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Category, LineItem } from '../../types';
 import { calcCategoryTotal } from '../../utils/calculations';
@@ -21,7 +21,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
 
   const total = calcCategoryTotal(category, baseCurrency, exchangeRates);
 
-  const handleAddItem = () => {
+  const handleAddItem = useCallback(() => {
     const newItem: LineItem = {
       id: crypto.randomUUID(),
       name: '',
@@ -30,21 +30,21 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
       excludeFromNetWorth: false
     };
     onChange({ ...category, items: [...category.items, newItem] });
-  };
+  }, [category, onChange, baseCurrency]);
 
-  const handleUpdateItem = (updated: LineItem) => {
+  const handleUpdateItem = useCallback((updated: LineItem) => {
     onChange({
       ...category,
       items: category.items.map(item => item.id === updated.id ? updated : item)
     });
-  };
+  }, [category, onChange]);
 
-  const handleRemoveItem = (id: string) => {
+  const handleRemoveItem = useCallback((id: string) => {
     onChange({
       ...category,
       items: category.items.filter(item => item.id !== id)
     });
-  };
+  }, [category, onChange]);
 
   return (
     <div className="category-section glass-card">
