@@ -13,6 +13,17 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts':   ['recharts'],
+          'vendor-xlsx':     ['xlsx'],
+          'vendor-dexie':    ['dexie'],
+          'vendor-lucide':   ['lucide-react'],
+        },
+      },
+    },
   },
   plugins: [
     react(),
