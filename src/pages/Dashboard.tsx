@@ -8,11 +8,13 @@ import { DonutChart } from '../components/dashboard/DonutChart';
 import { LedgerActivity } from '../components/dashboard/LedgerActivity';
 import { GoalCard } from '../components/goals/GoalCard';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../components/common/Toast';
 import { Rocket, Edit2, Plus } from 'lucide-react';
 import './Dashboard.css';
 
 export const Dashboard: React.FC = () => {
   const { currentSnapshot, createNewSnapshot, cloneLatestSnapshot, saveSnapshot, snapshots, goals, preferences } = useApp();
+  const { error: toastError } = useToast();
   const navigate = useNavigate();
   const baseCurrency = preferences?.baseCurrency || 'INR';
 
@@ -23,8 +25,12 @@ export const Dashboard: React.FC = () => {
       navigate(`/editor/${existing.id}`);
       return;
     }
-    await saveSnapshot(snap);
-    navigate(`/editor/${snap.id}`);
+    try {
+      await saveSnapshot(snap);
+      navigate(`/editor/${snap.id}`);
+    } catch {
+      toastError('Could not create snapshot. A snapshot for that month may already exist.');
+    }
   };
 
 

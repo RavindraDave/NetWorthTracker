@@ -116,8 +116,32 @@ export const SnapshotEditor: React.FC = () => {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-h2">Editing {monthDisplay}</h1>
-            <p className="text-muted">Snapshot ID: {snapshot.id.slice(0,8)}...</p>
+            <h1 className="text-h2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Editing
+              <input
+                type="month"
+                value={snapshot.month}
+                onChange={e => {
+                  if (!e.target.value) return;
+                  isDirtyRef.current = true;
+                  setSnapshot(prev => prev ? { ...prev, month: e.target.value } : prev);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: '1px dashed var(--border-color)',
+                  color: 'inherit',
+                  font: 'inherit',
+                  fontWeight: 'inherit',
+                  cursor: 'pointer',
+                  padding: '0 0.25rem',
+                  outline: 'none',
+                  width: 'auto',
+                }}
+                title="Click to change month"
+              />
+            </h1>
+            <p className="text-muted" style={{ fontSize: '0.75rem' }}>Snapshot ID: {snapshot.id.slice(0,8)}…</p>
           </div>
         </div>
         
