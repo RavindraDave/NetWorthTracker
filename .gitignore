@@ -27,5 +27,9 @@ dist-ssr
 .venv
 venv/
 
+# Playwright runtime artifacts
+test-results/
+playwright-report/
+
 # Antigravity artifacts
 .gemini

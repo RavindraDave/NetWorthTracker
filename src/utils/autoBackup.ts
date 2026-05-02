@@ -32,7 +32,3 @@ export async function listAutoBackups(): Promise<AutoBackupRecord[]> {
 export async function deleteAutoBackup(id: number): Promise<void> {
   return db.autoBackups.delete(id);
 }
-
-export async function clearAutoBackups(): Promise<void> {
-  return db.autoBackups.clear();
-}
