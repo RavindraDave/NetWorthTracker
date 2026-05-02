@@ -1,15 +1,21 @@
 import Dexie, { type Table } from 'dexie';
-import { Snapshot, Goal, UserPreferences } from '../types';
+import { Snapshot, Goal, UserPreferences, AutoBackupRecord } from '../types';
 
-// DB-layer model — adds the auto-increment PK that Dexie manages
 export interface UserPreferencesRecord extends UserPreferences {
   id?: number;
+}
+
+export interface FileHandleRecord {
+  id: string;
+  handle: FileSystemDirectoryHandle;
 }
 
 export class WealthPulseDB extends Dexie {
   snapshots!: Table<Snapshot, string>;
   goals!: Table<Goal, string>;
   preferences!: Table<UserPreferencesRecord, number>;
+  autoBackups!: Table<AutoBackupRecord, number>;
+  fileHandles!: Table<FileHandleRecord, string>;
 
   constructor() {
     super('WealthPulseDB');
@@ -17,7 +23,22 @@ export class WealthPulseDB extends Dexie {
     this.version(1).stores({
       snapshots: 'id, month, createdAt',
       goals: 'id, type',
-      preferences: '++id', // Singleton with id=1
+      preferences: '++id',
+    });
+
+    this.version(2).stores({
+      snapshots: 'id, month, createdAt',
+      goals: 'id, type',
+      preferences: '++id',
+      autoBackups: '++id, createdAt',
+    });
+
+    this.version(3).stores({
+      snapshots: 'id, month, createdAt',
+      goals: 'id, type',
+      preferences: '++id',
+      autoBackups: '++id, createdAt',
+      fileHandles: 'id',
     });
   }
 }

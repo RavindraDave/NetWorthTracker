@@ -10,7 +10,7 @@ interface LineItemRowProps {
   item: LineItem;
   exchangeRates: Record<string, number>;
   onChange: (updated: LineItem) => void;
-  onRemove: () => void;
+  onRemove: (id: string) => void;
 }
 
 const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onChange, onRemove }) => {
@@ -70,7 +70,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onCh
         >
           {item.excludeFromNetWorth ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
-        <button className="btn-icon danger" onClick={onRemove} title="Remove Item">
+        <button className="btn-icon danger" onClick={() => onRemove(item.id)} title="Remove Item">
           <Trash2 size={16} />
         </button>
       </div>

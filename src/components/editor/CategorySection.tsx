@@ -81,7 +81,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
                   item={item}
                   exchangeRates={exchangeRates}
                   onChange={handleUpdateItem}
-                  onRemove={() => handleRemoveItem(item.id)}
+                  onRemove={handleRemoveItem}
                 />
               ))}
             </div>

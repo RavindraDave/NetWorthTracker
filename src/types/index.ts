@@ -62,10 +62,30 @@ export interface FlattenedItem extends LineItem {
 // Phase 3.1 — stored in UserPreferences to support custom category templates
 export type CategoryTemplate = Omit<Category, 'id' | 'items'>;
 
+export type BackupCadence = 'off' | 'daily' | 'weekly' | 'monthly';
+export type BackupMode = 'download' | 'fsa';
+
+export interface AutoBackupConfig {
+  enabled: boolean;
+  cadence: BackupCadence;
+  mode: BackupMode;
+  lastRunISO?: string;
+}
+
+export interface AutoBackupRecord {
+  id?: number;
+  createdAt: string;
+  trigger: 'snapshot' | 'goal' | 'preferences' | 'manual';
+  snapshots: Snapshot[];
+  goals: Goal[];
+  preferences: UserPreferences;
+}
+
 export interface UserPreferences {
   baseCurrency: string;
   enabledCurrencies: string[];
   theme: 'dark' | 'light' | 'system';
   profileName: string;
   customCategories?: CategoryTemplate[];
+  autoBackup?: AutoBackupConfig;
 }

@@ -134,3 +134,37 @@
     gap: 1rem;
   }
 }
+
+/* Auto-backup history */
+.auto-backup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.auto-backup-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.auto-backup-row__date {
+  font-size: 0.85rem;
+  font-family: var(--font-numeric);
+  color: var(--text-primary);
+}
+
+.auto-backup-row__meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+[data-theme="light"] .auto-backup-row { background: rgba(0,0,0,0.03); }

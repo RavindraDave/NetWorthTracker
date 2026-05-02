@@ -15,7 +15,7 @@ export const SnapshotEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { snapshots, saveSnapshot, preferences } = useApp();
-  const { confirm } = useToast();
+  const { confirm, error: toastError } = useToast();
   const baseCurrency = preferences?.baseCurrency || 'INR';
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -88,8 +88,18 @@ export const SnapshotEditor: React.FC = () => {
       if (!ok) return;
     }
     isDirtyRef.current = false;
-    await saveSnapshot({ ...snapshot, updatedAt: new Date().toISOString() });
-    navigate('/');
+    try {
+      await saveSnapshot({ ...snapshot, updatedAt: new Date().toISOString() });
+      navigate('/');
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('duplicate_month:')) {
+        toastError(`A snapshot for ${monthDisplay} already exists. Delete it first or change the month.`);
+        isDirtyRef.current = true;
+      } else {
+        toastError('Failed to save snapshot. Please try again.');
+        isDirtyRef.current = true;
+      }
+    }
   };
 
   const monthDisplay = new Date(snapshot.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });

@@ -50,7 +50,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
 
   const handleRateChange = (currency: string, value: string) => {
     const rate = parseFloat(value);
-    if (!isNaN(rate) && rate > 0) {
+    if (isFinite(rate) && rate > 0) {
       onChange(currency, rate);
     }
   };

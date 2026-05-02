@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CategoryTemplate } from '../../types';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check } from 'lucide-react';
 import './CategoryManager.css';
 
 const ICONS = ['wallet', 'trending-up', 'piggy-bank', 'home', 'coins', 'car', 'briefcase', 'globe', 'building', 'credit-card', 'file-text', 'alert-circle', 'layers', 'star', 'shield', 'gift'];
@@ -14,6 +14,10 @@ export const CategoryManager: React.FC = () => {
   const [icon, setIcon]         = useState('layers');
   const [isLiquid, setIsLiquid] = useState(false);
   const [isInvestable, setIsInvestable] = useState(false);
+
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingName, setEditingName]   = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   if (!preferences) return null;
 
@@ -33,6 +37,24 @@ export const CategoryManager: React.FC = () => {
     updatePreferences({ customCategories: customCategories.filter((_, i) => i !== index) });
   };
 
+  const startEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditingName(customCategories[index].name);
+    setTimeout(() => editInputRef.current?.focus(), 0);
+  };
+
+  const commitEdit = () => {
+    if (editingIndex === null) return;
+    const trimmed = editingName.trim();
+    if (trimmed) {
+      const updated = customCategories.map((c, i) =>
+        i === editingIndex ? { ...c, name: trimmed } : c
+      );
+      updatePreferences({ customCategories: updated });
+    }
+    setEditingIndex(null);
+  };
+
   return (
     <div className="cat-manager">
       <h2 className="text-h2" style={{ marginBottom: '0.5rem' }}>Custom Categories</h2>
@@ -45,11 +67,34 @@ export const CategoryManager: React.FC = () => {
           {customCategories.map((cat, i) => (
             <div key={i} className="cat-manager__item">
               <span className="cat-manager__badge" data-type={cat.type}>{cat.type}</span>
-              <span className="cat-manager__name">{cat.name}</span>
+              {editingIndex === i ? (
+                <input
+                  ref={editInputRef}
+                  className="cat-manager__rename-input"
+                  value={editingName}
+                  onChange={e => setEditingName(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+                    if (e.key === 'Escape') setEditingIndex(null);
+                  }}
+                />
+              ) : (
+                <span className="cat-manager__name">{cat.name}</span>
+              )}
               <span className="cat-manager__flags">
                 {cat.isLiquid && <span className="cat-flag">Liquid</span>}
                 {cat.isInvestable && <span className="cat-flag">Investable</span>}
               </span>
+              {editingIndex === i ? (
+                <button className="btn-icon" aria-label="Confirm rename" onClick={commitEdit}>
+                  <Check size={14} />
+                </button>
+              ) : (
+                <button className="btn-icon" aria-label="Rename category" onClick={() => startEdit(i)}>
+                  <Pencil size={14} />
+                </button>
+              )}
               <button className="btn-icon danger" aria-label="Remove category" onClick={() => handleDelete(i)}>
                 <Trash2 size={14} />
               </button>

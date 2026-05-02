@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
+  routeName?: string;
 }
 
 interface State {
@@ -11,6 +12,9 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  private handleRouteReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
   public state: State = {
     hasError: false,
     error: null
@@ -30,6 +34,22 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.routeName) {
+        return (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <AlertTriangle size={40} style={{ color: 'var(--accent-red)', marginBottom: '1rem' }} />
+            <p className="text-h3" style={{ marginBottom: '0.5rem' }}>
+              {this.props.routeName} failed to render.
+            </p>
+            <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1.5rem' }}>
+              {this.state.error?.message}
+            </p>
+            <button className="btn btn-outline" onClick={this.handleRouteReset}>
+              <RefreshCw size={14} style={{ marginRight: '0.4rem' }} /> Try Again
+            </button>
+          </div>
+        );
+      }
       return (
         <div style={{
           display: 'flex',

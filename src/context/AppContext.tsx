@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db, initializePreferences, UserPreferencesRecord } from '../db/database';
-import { Snapshot, Goal, UserPreferences } from '../types';
+import { Snapshot, Goal, UserPreferences, AutoBackupRecord } from '../types';
 import { BackupData } from '../utils/importExport';
+import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
 import { generateDefaultCategories } from '../utils/defaultCategories';
 import { ViewMode } from '../utils/calculations';
 
@@ -21,6 +22,10 @@ interface AppContextType {
   createNewSnapshot: () => Snapshot;
   cloneLatestSnapshot: () => Snapshot;
   restoreBackup: (data: BackupData) => Promise<void>;
+  restoreAutoBackup: (record: AutoBackupRecord) => Promise<void>;
+  listAutoBackups: () => Promise<AutoBackupRecord[]>;
+  deleteAutoBackup: (id: number) => Promise<void>;
+  manualBackup: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -32,6 +37,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('overall');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Refs so backup callbacks always see latest state without stale closures
+  const snapshotsRef = useRef<Snapshot[]>([]);
+  const goalsRef = useRef<Goal[]>([]);
+  const prefsRef = useRef<UserPreferences | null>(null);
+
+  useEffect(() => { snapshotsRef.current = snapshots; }, [snapshots]);
+  useEffect(() => { goalsRef.current = goals; }, [goals]);
+  useEffect(() => { prefsRef.current = preferences; }, [preferences]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -67,15 +81,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const previousSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
 
   const saveSnapshot = async (snapshot: Snapshot) => {
+    const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
+    if (duplicate) throw new Error(`duplicate_month:${snapshot.month}`);
     await db.snapshots.put(snapshot);
     setSnapshots(prev => {
       const idx = prev.findIndex(s => s.id === snapshot.id);
+      let next: Snapshot[];
       if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = snapshot;
-        return updated;
+        next = [...prev];
+        next[idx] = snapshot;
+      } else {
+        next = [...prev, snapshot].sort((a, b) => a.month.localeCompare(b.month));
       }
-      return [...prev, snapshot].sort((a, b) => a.month.localeCompare(b.month));
+      if (prefsRef.current) {
+        recordAutoBackup('snapshot', next, goalsRef.current, prefsRef.current).catch(() => {});
+      }
+      return next;
     });
   };
 
@@ -88,12 +109,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.goals.put(goal);
     setGoals(prev => {
       const idx = prev.findIndex(g => g.id === goal.id);
+      let next: Goal[];
       if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = goal;
-        return updated;
+        next = [...prev];
+        next[idx] = goal;
+      } else {
+        next = [...prev, goal];
       }
-      return [...prev, goal];
+      if (prefsRef.current) {
+        recordAutoBackup('goal', snapshotsRef.current, next, prefsRef.current).catch(() => {});
+      }
+      return next;
     });
   };
 
@@ -113,6 +139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updated: UserPreferencesRecord = { ...base, ...prefs, id: 1 };
     await db.preferences.put(updated);
     setPreferences(updated);
+    recordAutoBackup('preferences', snapshotsRef.current, goalsRef.current, updated).catch(() => {});
   };
 
   const restoreBackup = async (data: BackupData) => {
@@ -131,6 +158,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const restoreAutoBackup = async (record: AutoBackupRecord) => {
+    const data: BackupData = {
+      version: 1,
+      exportDate: record.createdAt,
+      snapshots: record.snapshots,
+      goals: record.goals,
+      preferences: record.preferences,
+    };
+    await restoreBackup(data);
+  };
+
+  const manualBackup = async () => {
+    if (!preferences) return;
+    await recordAutoBackup('manual', snapshots, goals, preferences);
   };
 
   const createNewSnapshot = (): Snapshot => {
@@ -187,6 +230,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createNewSnapshot,
       cloneLatestSnapshot,
       restoreBackup,
+      restoreAutoBackup,
+      listAutoBackups,
+      deleteAutoBackup,
+      manualBackup,
       isLoading,
     }}>
       {children}
