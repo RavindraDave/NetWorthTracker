@@ -71,6 +71,10 @@
   background: rgba(248, 113, 113, 0.1);
 }
 
+[data-theme="light"] .line-item-row { border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .line-item-input,
+[data-theme="light"] .line-item-select { background: rgba(0,0,0,0.04); }
+
 @media (max-width: 768px) {
   .line-item-row {
     grid-template-columns: 1fr;

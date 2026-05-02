@@ -26,7 +26,7 @@ export const Goals: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const ok = await confirm('Delete this goal? This action cannot be undone.');
+    const ok = await confirm('Delete this goal? This action cannot be undone.', 'destructive');
     if (ok) await deleteGoal(id);
   };
 

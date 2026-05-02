@@ -37,7 +37,7 @@
 }
 
 .compare-nw-col { flex: 1; }
-.compare-nw-amount { font-size: 1.25rem; font-weight: 700; }
+.compare-nw-amount { font-size: 1.25rem; font-family: var(--font-numeric); font-weight: 500; }
 .compare-arrow { font-size: 1.25rem; color: var(--text-muted); }
 
 .compare-delta {

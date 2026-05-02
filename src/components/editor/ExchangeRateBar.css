@@ -212,6 +212,15 @@
   color: var(--text-primary);
 }
 
+.btn-icon:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+[data-theme="light"] .btn-icon:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
 .btn-icon:disabled {
   opacity: 0.35;
   cursor: not-allowed;

@@ -37,7 +37,7 @@ export const History: React.FC = () => {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const ok = await confirm('Are you sure you want to delete this snapshot? This action cannot be undone.');
+    const ok = await confirm('Are you sure you want to delete this snapshot? This action cannot be undone.', 'destructive');
     if (ok) {
       setDeletingId(id);
       await deleteSnapshot(id);
@@ -78,9 +78,16 @@ export const History: React.FC = () => {
           <input type="month" className="history-filter-input" value={filterTo}   onChange={e => setFilterTo(e.target.value)} />
         </div>
         {(filterFrom || filterTo) && (
-          <button className="btn btn-outline" style={{ fontSize: '0.8rem' }} onClick={() => { setFilterFrom(''); setFilterTo(''); }}>
-            Clear
-          </button>
+          <>
+            <div className="history-filter-badge">
+              Showing {filtered.length} of {snapshots.length}
+              {filterFrom && ` · from ${filterFrom}`}
+              {filterTo && ` to ${filterTo}`}
+            </div>
+            <button className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={() => { setFilterFrom(''); setFilterTo(''); }}>
+              Clear
+            </button>
+          </>
         )}
 
         <div style={{ flex: 1 }} />

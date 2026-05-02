@@ -8,6 +8,7 @@ import { DonutChart } from '../components/dashboard/DonutChart';
 import { LedgerActivity } from '../components/dashboard/LedgerActivity';
 import { GoalCard } from '../components/goals/GoalCard';
 import { useApp } from '../context/AppContext';
+import { Rocket, Edit2, Plus } from 'lucide-react';
 import './Dashboard.css';
 
 export const Dashboard: React.FC = () => {
@@ -31,7 +32,9 @@ export const Dashboard: React.FC = () => {
     <div className="dashboard">
       {!currentSnapshot ? (
         <div className="dashboard-empty glass-card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '2rem' }}>
-          <div className="dashboard-empty__icon" style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚀</div>
+          <div className="dashboard-empty__icon" style={{ marginBottom: '1rem' }}>
+            <Rocket size={56} style={{ color: 'var(--accent-green)', opacity: 0.85 }} />
+          </div>
           <h2 className="text-h1" style={{ marginBottom: '1rem' }}>Welcome to WealthPulse</h2>
           <p className="text-muted" style={{ fontSize: '1.1rem', marginBottom: '2rem' }}>Start tracking your net worth by creating your first monthly snapshot.</p>
           <button className="btn btn-primary dashboard-empty__cta" onClick={handleCreateSnapshot} style={{ fontSize: '1.1rem', padding: '0.75rem 2rem' }}>
@@ -66,12 +69,12 @@ export const Dashboard: React.FC = () => {
             <LedgerActivity />
           </div>
 
-          <div className="dashboard-actions" style={{ gap: '1rem' }}>
+          <div className="dashboard-actions">
             <button className="btn btn-outline" onClick={() => navigate(`/editor/${currentSnapshot.id}`)}>
-              ✏️ Edit Current Snapshot
+              <Edit2 size={15} style={{ marginRight: '0.4rem' }} /> Edit Snapshot
             </button>
-            <button className="btn btn-outline" onClick={handleCreateSnapshot}>
-              📋 Clone → Next Month
+            <button className="btn btn-primary" onClick={handleCreateSnapshot}>
+              <Plus size={15} style={{ marginRight: '0.4rem' }} /> New Month
             </button>
           </div>
         </>

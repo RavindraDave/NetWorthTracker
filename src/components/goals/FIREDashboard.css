@@ -18,6 +18,23 @@
   padding: 0.5rem 1rem;
   font-size: 0.8rem;
   box-shadow: 0 0 15px rgba(74, 222, 128, 0.2);
+  animation: fire-badge-shimmer 2.5s ease-in-out infinite;
+}
+
+/* Pulsing glow on the SVG ring when FI is achieved */
+.fire-dashboard__main-progress--achieved svg circle:last-child {
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.7));
+  animation: fire-ring-glow 2s ease-in-out infinite;
+}
+
+@keyframes fire-ring-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.5)); }
+  50%       { filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.9)); }
+}
+
+@keyframes fire-badge-shimmer {
+  0%, 100% { box-shadow: 0 0 15px rgba(74, 222, 128, 0.2); }
+  50%       { box-shadow: 0 0 28px rgba(74, 222, 128, 0.55), 0 0 8px rgba(74, 222, 128, 0.3); }
 }
 
 .fire-dashboard__grid {
@@ -36,7 +53,8 @@
 
 .fire-progress__value {
   font-size: 2.5rem;
-  font-weight: 800;
+  font-family: var(--font-numeric);
+  font-weight: 500;
   line-height: 1;
   color: var(--text-primary);
   text-shadow: 0 2px 10px rgba(0,0,0,0.5);
@@ -105,7 +123,8 @@
 
 .fire-stat-card__value {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-family: var(--font-numeric);
+  font-weight: 500;
   color: var(--text-primary);
 }
 
@@ -114,6 +133,15 @@
   color: var(--text-secondary);
   margin-top: 0.25rem;
 }
+
+[data-theme="light"] .fire-dashboard {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(0,0,0,0.03) 100%);
+}
+[data-theme="light"] .fire-dashboard__header { border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .fire-progress__value { text-shadow: none; }
+[data-theme="light"] .fire-stat-card { background: rgba(0,0,0,0.03); }
+[data-theme="light"] .fire-stat-card:hover { background: rgba(0,0,0,0.05); }
+[data-theme="light"] .fire-stat-card__icon { background: rgba(0,0,0,0.05); }
 
 @media (max-width: 900px) {
   .fire-dashboard__grid {

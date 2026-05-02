@@ -1,4 +1,10 @@
+/* DM Mono for financial numbers — precise, terminal-grade feel */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
 :root {
+  /* Numeric font for all financial amounts */
+  --font-numeric: 'DM Mono', 'Courier New', monospace;
+
   /* Spacing scale */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
@@ -73,6 +79,10 @@ body {
   -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--shadow-card);
   padding: 1.5rem;
+}
+
+.glass-card--compact {
+  padding: 1rem;
 }
 
 /* Typography Utilities */
@@ -166,6 +176,15 @@ body {
 
 .btn-primary:hover {
   background-color: #2563eb;
+}
+
+.btn-destructive {
+  background-color: var(--accent-red);
+  color: white;
+}
+
+.btn-destructive:hover {
+  background-color: #dc2626;
 }
 
 .btn-outline {

@@ -65,7 +65,7 @@ export const NetWorthHero: React.FC = () => {
           </div>
           {currentSnapshot && (
             <div className={`nw-hero__change ${isPositive ? 'positive' : 'negative'}`}>
-              <span className="nw-hero__change-arrow">{isPositive ? '▲' : '▼'}</span>
+              <span className="nw-hero__change-arrow" aria-label={isPositive ? 'increase' : 'decrease'}>{isPositive ? '▲' : '▼'}</span>
               <CurrencyDisplay amount={Math.abs(change)} currency={baseCurrency} abbreviated showSign={false} />
               <span className="nw-hero__change-pct">({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)</span>
               <span className="nw-hero__change-label">vs last month</span>

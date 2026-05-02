@@ -19,7 +19,7 @@ export const PerformanceChart: React.FC = () => {
     if (!currentSnapshot) return [];
     return buildAllocationData(currentSnapshot, baseCurrency)
       .filter(d => d.type === 'asset' && d.value > 0)
-      .slice(0, 8)
+      .slice(0, 6)
       .map(d => ({
         name: d.name.length > 16 ? d.name.slice(0, 14) + '…' : d.name,
         fullName: d.name,
@@ -45,8 +45,8 @@ export const PerformanceChart: React.FC = () => {
           <p className="chart-subtitle">Asset breakdown by category</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 40 }}>
+      <ResponsiveContainer width="100%" height={240}>
+        <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 48 }}>
           <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="name"

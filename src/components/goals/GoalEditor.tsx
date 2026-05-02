@@ -23,6 +23,10 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
   const [expectedReturn, setExpectedReturn] = useState<string>(editGoal?.expectedReturn != null ? String(editGoal.expectedReturn) : '7');
   const [inflationRate, setInflationRate] = useState<string>(editGoal?.inflationRate != null ? String(editGoal.inflationRate) : '3');
   const [annualSavingsGrowth, setAnnualSavingsGrowth] = useState<string>(editGoal?.annualSavingsGrowth != null ? String(editGoal.annualSavingsGrowth) : '0');
+  const [showAdvanced, setShowAdvanced] = useState(
+    // Pre-open if editing a goal that has non-default advanced values
+    !!(editGoal && (editGoal.expectedReturn || editGoal.inflationRate || editGoal.annualSavingsGrowth))
+  );
   const [milestones, setMilestones] = useState<Milestone[]>(editGoal?.milestones ?? []);
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
   const [newMilestoneAmount, setNewMilestoneAmount] = useState('');
@@ -174,19 +178,32 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
           )}
 
           {type === 'fire' && (
-            <div className="form-row fire-advanced-row">
-              <div className="form-group">
-                <label htmlFor="goal-return">Expected Return (%/yr)</label>
-                <input id="goal-return" type="number" className="form-input" value={expectedReturn} onChange={e => setExpectedReturn(e.target.value)} step="0.5" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="goal-inflation">Inflation (%/yr)</label>
-                <input id="goal-inflation" type="number" className="form-input" value={inflationRate} onChange={e => setInflationRate(e.target.value)} step="0.5" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="goal-savings-growth">Savings Growth (%/yr)</label>
-                <input id="goal-savings-growth" type="number" className="form-input" value={annualSavingsGrowth} onChange={e => setAnnualSavingsGrowth(e.target.value)} step="1" min="0" />
-              </div>
+            <div className="fire-advanced-section">
+              <button
+                type="button"
+                className="fire-advanced-toggle"
+                aria-expanded={showAdvanced}
+                onClick={() => setShowAdvanced(v => !v)}
+              >
+                <span>Advanced projection settings</span>
+                <span className={`fire-advanced-chevron ${showAdvanced ? 'open' : ''}`}>▾</span>
+              </button>
+              {showAdvanced && (
+                <div className="form-row fire-advanced-row">
+                  <div className="form-group">
+                    <label htmlFor="goal-return">Expected Return (%/yr)</label>
+                    <input id="goal-return" type="number" className="form-input" value={expectedReturn} onChange={e => setExpectedReturn(e.target.value)} step="0.5" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="goal-inflation">Inflation (%/yr)</label>
+                    <input id="goal-inflation" type="number" className="form-input" value={inflationRate} onChange={e => setInflationRate(e.target.value)} step="0.5" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="goal-savings-growth">Savings Growth (%/yr)</label>
+                    <input id="goal-savings-growth" type="number" className="form-input" value={annualSavingsGrowth} onChange={e => setAnnualSavingsGrowth(e.target.value)} step="1" min="0" />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

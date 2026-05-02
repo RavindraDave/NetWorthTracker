@@ -23,6 +23,22 @@
   gap: 0.25rem;
 }
 
+/* Always visible at low opacity — full on hover/focus (touch-safe) */
+.goal-card__actions .btn-icon {
+  opacity: 0.35;
+  transition: opacity var(--transition-fast);
+}
+
+.goal-card__actions .btn-icon:hover,
+.goal-card__actions .btn-icon:focus-visible {
+  opacity: 1;
+}
+
+/* On touch devices show at slightly higher baseline opacity */
+@media (hover: none) {
+  .goal-card__actions .btn-icon { opacity: 0.7; }
+}
+
 .goal-card__milestones {
   margin-top: 0.75rem;
   padding-top: 0.5rem;

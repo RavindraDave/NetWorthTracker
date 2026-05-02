@@ -37,7 +37,8 @@
 
 .nw-hero__amount {
   font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 800;
+  font-family: var(--font-numeric);
+  font-weight: 500;
   line-height: 1;
   letter-spacing: -0.02em;
   color: var(--text-primary);

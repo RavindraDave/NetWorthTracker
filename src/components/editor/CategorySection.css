@@ -77,6 +77,11 @@
   color: var(--text-primary);
 }
 
+[data-theme="light"] .category-section__header { background: rgba(0,0,0,0.02); }
+[data-theme="light"] .category-section__header:hover { background: rgba(0,0,0,0.05); }
+[data-theme="light"] .category-section__body { border-top-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .category-section__add-btn { border-color: rgba(0,0,0,0.2); }
+
 @media (max-width: 640px) {
   .category-section__header {
     flex-direction: column;

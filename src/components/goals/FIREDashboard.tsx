@@ -36,15 +36,15 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
 
       <div className="fire-dashboard__grid">
         {/* Main Progress Ring */}
-        <div className="fire-dashboard__main-progress">
-          <ProgressRing 
-            radius={110} 
-            stroke={12} 
+        <div className={`fire-dashboard__main-progress${metrics.isFI ? ' fire-dashboard__main-progress--achieved' : ''}`}>
+          <ProgressRing
+            radius={110}
+            stroke={12}
             progress={metrics.progressPercentage}
             color={metrics.isFI ? '#22c55e' : '#3b82f6'}
           >
             <span className="fire-progress__value">{metrics.progressPercentage.toFixed(1)}%</span>
-            <span className="fire-progress__label">Funded</span>
+            <span className="fire-progress__label">{metrics.isFI ? '🎉 FI' : 'Funded'}</span>
           </ProgressRing>
           <div className="fire-progress__details">
             <p className="text-muted">Current Portfolio</p>

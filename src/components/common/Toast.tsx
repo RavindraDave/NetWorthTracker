@@ -10,8 +10,11 @@ interface ToastItem {
   message: string;
 }
 
+type ConfirmVariant = 'default' | 'destructive';
+
 interface ConfirmState {
   message: string;
+  variant: ConfirmVariant;
   resolve: (value: boolean) => void;
 }
 
@@ -20,7 +23,7 @@ interface ToastContextValue {
   error: (msg: string) => void;
   warning: (msg: string) => void;
   info: (msg: string) => void;
-  confirm: (msg: string) => Promise<boolean>;
+  confirm: (msg: string, variant?: ConfirmVariant) => Promise<boolean>;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -54,8 +57,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const warning = useCallback((msg: string) => addToast('warning', msg), [addToast]);
   const info    = useCallback((msg: string) => addToast('info', msg),    [addToast]);
 
-  const confirm = useCallback((message: string): Promise<boolean> =>
-    new Promise(resolve => setConfirmState({ message, resolve })),
+  const confirm = useCallback((message: string, variant: ConfirmVariant = 'default'): Promise<boolean> =>
+    new Promise(resolve => setConfirmState({ message, variant, resolve })),
   []);
 
   const handleConfirm = (value: boolean) => {
@@ -85,7 +88,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <p id="confirm-msg" className="confirm-dialog__message">{confirmState.message}</p>
             <div className="confirm-dialog__actions">
               <button className="btn btn-outline" onClick={() => handleConfirm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => handleConfirm(true)}>Confirm</button>
+              <button
+                className={`btn ${confirmState.variant === 'destructive' ? 'btn-destructive' : 'btn-primary'}`}
+                onClick={() => handleConfirm(true)}
+              >
+                {confirmState.variant === 'destructive' ? 'Delete' : 'Confirm'}
+              </button>
             </div>
           </div>
         </div>
