@@ -211,3 +211,9 @@
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
 }
+
+.btn-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useTransition } from 'react';
 import { useApp } from '../context/AppContext';
 import { calcNetWorth, convertToBase } from '../utils/calculations';
 import { FlattenedItem } from '../types';
@@ -10,6 +10,7 @@ import './Portfolio.css';
 export const Portfolio: React.FC = () => {
   const { currentSnapshot, preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
+  const [isPending] = useTransition();
 
   const { assets, liabilities, breakdown } = useMemo(() => {
     if (!currentSnapshot) return { assets: [], liabilities: [], breakdown: null };
@@ -55,7 +56,7 @@ export const Portfolio: React.FC = () => {
         </div>
       </div>
 
-      <div className="portfolio-charts">
+      <div className="portfolio-charts" style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
         <DonutChart />
       </div>
 

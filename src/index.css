@@ -88,6 +88,12 @@ body {
   line-height: 1.3;
 }
 
+.text-h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .text-body {
   font-size: 0.875rem;
   line-height: 1.5;
@@ -170,6 +176,22 @@ body {
 
 .btn-outline:hover {
   background-color: var(--bg-tertiary);
+}
+
+.btn-outline.danger {
+  border-color: rgba(248, 113, 113, 0.3);
+  color: var(--accent-red);
+}
+
+.btn-outline.danger:hover {
+  background-color: rgba(248, 113, 113, 0.1);
+  border-color: var(--accent-red);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Light theme overrides */
