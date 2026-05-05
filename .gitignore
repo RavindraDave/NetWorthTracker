@@ -34,3 +34,8 @@ playwright-report/
 
 # Antigravity artifacts
 .gemini
+
+# Sample / sensitive data files — never commit
+sample-data/
+*.xlsx
+*.xls
