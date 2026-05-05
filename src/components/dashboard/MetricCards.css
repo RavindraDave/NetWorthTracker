@@ -79,10 +79,6 @@
   min-height: 2rem;
 }
 
-/* Spacer fills the gap on cards without a change pill, keeping heights equal */
-.metric-card__spacer {
-  flex: 1;
-}
 
 .metric-card__change {
   display: inline-flex;

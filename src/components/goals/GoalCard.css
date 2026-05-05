@@ -69,6 +69,10 @@
   flex: 1;
 }
 
+.goal-card__progress-col {
+  flex-shrink: 0;
+}
+
 .goal-card__info-col {
   flex: 1;
   display: flex;
