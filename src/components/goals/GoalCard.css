@@ -100,5 +100,8 @@
   border-top: 1px solid rgba(255,255,255,0.05);
   font-size: 0.75rem;
   color: var(--text-muted);
-  text-align: right;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
 }

@@ -52,6 +52,8 @@ export interface Goal {
   expectedReturn?: number; // % annual nominal return, default 7
   inflationRate?: number;  // % annual inflation, default 3
   annualSavingsGrowth?: number; // % increase in monthly savings per year, default 0
+  // Category exclusions — asset category IDs to exclude from this goal's net worth calculation
+  excludedCategoryIds?: string[];
 }
 
 export interface FlattenedItem extends LineItem {

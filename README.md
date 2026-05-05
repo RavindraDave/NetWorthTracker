@@ -23,6 +23,42 @@ WealthPulse replaces the traditional, messy "monthly Excel sheet" with a structu
 - **Glassmorphic Design** — Dark-mode, glassmorphism aesthetic with smooth micro-animations throughout.
 - **Data Portability** — Export your full database as a JSON backup. Import historical snapshots from Excel. Auto-safety-backup triggers before any restore operation.
 
+## 📊 How Net Worth Is Calculated
+
+WealthPulse offers three views of your wealth, selectable via the **Overall / Liquid / Investable** toggle on the Dashboard.
+
+### Overall (default)
+Includes **all** asset and liability categories.
+
+```
+Net Worth = Σ all asset categories − Σ all liability categories
+```
+
+This is your complete balance sheet — the most comprehensive view.
+
+### Liquid
+Includes only categories flagged **Is Liquid** in the Snapshot Editor.
+
+```
+Liquid Net Worth = Σ liquid asset categories − Σ liquid liability categories
+```
+
+Liquid assets are those you can access within a short time without significant loss of value — typically Cash & Bank accounts, Money Market funds, and short-term fixed deposits. Use this view to understand your **short-term financial resilience**.
+
+### Investable
+Includes only categories flagged **Is Investable** in the Snapshot Editor.
+
+```
+Investable Net Worth = Σ investable asset categories − Σ investable liability categories
+```
+
+Investable assets are those actively working towards growth — typically Stocks, Mutual Funds, ETFs, Bonds, and Crypto. Physical assets like Real Estate or Gold are usually *not* investable because you can't deploy them directly into the market. Use this view to track your **wealth-compounding base**.
+
+### Per-Goal Exclusions
+Goals support per-goal category exclusions. For example, if your primary home is in the Real Estate category, you can exclude it from a FIRE goal's progress calculation so that your retirement readiness isn't inflated by an illiquid asset you'd never sell. Configure this in **Goals → Edit → Exclude from net worth calculation**.
+
+---
+
 ## 💻 Getting Started
 
 ### Instant Use (Recommended)

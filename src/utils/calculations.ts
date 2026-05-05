@@ -81,6 +81,28 @@ export function calcNetWorth(
 }
 
 /**
+ * Net worth for goal progress — same as calcNetWorth('overall') but skips
+ * any category IDs in the exclusion list (e.g. primary home / real estate).
+ */
+export function calcNetWorthForGoal(
+  snapshot: Snapshot,
+  baseCurrency: string,
+  excludedCategoryIds: string[] = []
+): number {
+  const { categories, exchangeRates } = snapshot;
+  const excluded = new Set(excludedCategoryIds);
+  let assets = 0;
+  let liabilities = 0;
+  for (const cat of categories) {
+    if (excluded.has(cat.id)) continue;
+    const total = calcCategoryTotal(cat, baseCurrency, exchangeRates);
+    if (cat.type === 'asset') assets += total;
+    else liabilities += total;
+  }
+  return assets - liabilities;
+}
+
+/**
  * Build a 12-month trend dataset from an array of snapshots.
  */
 export interface TrendPoint {

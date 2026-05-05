@@ -1,6 +1,6 @@
 import React from 'react';
 import { Goal, Snapshot } from '../../types';
-import { calcNetWorth } from '../../utils/calculations';
+import { calcNetWorthForGoal } from '../../utils/calculations';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { ProgressRing } from './ProgressRing';
 import { Edit2, Trash2 } from 'lucide-react';
@@ -15,7 +15,10 @@ interface GoalCardProps {
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseCurrency, onEdit, onDelete }) => {
-  const currentNW = currentSnapshot ? calcNetWorth(currentSnapshot, baseCurrency, 'overall').netWorth : 0;
+  const currentNW = currentSnapshot
+    ? calcNetWorthForGoal(currentSnapshot, baseCurrency, goal.excludedCategoryIds)
+    : 0;
+  const hasExclusions = (goal.excludedCategoryIds?.length ?? 0) > 0;
 
   const rawProgress = goal.targetAmount > 0 ? (currentNW / goal.targetAmount) * 100 : 0;
   const progressPercentage = Math.min(Math.max(rawProgress, 0), 100);
@@ -68,9 +71,14 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseC
         </div>
       )}
 
-      {goal.targetDate && (
+      {(goal.targetDate || hasExclusions) && (
         <div className="goal-card__footer">
-          Target Date: {new Date(goal.targetDate).toLocaleDateString()}
+          {goal.targetDate && <span>Target: {new Date(goal.targetDate).toLocaleDateString()}</span>}
+          {hasExclusions && (
+            <span title={`Excluding ${goal.excludedCategoryIds!.length} categor${goal.excludedCategoryIds!.length === 1 ? 'y' : 'ies'} from net worth`}>
+              {goal.excludedCategoryIds!.length} excl.
+            </span>
+          )}
         </div>
       )}
     </div>

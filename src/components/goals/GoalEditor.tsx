@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Goal, GoalType, Milestone } from '../../types';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, EyeOff } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
@@ -13,7 +13,7 @@ interface GoalEditorProps {
 }
 
 export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => {
-  const { saveGoal, preferences } = useApp();
+  const { saveGoal, preferences, currentSnapshot } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
 
   const [type, setType] = useState<GoalType>(editGoal?.type ?? 'fire');
@@ -31,6 +31,10 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
   const [milestones, setMilestones] = useState<Milestone[]>(editGoal?.milestones ?? []);
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
   const [newMilestoneAmount, setNewMilestoneAmount] = useState(0);
+  const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>(editGoal?.excludedCategoryIds ?? []);
+
+  // Asset categories available to exclude (from the current snapshot)
+  const assetCategories = currentSnapshot?.categories.filter(c => c.type === 'asset') ?? [];
 
   const targetAmountInput = useDecimalInput({ value: targetAmount, onCommit: setTargetAmount, precision: 2, min: 0 });
   const annualExpensesInput = useDecimalInput({ value: annualExpenses, onCommit: setAnnualExpenses, precision: 2, min: 0 });
@@ -61,6 +65,7 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
       targetAmount: type === 'fire' ? 0 : targetAmount,
       createdAt: editGoal?.createdAt ?? new Date().toISOString(),
       milestones: milestones.length > 0 ? milestones : undefined,
+      excludedCategoryIds: excludedCategoryIds.length > 0 ? excludedCategoryIds : undefined,
     };
 
     if (targetDate) goal.targetDate = targetDate;
@@ -185,6 +190,37 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
             onChange={e => setTargetDate(e.target.value)}
           />
         </div>
+
+        {assetCategories.length > 0 && (
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <EyeOff size={13} style={{ opacity: 0.6 }} />
+              Exclude from net worth calculation
+            </label>
+            <p className="form-hint">
+              Categories excluded here won't count towards this goal's progress (e.g. exclude Real Estate if your primary home isn't part of your liquid wealth).
+            </p>
+            <div className="exclusion-grid">
+              {assetCategories.map(cat => {
+                const checked = excludedCategoryIds.includes(cat.id);
+                return (
+                  <label key={cat.id} className={`exclusion-chip ${checked ? 'exclusion-chip--active' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setExcludedCategoryIds(prev =>
+                          prev.includes(cat.id) ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                        )
+                      }
+                    />
+                    <span>{cat.icon} {cat.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="form-group">
           <label>Milestones (Optional)</label>
