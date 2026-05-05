@@ -224,22 +224,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cloudSyncTimerRef.current = setTimeout(() => { syncToCloud().catch(() => {}); }, 5000);
   };
 
+  // Returns any custom category templates that are absent from the given category list.
+  // Used to keep cloneLatestSnapshot and createNewSnapshot in sync with preferences.
+  const missingCustomCats = (existing: Snapshot['categories']) =>
+    (preferences?.customCategories ?? [])
+      .filter(tmpl => !existing.some(c => c.name === tmpl.name && c.type === tmpl.type))
+      .map(tmpl => ({ ...tmpl, id: crypto.randomUUID(), items: [] as Snapshot['categories'][number]['items'] }));
+
   const createNewSnapshot = (): Snapshot => {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const defaultCats = generateDefaultCategories();
-    const customCats = (preferences?.customCategories ?? []).map(t => ({
-      ...t,
-      id: crypto.randomUUID(),
-      items: [],
-    }));
     return {
       id: crypto.randomUUID(),
       month,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
       exchangeRates: { USD: 83, SGD: 62, EUR: 90, GBP: 105, AED: 22.6, AUD: 54 },
-      categories: [...defaultCats, ...customCats],
+      categories: [...defaultCats, ...missingCustomCats(defaultCats)],
     };
   };
 
@@ -252,12 +254,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const newMonth = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    const missing = missingCustomCats(currentSnapshot.categories);
     return {
       ...currentSnapshot,
       id: crypto.randomUUID(),
       month: newMonth,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
+      categories: missing.length > 0
+        ? [...currentSnapshot.categories, ...missing]
+        : currentSnapshot.categories,
     };
   };
 
