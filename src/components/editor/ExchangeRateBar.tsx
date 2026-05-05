@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { fetchLiveRates } from '../../utils/exchangeRates';
+import { useDecimalInput } from '../../hooks/useDecimalInput';
 import { RefreshCw, CheckCircle2, AlertTriangle, Clock, Wifi } from 'lucide-react';
 import './ExchangeRateBar.css';
 
@@ -22,7 +23,6 @@ function getStaleInfo(ratesLastUpdated?: string): { isStale: boolean; label: str
   if (ageDays > 30) {
     return { isStale: true, label: `Rates are ${Math.floor(ageDays)} days old` };
   }
-  // Format nice label
   if (ageDays < 1) {
     const ageHours = ageMs / (1000 * 60 * 60);
     if (ageHours < 1) return { isStale: false, label: 'Updated just now' };
@@ -30,6 +30,39 @@ function getStaleInfo(ratesLastUpdated?: string): { isStale: boolean; label: str
   }
   return { isStale: false, label: `Updated ${Math.floor(ageDays)}d ago` };
 }
+
+interface RateInputProps {
+  currency: string;
+  rate: number;
+  onChange: (currency: string, rate: number) => void;
+  needsManual: boolean;
+}
+
+const RateInput: React.FC<RateInputProps> = ({ currency, rate, onChange, needsManual }) => {
+  const { inputProps } = useDecimalInput({
+    value: rate,
+    onCommit: (next) => { if (next > 0) onChange(currency, next); },
+    precision: 5,
+    min: 0,
+  });
+
+  return (
+    <div className={`exchange-rate-input-group ${needsManual ? 'needs-manual' : ''}`}>
+      <label className="exchange-rate-label">{currency}</label>
+      <input
+        {...inputProps}
+        className="exchange-rate-input"
+        placeholder="0.00000"
+        aria-label={`${currency} exchange rate`}
+      />
+      {needsManual && (
+        <span className="exchange-rate-manual-tag" title="Not available via API — enter manually">
+          manual
+        </span>
+      )}
+    </div>
+  );
+};
 
 export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
   rates,
@@ -48,13 +81,6 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
   const displayCurrencies = enabledCurrencies.filter(c => c !== baseCurrency);
   const { isStale, label: staleLabel } = getStaleInfo(ratesLastUpdated);
 
-  const handleRateChange = (currency: string, value: string) => {
-    const rate = parseFloat(value);
-    if (isFinite(rate) && rate > 0) {
-      onChange(currency, rate);
-    }
-  };
-
   const handleFetchRates = async () => {
     setFetchState('loading');
     setFetchMessage('');
@@ -62,12 +88,16 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
     try {
       const result = await fetchLiveRates(baseCurrency, displayCurrencies);
 
+      const roundedRates: Record<string, number> = {};
       for (const [currency, rate] of Object.entries(result.rates)) {
-        const parsed = parseFloat(rate.toFixed(4));
-        if (parsed > 0 && isFinite(parsed)) onChange(currency, parsed);
+        const rounded = Math.round(rate * 1e5) / 1e5;
+        if (rounded > 0 && isFinite(rounded)) {
+          roundedRates[currency] = rounded;
+          onChange(currency, rounded);
+        }
       }
 
-      onRatesRefreshed(result.rates, result.updatedAt);
+      onRatesRefreshed(roundedRates, result.updatedAt);
 
       const sourceLabel = result.source === 'open.er-api'
         ? 'Open Exchange Rates'
@@ -84,7 +114,6 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
       }
       setFetchState('success');
 
-      // Reset to idle after 5s
       setTimeout(() => {
         setFetchState('idle');
         setFetchMessage('');
@@ -105,7 +134,6 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
           <span className="exchange-rate-bar__title">
             Exchange Rates (1 Unit → {baseCurrency})
           </span>
-          {/* Stale / last-updated badge */}
           <span className={`exchange-rate-bar__freshness ${isStale ? 'stale' : 'fresh'}`}>
             <Clock size={11} />
             {staleLabel}
@@ -139,24 +167,16 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         </button>
       </div>
 
-      {/* Status banner */}
       {fetchMessage && (
         <div className={`exchange-rate-bar__banner ${fetchState}`}>
           {fetchState === 'success' ? (
-            <>
-              <Wifi size={13} />
-              {fetchMessage}
-            </>
+            <><Wifi size={13} />{fetchMessage}</>
           ) : (
-            <>
-              <AlertTriangle size={13} />
-              {fetchMessage}
-            </>
+            <><AlertTriangle size={13} />{fetchMessage}</>
           )}
         </div>
       )}
 
-      {/* Stale warning (shown when no status banner) */}
       {isStale && !fetchMessage && (
         <div className="exchange-rate-bar__banner stale-warning">
           <AlertTriangle size={13} />
@@ -166,26 +186,13 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
 
       <div className="exchange-rate-bar__grid">
         {displayCurrencies.map(currency => (
-          <div
+          <RateInput
             key={currency}
-            className={`exchange-rate-input-group ${unavailable.includes(currency) ? 'needs-manual' : ''}`}
-          >
-            <label className="exchange-rate-label">{currency}</label>
-            <input
-              type="number"
-              className="exchange-rate-input"
-              value={rates[currency] ?? ''}
-              onChange={e => handleRateChange(currency, e.target.value)}
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-            />
-            {unavailable.includes(currency) && (
-              <span className="exchange-rate-manual-tag" title="Not available via API — enter manually">
-                manual
-              </span>
-            )}
-          </div>
+            currency={currency}
+            rate={rates[currency] ?? 0}
+            onChange={onChange}
+            needsManual={unavailable.includes(currency)}
+          />
         ))}
       </div>
     </div>

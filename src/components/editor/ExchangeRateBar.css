@@ -174,8 +174,10 @@
   color: var(--text-primary);
   font-size: 0.875rem;
   font-family: var(--font-sans);
-  width: 64px;
+  width: 96px;
   outline: none;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .exchange-rate-input::-webkit-inner-spin-button,

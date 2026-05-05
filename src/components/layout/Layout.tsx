@@ -16,6 +16,7 @@ export const Layout: React.FC = () => {
   if (location.pathname.includes('/goals')) title = 'FIRE Goals';
   if (location.pathname.includes('/history')) title = 'History';
   if (location.pathname.includes('/settings')) title = 'Settings';
+  if (location.pathname.includes('/editor')) title = 'Snapshot Editor';
 
   return (
     <div className="layout-container">

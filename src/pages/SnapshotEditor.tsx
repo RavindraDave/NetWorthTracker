@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { Snapshot, Category } from '../types';
@@ -7,7 +7,8 @@ import { calcNetWorth } from '../utils/calculations';
 import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
 import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
-import { Save, ArrowLeft, Download } from 'lucide-react';
+import { useDecimalInput } from '../hooks/useDecimalInput';
+import { Save, ArrowLeft, Download, Pencil } from 'lucide-react';
 import { exportSnapshotToCSV, downloadFile } from '../utils/importExport';
 import './SnapshotEditor.css';
 
@@ -41,6 +42,45 @@ export const SnapshotEditor: React.FC = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
+
+  // Block in-app navigation when there are unsaved changes
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    isDirtyRef.current && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      confirm('You have unsaved changes. Leave without saving?').then(ok => {
+        if (ok) {
+          isDirtyRef.current = false;
+          blocker.proceed();
+        } else {
+          blocker.reset();
+        }
+      });
+    }
+  }, [blocker, confirm]);
+
+  // Income / expenses inputs — hooks must be called unconditionally
+  const incomeInput = useDecimalInput({
+    value: snapshot?.monthlyIncome ?? 0,
+    onCommit: (next) => {
+      isDirtyRef.current = true;
+      setSnapshot(prev => prev ? { ...prev, monthlyIncome: next } : prev);
+    },
+    precision: 2,
+    min: 0,
+  });
+
+  const expensesInput = useDecimalInput({
+    value: snapshot?.monthlyExpenses ?? 0,
+    onCommit: (next) => {
+      isDirtyRef.current = true;
+      setSnapshot(prev => prev ? { ...prev, monthlyExpenses: next } : prev);
+    },
+    precision: 2,
+    min: 0,
+  });
 
   const handleExportCSV = () => {
     if (!snapshot) return;
@@ -81,6 +121,14 @@ export const SnapshotEditor: React.FC = () => {
     });
   };
 
+  const handleBack = async () => {
+    if (isDirtyRef.current) {
+      const ok = await confirm('You have unsaved changes. Leave without saving?');
+      if (!ok) return;
+    }
+    navigate(-1);
+  };
+
   const handleSave = async () => {
     const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
     if (duplicate) {
@@ -112,39 +160,44 @@ export const SnapshotEditor: React.FC = () => {
     <div className="snapshot-editor">
       <div className="editor-header">
         <div className="editor-header__left">
-          <button className="btn-icon" onClick={() => navigate(-1)} title="Go back">
+          <button className="btn-icon" onClick={handleBack} title="Go back" aria-label="Go back">
             <ArrowLeft size={20} />
           </button>
           <div>
             <h1 className="text-h2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               Editing
-              <input
-                type="month"
-                value={snapshot.month}
-                onChange={e => {
-                  if (!e.target.value) return;
-                  isDirtyRef.current = true;
-                  setSnapshot(prev => prev ? { ...prev, month: e.target.value } : prev);
-                }}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: '1px dashed var(--border-color)',
-                  color: 'inherit',
-                  font: 'inherit',
-                  fontWeight: 'inherit',
-                  cursor: 'pointer',
-                  padding: '0 0.25rem',
-                  outline: 'none',
-                  width: 'auto',
-                }}
-                title="Click to change month"
-              />
+              <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                <input
+                  type="month"
+                  value={snapshot.month}
+                  onChange={e => {
+                    if (!e.target.value) return;
+                    isDirtyRef.current = true;
+                    setSnapshot(prev => prev ? { ...prev, month: e.target.value } : prev);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    borderBottom: '2px solid var(--accent-primary)',
+                    color: 'inherit',
+                    font: 'inherit',
+                    fontWeight: 'inherit',
+                    cursor: 'pointer',
+                    padding: '0 0.25rem',
+                    outline: 'none',
+                    width: 'auto',
+                  }}
+                  title="Click to change month"
+                />
+                <Pencil size={14} style={{ color: 'var(--accent-primary)', opacity: 0.8, flexShrink: 0 }} />
+              </span>
             </h1>
-            <p className="text-muted" style={{ fontSize: '0.75rem' }}>Snapshot ID: {snapshot.id.slice(0,8)}…</p>
+            <p className="text-muted" style={{ fontSize: '0.75rem' }}>
+              Snapshot ID: {snapshot.id.slice(0,8)}… · <span style={{ color: 'var(--accent-primary)', opacity: 0.75 }}>Click month to change</span>
+            </p>
           </div>
         </div>
-        
+
         <div className="editor-header__right">
           <div className="live-networth glass-card">
             <span className="live-networth__label">Live Net Worth</span>
@@ -192,30 +245,27 @@ export const SnapshotEditor: React.FC = () => {
         </div>
       </div>
 
-      {/* Cash Flow Section */}
       <div className="cashflow-section glass-card" style={{ marginTop: '2rem' }}>
         <h2 className="text-h2" style={{ marginBottom: '1rem' }}>Monthly Cash Flow (Optional)</h2>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div className="exchange-rate-input-group">
             <label className="exchange-rate-label">Income ({baseCurrency})</label>
             <input
-              type="number"
+              {...incomeInput.inputProps}
               className="exchange-rate-input"
               style={{ width: '100px' }}
-              value={snapshot.monthlyIncome || ''}
-              onChange={e => { isDirtyRef.current = true; setSnapshot({ ...snapshot, monthlyIncome: parseFloat(e.target.value) || 0 }); }}
               placeholder="0.00"
+              aria-label={`Monthly income in ${baseCurrency}`}
             />
           </div>
           <div className="exchange-rate-input-group">
             <label className="exchange-rate-label">Expenses ({baseCurrency})</label>
             <input
-              type="number"
+              {...expensesInput.inputProps}
               className="exchange-rate-input"
               style={{ width: '100px' }}
-              value={snapshot.monthlyExpenses || ''}
-              onChange={e => { isDirtyRef.current = true; setSnapshot({ ...snapshot, monthlyExpenses: parseFloat(e.target.value) || 0 }); }}
               placeholder="0.00"
+              aria-label={`Monthly expenses in ${baseCurrency}`}
             />
           </div>
         </div>

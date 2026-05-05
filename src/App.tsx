@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './components/common/Toast';
@@ -23,31 +23,34 @@ const RouteWithBoundary: React.FC<{ element: React.ReactElement; name: string }>
   </ErrorBoundary>
 );
 
-// Mounts inside AppProvider so it can read context
 const AutoBackupManager: React.FC = () => {
   const { snapshots, goals, preferences, updatePreferences } = useApp();
   useAutoBackup({ snapshots, goals, preferences, updatePreferences });
   return null;
 };
 
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: 'editor/:id', element: <RouteWithBoundary element={<SnapshotEditor />} name="Snapshot Editor" /> },
+      { path: 'portfolio',  element: <RouteWithBoundary element={<Portfolio />}      name="Portfolio" /> },
+      { path: 'history',    element: <RouteWithBoundary element={<History />}        name="History" /> },
+      { path: 'goals',      element: <RouteWithBoundary element={<Goals />}          name="Goals" /> },
+      { path: 'settings',   element: <RouteWithBoundary element={<Settings />}       name="Settings" /> },
+    ],
+  },
+]);
+
 function App() {
   return (
     <ErrorBoundary>
       <AppProvider>
         <ToastProvider>
-          <BrowserRouter>
-            <AutoBackupManager />
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="editor/:id" element={<RouteWithBoundary element={<SnapshotEditor />} name="Snapshot Editor" />} />
-                <Route path="portfolio"  element={<RouteWithBoundary element={<Portfolio />}      name="Portfolio" />} />
-                <Route path="history"    element={<RouteWithBoundary element={<History />}        name="History" />} />
-                <Route path="goals"      element={<RouteWithBoundary element={<Goals />}          name="Goals" />} />
-                <Route path="settings"   element={<RouteWithBoundary element={<Settings />}       name="Settings" />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
+          <AutoBackupManager />
+          <RouterProvider router={router} />
         </ToastProvider>
       </AppProvider>
     </ErrorBoundary>

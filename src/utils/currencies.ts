@@ -100,10 +100,43 @@ export const getCurrencySymbol = (code: string): string => {
   return CURRENCY_MAP.get(code)?.symbol ?? code;
 };
 
-export const formatCurrency = (amount: number, currencyCode: string, locale = 'en-IN'): string => {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: currencyCode,
-    maximumFractionDigits: 0,
-  }).format(amount);
+import { formatCompactNumber } from './numberFormat';
+
+export interface FormatCurrencyOptions {
+  compact?: boolean;
+  precision?: number;
+  locale?: string;
+  showSign?: boolean;
+}
+
+export const formatCurrency = (
+  amount: number,
+  currencyCode: string,
+  options: FormatCurrencyOptions = {}
+): string => {
+  const { compact = false, precision = 2, locale = 'en-IN', showSign = false } = options;
+  const isNeg = amount < 0;
+  const abs = Math.abs(amount);
+  const sign = showSign ? (isNeg ? '−' : '+') : (isNeg ? '−' : '');
+
+  if (compact) {
+    return sign + getCurrencySymbol(currencyCode) + formatCompactNumber(abs);
+  }
+
+  try {
+    const fmt = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision,
+    }).format(abs);
+    return sign ? sign + fmt : fmt;
+  } catch {
+    const sym = getCurrencySymbol(currencyCode);
+    const fallback = abs.toLocaleString(locale, {
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision,
+    });
+    return sign + sym + fallback;
+  }
 };

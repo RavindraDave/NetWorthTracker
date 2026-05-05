@@ -1,46 +1,28 @@
 import React from 'react';
-import { formatCompactNumber } from '../../utils/numberFormat';
+import { formatCurrency } from '../../utils/currencies';
 
 interface CurrencyDisplayProps {
   amount: number;
   currency?: string;
   className?: string;
-  abbreviated?: boolean;
+  precision?: 'full' | 'compact';
   showSign?: boolean;
+  /** @deprecated use precision="compact" */
+  abbreviated?: boolean;
 }
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: '₹', USD: '$', SGD: 'S$', EUR: '€', GBP: '£', AED: 'د.إ',
-  AUD: 'A$', CAD: 'C$', JPY: '¥', CHF: 'Fr', HKD: 'HK$', NZD: 'NZ$',
-};
 
 export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
   amount,
   currency = 'INR',
   className = '',
-  abbreviated = false,
+  precision = 'full',
   showSign = false,
+  abbreviated = false,
 }) => {
-  const symbol = CURRENCY_SYMBOLS[currency] ?? currency + ' ';
-  const isNeg = amount < 0;
-  const abs = Math.abs(amount);
+  const formatted = formatCurrency(amount, currency, {
+    compact: abbreviated || precision === 'compact',
+    showSign,
+  });
 
-  let formatted: string;
-  if (abbreviated) {
-    formatted = formatCompactNumber(abs);
-  } else {
-    if (currency === 'INR') {
-      formatted = abs.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-    } else {
-      formatted = abs.toLocaleString('en-US', { maximumFractionDigits: 0 });
-    }
-  }
-
-  const sign = showSign ? (isNeg ? '−' : '+') : (isNeg ? '−' : '');
-
-  return (
-    <span className={className}>
-      {sign}{symbol}{formatted}
-    </span>
-  );
+  return <span className={className}>{formatted}</span>;
 };

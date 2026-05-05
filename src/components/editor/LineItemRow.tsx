@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { LineItem } from '../../types';
 import { convertToBase } from '../../utils/calculations';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
+import { useDecimalInput } from '../../hooks/useDecimalInput';
 import { Trash2, Eye, EyeOff } from 'lucide-react';
 import './LineItemRow.css';
 
@@ -20,6 +21,14 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onCh
 
   const baseAmount = convertToBase(item.amount, item.currency, baseCurrency, exchangeRates);
 
+  const amountInput = useDecimalInput({
+    value: item.amount,
+    onCommit: (next) => onChange({ ...item, amount: next }),
+    precision: 2,
+    min: 0,
+    max: 1e15,
+  });
+
   return (
     <div className={`line-item-row ${item.excludeFromNetWorth ? 'excluded' : ''}`}>
       <input
@@ -28,31 +37,26 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onCh
         value={item.name}
         onChange={e => onChange({ ...item, name: e.target.value })}
         placeholder="Item Name"
+        aria-label="Item name"
       />
-      
-      <div className="line-item-amount-group">
-        <select
-          className="line-item-select"
-          value={item.currency}
-          onChange={e => onChange({ ...item, currency: e.target.value })}
-        >
-          {enabledCurrencies.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        
-        <input
-          type="number"
-          className="line-item-input amount-input"
-          value={item.amount === 0 ? '' : item.amount}
-          onChange={e => {
-            const val = parseFloat(e.target.value);
-            const safe = isNaN(val) || !isFinite(val) ? 0 : Math.min(Math.abs(val), 1e15);
-            onChange({ ...item, amount: safe });
-          }}
-          placeholder="0.00"
-        />
-      </div>
+
+      <select
+        className="line-item-select"
+        value={item.currency}
+        onChange={e => onChange({ ...item, currency: e.target.value })}
+        aria-label="Currency"
+      >
+        {enabledCurrencies.map(c => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
+
+      <input
+        {...amountInput.inputProps}
+        className="line-item-input amount-input"
+        placeholder="0.00"
+        aria-label={`Amount in ${item.currency}`}
+      />
 
       <div className="line-item-base">
         {item.currency !== baseCurrency && (
@@ -63,10 +67,10 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onCh
       </div>
 
       <div className="line-item-actions">
-        <button 
-          className="btn-icon" 
+        <button
+          className="btn-icon"
           onClick={() => onChange({ ...item, excludeFromNetWorth: !item.excludeFromNetWorth })}
-          title={item.excludeFromNetWorth ? "Include in Net Worth" : "Exclude from Net Worth"}
+          title={item.excludeFromNetWorth ? 'Include in Net Worth' : 'Exclude from Net Worth'}
         >
           {item.excludeFromNetWorth ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>

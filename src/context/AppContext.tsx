@@ -1,7 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db, initializePreferences, UserPreferencesRecord } from '../db/database';
 import { Snapshot, Goal, UserPreferences, AutoBackupRecord } from '../types';
-import { BackupData } from '../utils/importExport';
+import { googleDriveProvider } from '../utils/cloudSync/google/drive';
+import { configureClientId } from '../utils/cloudSync/google/gis';
+
+function normalizeRates(snap: Snapshot): Snapshot {
+  const rates: Record<string, number> = {};
+  for (const [code, rate] of Object.entries(snap.exchangeRates)) {
+    rates[code] = Math.round(rate * 1e5) / 1e5;
+  }
+  return { ...snap, exchangeRates: rates };
+}
+import { BackupData, exportToJSON } from '../utils/importExport';
 import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
 import { generateDefaultCategories } from '../utils/defaultCategories';
 import { ViewMode } from '../utils/calculations';
@@ -26,6 +36,7 @@ interface AppContextType {
   listAutoBackups: () => Promise<AutoBackupRecord[]>;
   deleteAutoBackup: (id: number) => Promise<void>;
   manualBackup: () => Promise<void>;
+  syncToCloud: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -42,10 +53,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const snapshotsRef = useRef<Snapshot[]>([]);
   const goalsRef = useRef<Goal[]>([]);
   const prefsRef = useRef<UserPreferences | null>(null);
+  const cloudSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { snapshotsRef.current = snapshots; }, [snapshots]);
   useEffect(() => { goalsRef.current = goals; }, [goals]);
   useEffect(() => { prefsRef.current = preferences; }, [preferences]);
+
+  // Keep GIS client ID in sync with whatever is stored in preferences
+  useEffect(() => {
+    if (preferences?.cloudSync?.clientId) {
+      configureClientId(preferences.cloudSync.clientId);
+    }
+  }, [preferences?.cloudSync?.clientId]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -56,7 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         db.goals.toArray(),
         db.preferences.get(1),
       ]);
-      setSnapshots(snaps);
+      setSnapshots(snaps.map(normalizeRates));
       setGoals(gs);
       setPreferences(prefs ?? null);
     } finally {
@@ -98,6 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+    debouncedCloudSync();
   };
 
   const deleteSnapshot = async (id: string) => {
@@ -121,6 +141,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+    debouncedCloudSync();
   };
 
   const deleteGoal = async (id: string) => {
@@ -174,6 +195,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const manualBackup = async () => {
     if (!preferences) return;
     await recordAutoBackup('manual', snapshots, goals, preferences);
+  };
+
+  const syncToCloud = async () => {
+    const prefs = prefsRef.current;
+    if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return;
+    const snaps = snapshotsRef.current;
+    const gs = goalsRef.current;
+    if (snaps.length === 0) return;
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `wealthpulse-backup-${date}.json`;
+    const json = exportToJSON(snaps, gs, prefs);
+    try {
+      await googleDriveProvider.upload(json, filename);
+      const updated = { ...prefs.cloudSync, lastSyncISO: new Date().toISOString(), lastError: undefined };
+      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
+      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Cloud sync failed';
+      const updated = { ...prefs.cloudSync, lastError: msg };
+      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
+      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+    }
+  };
+
+  const debouncedCloudSync = () => {
+    if (cloudSyncTimerRef.current) clearTimeout(cloudSyncTimerRef.current);
+    cloudSyncTimerRef.current = setTimeout(() => { syncToCloud().catch(() => {}); }, 5000);
   };
 
   const createNewSnapshot = (): Snapshot => {
@@ -234,6 +282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       listAutoBackups,
       deleteAutoBackup,
       manualBackup,
+      syncToCloud,
       isLoading,
     }}>
       {children}

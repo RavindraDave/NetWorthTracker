@@ -51,12 +51,12 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseC
         </div>
         <div className="goal-card__info-col">
           <p className="goal-card__label">Current</p>
-          <p className="goal-card__value"><CurrencyDisplay amount={currentNW} currency={baseCurrency} abbreviated /></p>
+          <p className="goal-card__value"><CurrencyDisplay amount={currentNW} currency={baseCurrency}  /></p>
 
           <div className="goal-card__divider" />
 
           <p className="goal-card__label">Target</p>
-          <p className="goal-card__value"><CurrencyDisplay amount={goal.targetAmount} currency={baseCurrency} abbreviated /></p>
+          <p className="goal-card__value"><CurrencyDisplay amount={goal.targetAmount} currency={baseCurrency}  /></p>
         </div>
       </div>
 

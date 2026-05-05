@@ -78,6 +78,124 @@ These scripts install Node.js if missing, build the production app, and configur
 | PWA | `vite-plugin-pwa` (Workbox, auto-update) |
 | Exchange Rates | [open.er-api.com](https://open.er-api.com) + [Frankfurter](https://api.frankfurter.app) |
 
+## ☁️ Cloud Sync — Google Drive Setup
+
+<a name="cloud-sync-setup"></a>
+
+WealthPulse can automatically back up your data to a **hidden, app-only folder** in your Google Drive (`appDataFolder`). This folder:
+
+- Is **invisible** in your Google Drive UI — it never clutters your files
+- Is **inaccessible** to any other app — only WealthPulse can read or write to it
+- **Survives browser data clears, cache wipes, and device loss**
+- Uses a read-only scope (`drive.appdata`) — WealthPulse **cannot** see or touch any of your other Drive files
+
+---
+
+### Who needs to do setup?
+
+| Scenario | What you need to do |
+|---|---|
+| **Using the hosted app** (wealthpulse.vercel.app or similar) | Nothing — just click **Settings → Cloud Sync → Connect Google Drive** and sign in |
+| **Self-hosting or running locally** | Follow the one-time GCP setup below, then paste your Client ID in the app |
+
+---
+
+### One-time GCP setup (self-hosters only)
+
+This takes about 10 minutes and is completely free.
+
+#### Step 1 — Create a Google Cloud project
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com/) and sign in with your Google account.
+2. Click the project dropdown at the top → **New Project**.
+3. Give it any name (e.g. `WealthPulse`) and click **Create**.
+4. Make sure your new project is selected in the top dropdown.
+
+#### Step 2 — Enable the Google Drive API
+
+1. In the left sidebar, click **APIs & Services → Library**.
+2. Search for **Google Drive API** and click on it.
+3. Click **Enable**.
+
+#### Step 3 — Configure the OAuth consent screen
+
+1. Go to **APIs & Services → OAuth consent screen**.
+2. Choose **External** and click **Create**.
+3. Fill in:
+   - **App name**: `WealthPulse` (or anything you like)
+   - **User support email**: your email address
+   - **Developer contact information**: your email address
+4. Click **Save and Continue**.
+5. On the **Scopes** page, click **Add or Remove Scopes**.
+   - In the filter box, type `drive.appdata`
+   - Check the box for `../auth/drive.appdata` → click **Update** → **Save and Continue**.
+6. On the **Test users** page, click **Add Users** and add your own Google account email.
+7. Click **Save and Continue** → **Back to Dashboard**.
+
+> **Why "External" and "Testing"?** Google requires all OAuth apps to go through a verification process before they can be used by the general public. For personal use or a small team, staying in Testing mode is fine — it lets up to 100 Google accounts use your app without any review process.
+
+#### Step 4 — Create an OAuth Client ID
+
+1. Go to **APIs & Services → Credentials**.
+2. Click **Create Credentials → OAuth client ID**.
+3. Choose **Web application** as the application type.
+4. Under **Authorized JavaScript origins**, add:
+   - `http://localhost:3000` (for local development)
+   - Your deployed URL, e.g. `https://yourapp.vercel.app` (for production)
+5. Leave **Authorized redirect URIs** empty (not needed for this flow).
+6. Click **Create**.
+7. Copy the **Client ID** — it looks like `123456789-abcdefg.apps.googleusercontent.com`.
+
+#### Step 5 — Add the Client ID to your app
+
+**Option A — Vercel or other hosting platforms (recommended)**
+
+Set it as an environment variable in your deployment platform. No code change, no `.env.local` file needed.
+
+- **Vercel**: Go to your project → Settings → Environment Variables → add `VITE_GOOGLE_CLIENT_ID` with your Client ID value → redeploy.
+- **Netlify**: Site settings → Build & deploy → Environment → add the variable.
+- Any other platform: add `VITE_GOOGLE_CLIENT_ID=your-client-id` to your build environment.
+
+Once deployed, your users just see **"Connect Google Drive"** — no setup on their end.
+
+**Option B — Running locally without rebuilding**
+
+1. Open WealthPulse in your browser.
+2. Go to **Settings → Cloud Sync**.
+3. Paste your Client ID into the **Google OAuth Client ID** field and click **Save**.
+4. The Client ID is saved to your browser's local storage — you only need to do this once per device.
+
+**Option C — `.env.local` for local development**
+
+Create a file called `.env.local` in the project root (it is git-ignored and never committed):
+
+```
+VITE_GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
+```
+
+Then run `npm run dev`.
+
+---
+
+### Using Google Drive sync
+
+Once the Client ID is configured, using sync is straightforward:
+
+1. **Settings → Cloud Sync → Connect Google Drive** — a Google sign-in popup appears. Grant permission when asked.
+2. WealthPulse will immediately sync a backup and then auto-sync every time you save a snapshot or goal (with a 5-second debounce).
+3. To manually sync at any time: **Sync Now** button.
+4. To restore from a previous backup: **Restore** button → pick a date from the list.
+5. If you clear your browser data or switch devices: open the app, click **Restore from Google Drive** on the empty dashboard, sign in, pick your backup.
+
+---
+
+### Security notes
+
+- The **Client ID is not a secret** — it's a public identifier similar to an app name. It's safe to display in the UI and is visible in your browser's network requests. The security comes from Google only accepting OAuth requests from the exact domains you registered.
+- WealthPulse never sends your financial data to any server other than Google Drive. The data goes directly from your browser to your own Google account.
+- Access can be revoked at any time at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+- Backups are stored as **plaintext JSON** in your Drive's hidden app folder. They are not encrypted end-to-end. If you want zero-knowledge encryption on top of this, that is planned as a future phase (see CLAUDE.md).
+
 ## 🛡 Data Privacy
 
 WealthPulse is a strictly **client-side application**. It has no backend, no authentication servers, and sends zero telemetry.

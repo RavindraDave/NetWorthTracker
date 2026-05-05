@@ -10,6 +10,8 @@ import { GoalCard } from '../components/goals/GoalCard';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { Rocket, Edit2, Plus } from 'lucide-react';
+import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
+import { DriveRestoreButton } from '../components/common/DriveRestoreButton';
 import './Dashboard.css';
 
 export const Dashboard: React.FC = () => {
@@ -36,6 +38,7 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard">
+      <StaleBackupBanner />
       {!currentSnapshot ? (
         <div className="dashboard-empty glass-card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '2rem' }}>
           <div className="dashboard-empty__icon" style={{ marginBottom: '1rem' }}>
@@ -46,6 +49,7 @@ export const Dashboard: React.FC = () => {
           <button className="btn btn-primary dashboard-empty__cta" onClick={handleCreateSnapshot} style={{ fontSize: '1.1rem', padding: '0.75rem 2rem' }}>
             + Create First Snapshot
           </button>
+          <DriveRestoreButton />
         </div>
       ) : (
         <>

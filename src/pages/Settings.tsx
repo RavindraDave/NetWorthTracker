@@ -4,6 +4,9 @@ import { useToast } from '../components/common/Toast';
 import { exportToJSON, parseBackupJSON, downloadFile, parseExcelToSnapshotItems } from '../utils/importExport';
 import { ALL_CURRENCIES } from '../utils/currencies';
 import { CategoryManager } from '../components/settings/CategoryManager';
+import { StorageStatusCard } from '../components/settings/StorageStatusCard';
+import { InstallPwaCard } from '../components/common/InstallPwaCard';
+import { CloudSyncCard } from '../components/settings/CloudSyncCard';
 import { AutoBackupRecord, AutoBackupConfig, BackupCadence } from '../types';
 import { isFsaSupported, pickBackupFolder, getSavedFolderHandle, clearBackupFolder } from '../utils/fsAccessBackup';
 import { Download, Upload, FileSpreadsheet, Settings as SettingsIcon, AlertTriangle, Sun, Moon, Monitor, Search, Archive, History, RefreshCw, Trash2, FolderOpen, FolderX } from 'lucide-react';
@@ -292,6 +295,9 @@ export const Settings: React.FC = () => {
         <div className="settings-section glass-card">
           <h2 className="text-h2" style={{ marginBottom: '1.5rem' }}>Data Management</h2>
 
+          <StorageStatusCard />
+          <InstallPwaCard />
+
           <div className="data-action-card">
             <div className="data-action-card__info">
               <h3 className="text-h3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -452,6 +458,9 @@ export const Settings: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* Cloud Sync */}
+          <CloudSyncCard />
         </div>
       </div>
     </div>

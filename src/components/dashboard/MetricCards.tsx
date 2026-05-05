@@ -24,12 +24,12 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, amount, currency, change
         <span className="metric-card__title">{title}</span>
       </div>
       <div className="metric-card__amount">
-        <CurrencyDisplay amount={amount} currency={currency} abbreviated />
+        <CurrencyDisplay amount={amount} currency={currency}  />
       </div>
       {change !== undefined && (
         <div className={`metric-card__change ${isPositive ? 'positive' : 'negative'}`}>
           <span>{isPositive ? '▲' : '▼'}</span>
-          <CurrencyDisplay amount={Math.abs(change)} currency={currency} abbreviated />
+          <CurrencyDisplay amount={Math.abs(change)} currency={currency}  />
           <span className="metric-card__change-label">{changeLabel ?? 'vs prev'}</span>
         </div>
       )}

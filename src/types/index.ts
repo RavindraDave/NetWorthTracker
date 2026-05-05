@@ -81,6 +81,14 @@ export interface AutoBackupRecord {
   preferences: UserPreferences;
 }
 
+export interface CloudSyncConfig {
+  provider: 'google' | null;
+  enabled: boolean;
+  clientId?: string;       // stored when user enters it via Settings UI
+  lastSyncISO?: string;
+  lastError?: string;
+}
+
 export interface UserPreferences {
   baseCurrency: string;
   enabledCurrencies: string[];
@@ -88,4 +96,6 @@ export interface UserPreferences {
   profileName: string;
   customCategories?: CategoryTemplate[];
   autoBackup?: AutoBackupConfig;
+  staleBackupSnoozeUntil?: string;
+  cloudSync?: CloudSyncConfig;
 }

@@ -269,3 +269,37 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Modal primitives (global — every route) ────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+[data-theme="light"] .modal-overlay { background: rgba(0,0,0,0.5); }
+[data-theme="light"] .modal-content { border-color: rgba(0,0,0,0.1); }
