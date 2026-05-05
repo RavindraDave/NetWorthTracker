@@ -9,7 +9,7 @@ import { LedgerActivity } from '../components/dashboard/LedgerActivity';
 import { GoalCard } from '../components/goals/GoalCard';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
-import { Rocket, Edit2, Plus } from 'lucide-react';
+import { Rocket, Edit2, Plus, Target } from 'lucide-react';
 import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
 import { DriveRestoreButton } from '../components/common/DriveRestoreButton';
 import './Dashboard.css';
@@ -57,15 +57,25 @@ export const Dashboard: React.FC = () => {
           <MetricCards />
 
           {goals.length > 0 && (
-            <div className="dashboard-charts-row dashboard-charts-row--goals">
-              {goals.slice(0, 2).map(goal => (
-                <GoalCard 
-                  key={goal.id} 
-                  goal={goal} 
-                  currentSnapshot={currentSnapshot} 
-                  baseCurrency={baseCurrency} 
-                />
-              ))}
+            <div className="dashboard-section">
+              <div className="dashboard-section__header">
+                <Target size={14} />
+                <span>Goals</span>
+                {goals.length > 2 && (
+                  <span className="dashboard-section__count">{goals.length} total</span>
+                )}
+              </div>
+              <div className="dashboard-charts-row">
+                {goals.slice(0, 2).map(goal => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    currentSnapshot={currentSnapshot}
+                    baseCurrency={baseCurrency}
+                  />
+                ))}
+                {goals.length === 1 && <div />}
+              </div>
             </div>
           )}
 

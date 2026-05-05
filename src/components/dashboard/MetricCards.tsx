@@ -1,8 +1,11 @@
 import React from 'react';
+import { TrendingUp, TrendingDown, Zap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { calcNetWorth } from '../../utils/calculations';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import './MetricCards.css';
+
+type Accent = 'green' | 'red' | 'blue';
 
 interface MetricCardProps {
   title: string;
@@ -10,28 +13,35 @@ interface MetricCardProps {
   currency: string;
   change?: number;
   changeLabel?: string;
-  accent?: 'green' | 'red' | 'blue';
-  icon: string;
+  accent?: Accent;
+  icon: React.ReactNode;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ title, amount, currency, change, changeLabel, accent = 'blue', icon }) => {
+  const hasChange = change !== undefined;
   const isPositive = (change ?? 0) >= 0;
 
   return (
     <div className={`metric-card glass-card metric-card--${accent}`}>
       <div className="metric-card__header">
-        <span className="metric-card__icon">{icon}</span>
-        <span className="metric-card__title">{title}</span>
+        <div className="metric-card__label-group">
+          <div className="metric-card__icon-wrap">{icon}</div>
+          <span className="metric-card__title">{title}</span>
+        </div>
       </div>
+
       <div className="metric-card__amount">
-        <CurrencyDisplay amount={amount} currency={currency}  />
+        <CurrencyDisplay amount={amount} currency={currency} />
       </div>
-      {change !== undefined && (
+
+      {hasChange ? (
         <div className={`metric-card__change ${isPositive ? 'positive' : 'negative'}`}>
           <span>{isPositive ? '▲' : '▼'}</span>
-          <CurrencyDisplay amount={Math.abs(change)} currency={currency}  />
+          <CurrencyDisplay amount={Math.abs(change!)} currency={currency} />
           <span className="metric-card__change-label">{changeLabel ?? 'vs prev'}</span>
         </div>
+      ) : (
+        <div className="metric-card__change--empty" aria-hidden="true" />
       )}
     </div>
   );
@@ -57,7 +67,7 @@ export const MetricCards: React.FC = () => {
         change={assetChange}
         changeLabel="vs last month"
         accent="green"
-        icon="📈"
+        icon={<TrendingUp size={15} />}
       />
       <MetricCard
         title="Total Liabilities"
@@ -66,14 +76,16 @@ export const MetricCards: React.FC = () => {
         change={liabChange}
         changeLabel="vs last month"
         accent="red"
-        icon="📉"
+        icon={<TrendingDown size={15} />}
       />
       <MetricCard
         title="Net Change"
         amount={nwChange ?? 0}
         currency={baseCurrency}
+        change={nwChange}
+        changeLabel="this month"
         accent="blue"
-        icon="⚡"
+        icon={<Zap size={15} />}
       />
     </div>
   );
