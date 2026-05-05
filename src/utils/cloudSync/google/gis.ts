@@ -91,7 +91,12 @@ function clearToken(): void {
 
 async function fetchEmail(accessToken: string): Promise<string> {
   try {
-    const res = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
+    // POST keeps the token out of URLs, browser history, and server access logs.
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `access_token=${encodeURIComponent(accessToken)}`,
+    });
     if (!res.ok) return '';
     const json = await res.json() as { email?: string };
     return json.email ?? '';

@@ -105,7 +105,8 @@ export const Settings: React.FC = () => {
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !file.name.endsWith('.xlsx')) {
+    const validMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (!file || !file.name.endsWith('.xlsx') || (file.type && file.type !== validMime)) {
       warning('Please upload a valid .xlsx Excel file.');
       if (excelInputRef.current) excelInputRef.current.value = '';
       return;
