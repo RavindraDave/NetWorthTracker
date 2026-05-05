@@ -1,5 +1,5 @@
 import { Goal, Snapshot } from '../types';
-import { calcNetWorth } from './calculations';
+import { calcNetWorthForGoal } from './calculations';
 
 export interface FIREMetrics {
   fiNumber: number;
@@ -7,6 +7,7 @@ export interface FIREMetrics {
   progressPercentage: number;
   savingsRatePercentage: number;
   monthlySavings: number;
+  monthlyIncome: number;
   yearsToFI: number | null; // null if not saving or saving is negative
   safeWithdrawalRate: number;
   monthlyPassiveIncome: number;
@@ -63,8 +64,9 @@ export function calcFIREMetrics(
 
   const fiNumber = annualExpenses * multiplier;
 
+  // Respect per-goal exclusions AND 'investable' filter (exclude primary home, non-investable assets)
   const currentNetWorth = currentSnapshot
-    ? calcNetWorth(currentSnapshot, baseCurrency, 'investable').netWorth
+    ? calcNetWorthForGoal(currentSnapshot, baseCurrency, goal.excludedCategoryIds ?? [], 'investable')
     : 0;
 
   const rawProgress = fiNumber > 0 ? (currentNetWorth / fiNumber) * 100 : 0;
@@ -98,6 +100,7 @@ export function calcFIREMetrics(
     progressPercentage,
     savingsRatePercentage,
     monthlySavings,
+    monthlyIncome: income,
     yearsToFI,
     safeWithdrawalRate,
     monthlyPassiveIncome,

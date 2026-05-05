@@ -60,9 +60,11 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
               <p className="fire-stat-card__label">Estimated Time to FI</p>
               <p className="fire-stat-card__value">
                 {metrics.isFI ? 'Achieved!' : (
-                  metrics.yearsToFI !== null 
-                    ? `${metrics.yearsToFI.toFixed(1)} Years` 
-                    : <span style={{ fontSize: '0.9rem', color: 'var(--accent-red)' }}>Negative Savings</span>
+                  metrics.yearsToFI !== null
+                    ? `${metrics.yearsToFI.toFixed(1)} Years`
+                    : metrics.monthlySavings < 0
+                      ? <span style={{ fontSize: '0.9rem', color: 'var(--accent-red)' }}>Negative Savings</span>
+                      : <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Add income & expenses</span>
                 )}
               </p>
             </div>

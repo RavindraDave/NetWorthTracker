@@ -1,5 +1,45 @@
 import { describe, it, expect } from 'vitest';
-import { convertToBase } from '../calculations';
+import {
+  convertToBase,
+  calcCategoryTotal,
+  calcNetWorth,
+  calcNetWorthForGoal,
+  buildTrendData,
+  buildAllocationData,
+  calcMonthChange,
+} from '../calculations';
+import { Snapshot, Category } from '../../types';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeCategory(overrides: Partial<Category> & { id: string; type: 'asset' | 'liability' }): Category {
+  return {
+    name: 'Test Category',
+    icon: '📈',
+    isLiquid: true,
+    isInvestable: true,
+    items: [],
+    ...overrides,
+  };
+}
+
+function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
+  return {
+    id: 's1',
+    month: '2025-01',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    exchangeRates: { USD: 83, EUR: 90, SGD: 62 },
+    categories: [],
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// convertToBase
+// ---------------------------------------------------------------------------
 
 describe('convertToBase', () => {
   it('returns amount unchanged when currency equals baseCurrency', () => {
@@ -10,25 +50,398 @@ describe('convertToBase', () => {
     expect(convertToBase(100, 'USD', 'INR', { USD: 83 })).toBe(8300);
   });
 
-  it('falls back to 1:1 when rate is missing and warns', () => {
-    const result = convertToBase(500, 'EUR', 'INR', {});
-    expect(result).toBe(500); // 1:1 fallback
+  it('falls back to 1:1 when rate is missing', () => {
+    expect(convertToBase(500, 'EUR', 'INR', {})).toBe(500);
   });
 
   it('falls back to 1:1 when rate is zero', () => {
-    const result = convertToBase(500, 'EUR', 'INR', { EUR: 0 });
-    expect(result).toBe(500);
+    expect(convertToBase(500, 'EUR', 'INR', { EUR: 0 })).toBe(500);
   });
 
   it('falls back to 1:1 when rate is negative', () => {
-    const result = convertToBase(500, 'EUR', 'INR', { EUR: -90 });
-    expect(result).toBe(500);
+    expect(convertToBase(500, 'EUR', 'INR', { EUR: -90 })).toBe(500);
   });
 
   it('handles zero amount', () => {
     expect(convertToBase(0, 'USD', 'INR', { USD: 83 })).toBe(0);
   });
+
+  it('handles decimal amounts correctly', () => {
+    expect(convertToBase(1.5, 'USD', 'INR', { USD: 83 })).toBeCloseTo(124.5);
+  });
 });
+
+// ---------------------------------------------------------------------------
+// calcCategoryTotal
+// ---------------------------------------------------------------------------
+
+describe('calcCategoryTotal', () => {
+  it('sums items in base currency', () => {
+    const cat = makeCategory({
+      id: 'c1',
+      type: 'asset',
+      items: [
+        { id: 'i1', name: 'A', amount: 1000, currency: 'INR' },
+        { id: 'i2', name: 'B', amount: 100, currency: 'USD' },
+      ],
+    });
+    expect(calcCategoryTotal(cat, 'INR', { USD: 83 })).toBe(9300);
+  });
+
+  it('returns 0 for empty category', () => {
+    const cat = makeCategory({ id: 'c1', type: 'asset', items: [] });
+    expect(calcCategoryTotal(cat, 'INR', {})).toBe(0);
+  });
+
+  it('skips items with excludeFromNetWorth=true', () => {
+    const cat = makeCategory({
+      id: 'c1',
+      type: 'asset',
+      items: [
+        { id: 'i1', name: 'Included', amount: 1000, currency: 'INR' },
+        { id: 'i2', name: 'Excluded', amount: 5000, currency: 'INR', excludeFromNetWorth: true },
+      ],
+    });
+    expect(calcCategoryTotal(cat, 'INR', {})).toBe(1000);
+  });
+
+  it('includes items with excludeFromNetWorth=false', () => {
+    const cat = makeCategory({
+      id: 'c1',
+      type: 'asset',
+      items: [{ id: 'i1', name: 'Item', amount: 2000, currency: 'INR', excludeFromNetWorth: false }],
+    });
+    expect(calcCategoryTotal(cat, 'INR', {})).toBe(2000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calcNetWorth
+// ---------------------------------------------------------------------------
+
+describe('calcNetWorth', () => {
+  function makeFullSnapshot(): Snapshot {
+    return makeSnapshot({
+      categories: [
+        makeCategory({
+          id: 'liquid-asset',
+          name: 'Cash',
+          type: 'asset',
+          isLiquid: true,
+          isInvestable: true,
+          items: [{ id: 'i1', name: 'Bank', amount: 500_000, currency: 'INR' }],
+        }),
+        makeCategory({
+          id: 'non-liquid-asset',
+          name: 'Real Estate',
+          type: 'asset',
+          isLiquid: false,
+          isInvestable: false,
+          items: [{ id: 'i2', name: 'House', amount: 5_000_000, currency: 'INR' }],
+        }),
+        makeCategory({
+          id: 'liability',
+          name: 'Home Loan',
+          type: 'liability',
+          isLiquid: false,
+          isInvestable: false,
+          items: [{ id: 'i3', name: 'Mortgage', amount: 2_000_000, currency: 'INR' }],
+        }),
+      ],
+    });
+  }
+
+  it('overall mode: includes all categories', () => {
+    const { netWorth, totalAssets, totalLiabilities } = calcNetWorth(makeFullSnapshot(), 'INR', 'overall');
+    expect(totalAssets).toBe(5_500_000);
+    expect(totalLiabilities).toBe(2_000_000);
+    expect(netWorth).toBe(3_500_000);
+  });
+
+  it('liquid mode: includes only isLiquid categories', () => {
+    const { netWorth, totalAssets } = calcNetWorth(makeFullSnapshot(), 'INR', 'liquid');
+    expect(totalAssets).toBe(500_000);
+    expect(netWorth).toBe(500_000);
+  });
+
+  it('investable mode: includes only isInvestable categories', () => {
+    const { netWorth } = calcNetWorth(makeFullSnapshot(), 'INR', 'investable');
+    expect(netWorth).toBe(500_000);
+  });
+
+  it('defaults to overall mode when viewMode omitted', () => {
+    const snap = makeFullSnapshot();
+    expect(calcNetWorth(snap, 'INR').netWorth).toBe(calcNetWorth(snap, 'INR', 'overall').netWorth);
+  });
+
+  it('returns zero for empty snapshot', () => {
+    const { netWorth, totalAssets, totalLiabilities } = calcNetWorth(makeSnapshot(), 'INR');
+    expect(netWorth).toBe(0);
+    expect(totalAssets).toBe(0);
+    expect(totalLiabilities).toBe(0);
+  });
+
+  it('categoryTotals keys match category IDs', () => {
+    const snap = makeFullSnapshot();
+    const { categoryTotals } = calcNetWorth(snap, 'INR', 'overall');
+    expect(Object.keys(categoryTotals)).toContain('liquid-asset');
+    expect(Object.keys(categoryTotals)).toContain('non-liquid-asset');
+    expect(Object.keys(categoryTotals)).toContain('liability');
+  });
+
+  it('negative net worth when liabilities exceed assets', () => {
+    const snap = makeSnapshot({
+      categories: [
+        makeCategory({
+          id: 'a', type: 'asset',
+          items: [{ id: 'i1', name: 'A', amount: 100_000, currency: 'INR' }],
+        }),
+        makeCategory({
+          id: 'l', type: 'liability',
+          items: [{ id: 'i2', name: 'L', amount: 500_000, currency: 'INR' }],
+        }),
+      ],
+    });
+    expect(calcNetWorth(snap, 'INR').netWorth).toBe(-400_000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calcNetWorthForGoal
+// ---------------------------------------------------------------------------
+
+describe('calcNetWorthForGoal', () => {
+  function makeGoalSnapshot(): Snapshot {
+    return makeSnapshot({
+      categories: [
+        makeCategory({
+          id: 'investments',
+          name: 'Investments',
+          type: 'asset',
+          isLiquid: true,
+          isInvestable: true,
+          items: [{ id: 'i1', name: 'Stocks', amount: 3_000_000, currency: 'INR' }],
+        }),
+        makeCategory({
+          id: 'real-estate',
+          name: 'Real Estate',
+          type: 'asset',
+          isLiquid: false,
+          isInvestable: false,
+          items: [{ id: 'i2', name: 'House', amount: 5_000_000, currency: 'INR' }],
+        }),
+        makeCategory({
+          id: 'home-loan',
+          name: 'Home Loan',
+          type: 'liability',
+          isLiquid: false,
+          isInvestable: false,
+          items: [{ id: 'i3', name: 'Mortgage', amount: 2_000_000, currency: 'INR' }],
+        }),
+      ],
+    });
+  }
+
+  it('no exclusions, overall mode: returns same as calcNetWorth overall', () => {
+    const snap = makeGoalSnapshot();
+    const result = calcNetWorthForGoal(snap, 'INR', [], 'overall');
+    expect(result).toBe(6_000_000); // 8M assets - 2M liabilities
+  });
+
+  it('excludes specified category IDs', () => {
+    const snap = makeGoalSnapshot();
+    // Exclude real estate and home loan
+    const result = calcNetWorthForGoal(snap, 'INR', ['real-estate', 'home-loan'], 'overall');
+    expect(result).toBe(3_000_000); // only investments remain
+  });
+
+  it('excludes only the specified ID, not others', () => {
+    const snap = makeGoalSnapshot();
+    const result = calcNetWorthForGoal(snap, 'INR', ['real-estate'], 'overall');
+    expect(result).toBe(1_000_000); // 3M investments - 2M home loan
+  });
+
+  it('investable mode + exclusions: filters to investable first, then excludes', () => {
+    const snap = makeGoalSnapshot();
+    // In investable mode, real-estate is already excluded (isInvestable=false)
+    // So excluding 'investments' from investable view gives 0
+    const result = calcNetWorthForGoal(snap, 'INR', ['investments'], 'investable');
+    expect(result).toBe(0);
+  });
+
+  it('investable mode with no extra exclusions: only investable categories', () => {
+    const snap = makeGoalSnapshot();
+    const result = calcNetWorthForGoal(snap, 'INR', [], 'investable');
+    expect(result).toBe(3_000_000); // only investments (investable=true)
+  });
+
+  it('returns 0 for empty snapshot', () => {
+    expect(calcNetWorthForGoal(makeSnapshot(), 'INR', [])).toBe(0);
+  });
+
+  it('ignores non-existent excluded IDs gracefully', () => {
+    const snap = makeGoalSnapshot();
+    const result = calcNetWorthForGoal(snap, 'INR', ['does-not-exist'], 'overall');
+    expect(result).toBe(6_000_000); // no change
+  });
+
+  it('handles negative net worth correctly after exclusions', () => {
+    const snap = makeSnapshot({
+      categories: [
+        makeCategory({
+          id: 'a1', type: 'asset',
+          items: [{ id: 'i1', name: 'Asset', amount: 100_000, currency: 'INR' }],
+        }),
+        makeCategory({
+          id: 'l1', type: 'liability',
+          items: [{ id: 'i2', name: 'Debt', amount: 300_000, currency: 'INR' }],
+        }),
+      ],
+    });
+    // Excluding the only asset leaves just the liability → negative
+    expect(calcNetWorthForGoal(snap, 'INR', ['a1'])).toBe(-300_000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildTrendData
+// ---------------------------------------------------------------------------
+
+describe('buildTrendData', () => {
+  function makeSnapWithMonth(month: string, netWorth: number): Snapshot {
+    return makeSnapshot({
+      id: month,
+      month,
+      categories: [
+        makeCategory({
+          id: `asset-${month}`,
+          type: 'asset',
+          items: [{ id: `i-${month}`, name: 'A', amount: netWorth, currency: 'INR' }],
+        }),
+      ],
+    });
+  }
+
+  it('returns up to 12 data points', () => {
+    const snaps = Array.from({ length: 15 }, (_, i) =>
+      makeSnapWithMonth(`2024-${String(i + 1).padStart(2, '0')}`, 100_000 * (i + 1))
+    );
+    expect(buildTrendData(snaps, 'INR').length).toBe(12);
+  });
+
+  it('sorts by month before returning (older first)', () => {
+    const snaps = [
+      makeSnapWithMonth('2025-03', 300_000),
+      makeSnapWithMonth('2025-01', 100_000),
+      makeSnapWithMonth('2025-02', 200_000),
+    ];
+    const trend = buildTrendData(snaps, 'INR');
+    expect(trend[0].netWorth).toBe(100_000);
+    expect(trend[1].netWorth).toBe(200_000);
+    expect(trend[2].netWorth).toBe(300_000);
+  });
+
+  it('returns empty array for empty snapshots', () => {
+    expect(buildTrendData([], 'INR')).toHaveLength(0);
+  });
+
+  it('month label is formatted correctly', () => {
+    const snaps = [makeSnapWithMonth('2025-01', 100_000)];
+    const trend = buildTrendData(snaps, 'INR');
+    expect(trend[0].month).toMatch(/Jan/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildAllocationData
+// ---------------------------------------------------------------------------
+
+describe('buildAllocationData', () => {
+  it('returns items sorted by value descending', () => {
+    const snap = makeSnapshot({
+      categories: [
+        makeCategory({ id: 'c1', name: 'Small', type: 'asset', items: [{ id: 'i1', name: 'X', amount: 100, currency: 'INR' }] }),
+        makeCategory({ id: 'c2', name: 'Large', type: 'asset', items: [{ id: 'i2', name: 'Y', amount: 1000, currency: 'INR' }] }),
+      ],
+    });
+    const items = buildAllocationData(snap, 'INR');
+    expect(items[0].name).toBe('Large');
+    expect(items[1].name).toBe('Small');
+  });
+
+  it('excludes zero-value categories', () => {
+    const snap = makeSnapshot({
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [] }),
+        makeCategory({ id: 'c2', type: 'asset', items: [{ id: 'i1', name: 'X', amount: 500, currency: 'INR' }] }),
+      ],
+    });
+    const items = buildAllocationData(snap, 'INR');
+    expect(items).toHaveLength(1);
+  });
+
+  it('calculates percentage relative to total assets for assets', () => {
+    const snap = makeSnapshot({
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [{ id: 'i1', name: 'X', amount: 300, currency: 'INR' }] }),
+        makeCategory({ id: 'c2', type: 'asset', items: [{ id: 'i2', name: 'Y', amount: 700, currency: 'INR' }] }),
+      ],
+    });
+    const items = buildAllocationData(snap, 'INR');
+    const c2 = items.find(i => i.name === 'Test Category' && i.value === 700);
+    expect(c2?.percentage).toBeCloseTo(70);
+  });
+
+  it('returns empty array for empty snapshot', () => {
+    expect(buildAllocationData(makeSnapshot(), 'INR')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calcMonthChange
+// ---------------------------------------------------------------------------
+
+describe('calcMonthChange', () => {
+  const baseSnap = makeSnapshot({
+    categories: [
+      makeCategory({ id: 'a', type: 'asset', items: [{ id: 'i1', name: 'X', amount: 1_100_000, currency: 'INR' }] }),
+    ],
+  });
+  const prevSnap = makeSnapshot({
+    id: 's0',
+    categories: [
+      makeCategory({ id: 'a', type: 'asset', items: [{ id: 'i1', name: 'X', amount: 1_000_000, currency: 'INR' }] }),
+    ],
+  });
+
+  it('returns 0 change when no previous snapshot', () => {
+    const { change, changePercent } = calcMonthChange(baseSnap, undefined, 'INR');
+    expect(change).toBe(0);
+    expect(changePercent).toBe(0);
+  });
+
+  it('calculates positive change correctly', () => {
+    const { change, changePercent } = calcMonthChange(baseSnap, prevSnap, 'INR');
+    expect(change).toBe(100_000);
+    expect(changePercent).toBeCloseTo(10);
+  });
+
+  it('calculates negative change correctly', () => {
+    const { change, changePercent } = calcMonthChange(prevSnap, baseSnap, 'INR');
+    expect(change).toBe(-100_000);
+    expect(changePercent).toBeCloseTo(-9.09, 1);
+  });
+
+  it('handles zero previous net worth without divide-by-zero', () => {
+    const emptySnap = makeSnapshot();
+    const { changePercent } = calcMonthChange(baseSnap, emptySnap, 'INR');
+    expect(changePercent).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cloneLatestSnapshot month math (unchanged tests, consolidated here)
+// ---------------------------------------------------------------------------
 
 describe('cloneLatestSnapshot month math', () => {
   function nextMonth(month: string): string {

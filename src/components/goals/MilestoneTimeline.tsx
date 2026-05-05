@@ -1,6 +1,7 @@
 import React from 'react';
 import { Goal, Snapshot } from '../../types';
-import { calcNetWorth } from '../../utils/calculations';
+import { calcNetWorthForGoal } from '../../utils/calculations';
+import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { CheckCircle2, Circle } from 'lucide-react';
 import './MilestoneTimeline.css';
@@ -12,8 +13,6 @@ interface MilestoneTimelineProps {
 }
 
 export const MilestoneTimeline: React.FC<MilestoneTimelineProps> = ({ goals, currentSnapshot, baseCurrency }) => {
-  const currentNW = currentSnapshot ? calcNetWorth(currentSnapshot, baseCurrency, 'overall').netWorth : 0;
-
   // Sort goals by target amount
   const sortedGoals = [...goals].sort((a, b) => {
     const targetA = a.type === 'fire' ? (a.annualExpenses || 0) * (a.multiplier || 25) : a.targetAmount;
@@ -29,7 +28,13 @@ export const MilestoneTimeline: React.FC<MilestoneTimelineProps> = ({ goals, cur
       <div className="timeline-container">
         {sortedGoals.map((goal, idx) => {
           const target = goal.type === 'fire' ? (goal.annualExpenses || 0) * (goal.multiplier || 25) : goal.targetAmount;
-          const isAchieved = currentNW >= target && target > 0;
+          // FIRE goals: use the same metric as FIREDashboard (investable NW + exclusions)
+          // Other goals: use overall NW minus any per-goal exclusions
+          const isAchieved = goal.type === 'fire'
+            ? calcFIREMetrics(goal, currentSnapshot, baseCurrency).isFI
+            : (currentSnapshot
+                ? calcNetWorthForGoal(currentSnapshot, baseCurrency, goal.excludedCategoryIds ?? []) >= target && target > 0
+                : false);
           
           return (
             <div key={goal.id} className={`timeline-item ${isAchieved ? 'achieved' : ''}`}>

@@ -81,19 +81,22 @@ export function calcNetWorth(
 }
 
 /**
- * Net worth for goal progress — same as calcNetWorth('overall') but skips
- * any category IDs in the exclusion list (e.g. primary home / real estate).
+ * Net worth for goal progress — supports both an optional view-mode filter
+ * (liquid/investable) AND an optional per-goal category exclusion list.
+ * When both are specified the view-mode filter runs first, then exclusions.
  */
 export function calcNetWorthForGoal(
   snapshot: Snapshot,
   baseCurrency: string,
-  excludedCategoryIds: string[] = []
+  excludedCategoryIds: string[] = [],
+  viewMode: ViewMode = 'overall'
 ): number {
   const { categories, exchangeRates } = snapshot;
   const excluded = new Set(excludedCategoryIds);
+  const filtered = filterByViewMode(categories, viewMode);
   let assets = 0;
   let liabilities = 0;
-  for (const cat of categories) {
+  for (const cat of filtered) {
     if (excluded.has(cat.id)) continue;
     const total = calcCategoryTotal(cat, baseCurrency, exchangeRates);
     if (cat.type === 'asset') assets += total;
