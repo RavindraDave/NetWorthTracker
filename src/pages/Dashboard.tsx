@@ -40,13 +40,13 @@ export const Dashboard: React.FC = () => {
     <div className="dashboard">
       <StaleBackupBanner />
       {!currentSnapshot ? (
-        <div className="dashboard-empty glass-card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '2rem' }}>
-          <div className="dashboard-empty__icon" style={{ marginBottom: '1rem' }}>
-            <Rocket size={56} style={{ color: 'var(--accent-green)', opacity: 0.85 }} />
-          </div>
-          <h2 className="text-h1" style={{ marginBottom: '1rem' }}>Welcome to WealthPulse</h2>
-          <p className="text-muted" style={{ fontSize: '1.1rem', marginBottom: '2rem' }}>Start tracking your net worth by creating your first monthly snapshot.</p>
-          <button className="btn btn-primary dashboard-empty__cta" onClick={handleCreateSnapshot} style={{ fontSize: '1.1rem', padding: '0.75rem 2rem' }}>
+        <div className="glass-card empty-state" style={{ marginTop: '2rem' }}>
+          <Rocket size={52} className="empty-state__icon" style={{ color: 'var(--accent-green)', opacity: 0.7 }} />
+          <h2 className="text-h1">Welcome to WealthPulse</h2>
+          <p className="text-muted" style={{ fontSize: '1rem', maxWidth: '380px' }}>
+            Start tracking your net worth by creating your first monthly snapshot.
+          </p>
+          <button className="btn btn-primary" onClick={handleCreateSnapshot} style={{ fontSize: '1rem', padding: '0.7rem 2rem' }}>
             + Create First Snapshot
           </button>
           <DriveRestoreButton />

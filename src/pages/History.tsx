@@ -50,9 +50,9 @@ export const History: React.FC = () => {
 
   if (snapshots.length === 0) {
     return (
-      <div className="history-empty glass-card text-center" style={{ padding: '4rem' }}>
-        <Calendar size={48} className="text-muted" style={{ margin: '0 auto 1rem auto' }} />
-        <h2 className="text-h2">No History Yet</h2>
+      <div className="glass-card empty-state">
+        <Calendar size={48} className="empty-state__icon" />
+        <h2 className="text-h2">No history yet</h2>
         <p className="text-muted">Create your first snapshot to start tracking your journey over time.</p>
       </div>
     );

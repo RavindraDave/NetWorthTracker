@@ -1,14 +1,17 @@
 import React, { useMemo, useTransition } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { calcNetWorth, convertToBase } from '../utils/calculations';
 import { FlattenedItem } from '../types';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { Badge } from '../components/common/Badge';
 import { DonutChart } from '../components/dashboard/DonutChart';
+import { LayoutGrid } from 'lucide-react';
 import './Portfolio.css';
 
 export const Portfolio: React.FC = () => {
   const { currentSnapshot, preferences } = useApp();
+  const navigate = useNavigate();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const [isPending] = useTransition();
 
@@ -40,9 +43,11 @@ export const Portfolio: React.FC = () => {
 
   if (!currentSnapshot || !breakdown) {
     return (
-      <div className="portfolio-empty glass-card text-center" style={{ padding: '4rem' }}>
-        <h2 className="text-h2">No Data Available</h2>
-        <p className="text-muted">Create a snapshot to view your portfolio.</p>
+      <div className="glass-card empty-state">
+        <LayoutGrid size={48} className="empty-state__icon" />
+        <h2 className="text-h2">No portfolio data yet</h2>
+        <p className="text-muted">Create your first snapshot to see your asset allocation and net worth breakdown.</p>
+        <button className="btn btn-primary" onClick={() => navigate('/')}>Go to Dashboard</button>
       </div>
     );
   }

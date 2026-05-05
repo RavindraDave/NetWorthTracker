@@ -9,6 +9,7 @@ interface UseDecimalInputOptions {
   max?: number;
   allowNegative?: boolean;
   locale?: string;
+  blankZero?: boolean; // show empty string instead of "0.00" when value is 0
 }
 
 interface UseDecimalInputReturn {
@@ -30,6 +31,7 @@ export function useDecimalInput({
   max,
   allowNegative = false,
   locale = 'en-IN',
+  blankZero = false,
 }: UseDecimalInputOptions): UseDecimalInputReturn {
   const fmt = (n: number) =>
     new Intl.NumberFormat(locale, {
@@ -37,7 +39,7 @@ export function useDecimalInput({
       maximumFractionDigits: precision,
     }).format(n);
 
-  const [display, setDisplay] = useState(() => fmt(value));
+  const [display, setDisplay] = useState(() => (blankZero && value === 0) ? '' : fmt(value));
   // rawRef tracks the in-progress text so onBlur always sees the latest typed value
   const rawRef = useRef(display);
   const focusedRef = useRef(false);
@@ -45,7 +47,7 @@ export function useDecimalInput({
   // When value changes from outside while not focused, re-derive formatted display
   useEffect(() => {
     if (!focusedRef.current) {
-      const next = fmt(value);
+      const next = (blankZero && value === 0) ? '' : fmt(value);
       setDisplay(next);
       rawRef.current = next;
     }

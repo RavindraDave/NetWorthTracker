@@ -41,7 +41,7 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
   const expectedReturnInput = useDecimalInput({ value: expectedReturn, onCommit: setExpectedReturn, precision: 2, min: 0 });
   const inflationRateInput = useDecimalInput({ value: inflationRate, onCommit: setInflationRate, precision: 2, min: 0 });
   const annualSavingsGrowthInput = useDecimalInput({ value: annualSavingsGrowth, onCommit: setAnnualSavingsGrowth, precision: 2, min: 0 });
-  const milestonAmountInput = useDecimalInput({ value: newMilestoneAmount, onCommit: setNewMilestoneAmount, precision: 2, min: 0 });
+  const milestonAmountInput = useDecimalInput({ value: newMilestoneAmount, onCommit: setNewMilestoneAmount, precision: 2, min: 0, blankZero: true });
 
   const handleAddMilestone = () => {
     if (!newMilestoneLabel.trim() || newMilestoneAmount <= 0) return;
@@ -268,7 +268,7 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
               <input
                 {...milestonAmountInput.inputProps}
                 className="form-input form-input--sm"
-                placeholder="Amount"
+                placeholder={baseCurrency}
                 style={{ maxWidth: '110px' }}
                 aria-label={`Milestone amount in ${baseCurrency}`}
               />

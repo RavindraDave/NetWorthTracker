@@ -6,7 +6,7 @@ import { FIREDashboard } from '../components/goals/FIREDashboard';
 import { GoalCard } from '../components/goals/GoalCard';
 import { MilestoneTimeline } from '../components/goals/MilestoneTimeline';
 import { Goal } from '../types';
-import { Plus } from 'lucide-react';
+import { Plus, Target } from 'lucide-react';
 import './Goals.css';
 
 export const Goals: React.FC = () => {
@@ -48,10 +48,10 @@ export const Goals: React.FC = () => {
       </div>
 
       {goals.length === 0 ? (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎯</div>
+        <div className="glass-card empty-state">
+          <Target size={48} className="empty-state__icon" />
           <h2 className="text-h2">No goals set yet</h2>
-          <p className="text-muted" style={{ marginBottom: '2rem' }}>
+          <p className="text-muted">
             Set a target net worth or calculate your FIRE number to start tracking your progress.
           </p>
           <button className="btn btn-primary" onClick={() => setIsEditorOpen(true)}>
