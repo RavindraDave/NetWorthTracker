@@ -33,7 +33,6 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
   const [newMilestoneAmount, setNewMilestoneAmount] = useState(0);
   const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>(editGoal?.excludedCategoryIds ?? []);
 
-  // Asset categories available to exclude (from the current snapshot)
   const assetCategories = currentSnapshot?.categories.filter(c => c.type === 'asset') ?? [];
 
   const targetAmountInput = useDecimalInput({ value: targetAmount, onCommit: setTargetAmount, precision: 2, min: 0 });
@@ -85,186 +84,210 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
 
   return (
     <Modal onClose={onClose} aria-label={editGoal ? 'Edit Goal' : 'Create New Goal'}>
+      {/* Sticky header */}
       <div className="modal-header">
-        <h2 className="text-h2">{editGoal ? 'Edit Goal' : 'Create New Goal'}</h2>
+        <div>
+          <h2 className="text-h2" style={{ marginBottom: '0.1rem' }}>
+            {editGoal ? 'Edit Goal' : 'New Goal'}
+          </h2>
+          <p className="text-muted" style={{ fontSize: '0.75rem' }}>
+            {type === 'fire' ? 'Financial Independence, Retire Early' :
+             type === 'net_worth_target' ? 'Net worth milestone' :
+             type === 'savings' ? 'Savings target' :
+             type === 'debt_freedom' ? 'Debt payoff' : 'Custom milestone'}
+          </p>
+        </div>
         <button className="btn-icon" onClick={onClose} aria-label="Close"><X size={20} /></button>
       </div>
 
-      <form onSubmit={handleSubmit} className="goal-form">
-        <div className="form-group">
-          <label htmlFor="goal-type">Goal Type</label>
-          <select id="goal-type" value={type} onChange={e => setType(e.target.value as GoalType)} className="form-input" disabled={!!editGoal}>
-            <option value="fire">FIRE (Financial Independence)</option>
-            <option value="net_worth_target">Net Worth Target</option>
-            <option value="savings">Savings Goal</option>
-            <option value="debt_freedom">Debt Payoff</option>
-            <option value="custom">Custom Milestone</option>
-          </select>
-        </div>
+      {/* Scrollable body */}
+      <div className="modal-body">
+        <form id="goal-form" onSubmit={handleSubmit} className="goal-form">
 
-        <div className="form-group">
-          <label htmlFor="goal-name">Goal Name</label>
-          <input
-            id="goal-name"
-            type="text"
-            className="form-input"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder={type === 'fire' ? 'e.g. Lean FIRE' : 'e.g. First 1 Crore'}
-            required
-          />
-        </div>
-
-        {type === 'fire' ? (
+          {/* Type + Name in a compact row */}
           <div className="form-row">
-            <div className="form-group" style={{ flex: 2 }}>
-              <label htmlFor="goal-expenses">Estimated Annual Expenses ({baseCurrency})</label>
-              <input
-                id="goal-expenses"
-                {...annualExpensesInput.inputProps}
-                className="form-input"
-                placeholder="12,00,000.00"
-                aria-label={`Annual expenses in ${baseCurrency}`}
-              />
+            <div className="form-group" style={{ flex: '0 0 180px' }}>
+              <label htmlFor="goal-type">Type</label>
+              <select id="goal-type" value={type} onChange={e => setType(e.target.value as GoalType)} className="form-input form-input--sm" disabled={!!editGoal}>
+                <option value="fire">FIRE</option>
+                <option value="net_worth_target">Net Worth Target</option>
+                <option value="savings">Savings</option>
+                <option value="debt_freedom">Debt Payoff</option>
+                <option value="custom">Custom</option>
+              </select>
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label htmlFor="goal-multiplier">Multiplier (Rule of 25)</label>
+              <label htmlFor="goal-name">Name</label>
               <input
-                id="goal-multiplier"
-                {...multiplierInput.inputProps}
-                className="form-input"
-                aria-label="FIRE multiplier"
+                id="goal-name"
+                type="text"
+                className="form-input form-input--sm"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder={type === 'fire' ? 'e.g. Lean FIRE' : 'e.g. First 1 Crore'}
+                required
               />
             </div>
           </div>
-        ) : (
-          <div className="form-group">
-            <label htmlFor="goal-amount">Target Amount ({baseCurrency})</label>
-            <input
-              id="goal-amount"
-              {...targetAmountInput.inputProps}
-              className="form-input"
-              placeholder="1,00,00,000.00"
-              aria-label={`Target amount in ${baseCurrency}`}
-            />
-          </div>
-        )}
 
-        {type === 'fire' && (
-          <div className="fire-advanced-section">
-            <button
-              type="button"
-              className="fire-advanced-toggle"
-              aria-expanded={showAdvanced}
-              onClick={() => setShowAdvanced(v => !v)}
-            >
-              <span>Advanced projection settings</span>
-              <span className={`fire-advanced-chevron ${showAdvanced ? 'open' : ''}`}>▾</span>
-            </button>
-            {showAdvanced && (
-              <div className="form-row fire-advanced-row">
-                <div className="form-group">
-                  <label htmlFor="goal-return">Expected Return (%/yr)</label>
-                  <input id="goal-return" {...expectedReturnInput.inputProps} className="form-input" aria-label="Expected annual return percent" />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="goal-inflation">Inflation (%/yr)</label>
-                  <input id="goal-inflation" {...inflationRateInput.inputProps} className="form-input" aria-label="Annual inflation rate percent" />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="goal-savings-growth">Savings Growth (%/yr)</label>
-                  <input id="goal-savings-growth" {...annualSavingsGrowthInput.inputProps} className="form-input" aria-label="Annual savings growth percent" />
-                </div>
+          {/* FIRE fields */}
+          {type === 'fire' ? (
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 2 }}>
+                <label htmlFor="goal-expenses">Annual Expenses ({baseCurrency})</label>
+                <input
+                  id="goal-expenses"
+                  {...annualExpensesInput.inputProps}
+                  className="form-input form-input--sm"
+                  placeholder="12,00,000"
+                  aria-label={`Annual expenses in ${baseCurrency}`}
+                />
               </div>
-            )}
-          </div>
-        )}
-
-        <div className="form-group">
-          <label htmlFor="goal-date">Target Date (Optional)</label>
-          <input
-            id="goal-date"
-            type="date"
-            className="form-input"
-            value={targetDate}
-            onChange={e => setTargetDate(e.target.value)}
-          />
-        </div>
-
-        {assetCategories.length > 0 && (
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <EyeOff size={13} style={{ opacity: 0.6 }} />
-              Exclude from net worth calculation
-            </label>
-            <p className="form-hint">
-              Categories excluded here won't count towards this goal's progress (e.g. exclude Real Estate if your primary home isn't part of your liquid wealth).
-            </p>
-            <div className="exclusion-grid">
-              {assetCategories.map(cat => {
-                const checked = excludedCategoryIds.includes(cat.id);
-                return (
-                  <label key={cat.id} className={`exclusion-chip ${checked ? 'exclusion-chip--active' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() =>
-                        setExcludedCategoryIds(prev =>
-                          prev.includes(cat.id) ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
-                        )
-                      }
-                    />
-                    <span>{cat.icon} {cat.name}</span>
-                  </label>
-                );
-              })}
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="goal-multiplier">Multiplier</label>
+                <input
+                  id="goal-multiplier"
+                  {...multiplierInput.inputProps}
+                  className="form-input form-input--sm"
+                  aria-label="FIRE multiplier"
+                />
+              </div>
             </div>
-          </div>
-        )}
-
-        <div className="form-group">
-          <label>Milestones (Optional)</label>
-          {milestones.length > 0 && (
-            <div className="milestone-list">
-              {milestones.map(m => (
-                <div key={m.id} className="milestone-list__item">
-                  <span className="milestone-list__label">{m.label}</span>
-                  <span className="milestone-list__amount">
-                    <CurrencyDisplay amount={m.targetAmount} currency={baseCurrency} />
-                  </span>
-                  <button type="button" className="btn-icon danger" aria-label="Remove milestone" onClick={() => handleRemoveMilestone(m.id)}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
+          ) : (
+            <div className="form-group">
+              <label htmlFor="goal-amount">Target Amount ({baseCurrency})</label>
+              <input
+                id="goal-amount"
+                {...targetAmountInput.inputProps}
+                className="form-input form-input--sm"
+                placeholder="1,00,00,000"
+                aria-label={`Target amount in ${baseCurrency}`}
+              />
             </div>
           )}
-          <div className="milestone-add-row">
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Milestone label"
-              value={newMilestoneLabel}
-              onChange={e => setNewMilestoneLabel(e.target.value)}
-            />
-            <input
-              {...milestonAmountInput.inputProps}
-              className="form-input"
-              placeholder="0.00"
-              style={{ maxWidth: '120px' }}
-              aria-label={`Milestone amount in ${baseCurrency}`}
-            />
-            <button type="button" className="btn btn-outline" onClick={handleAddMilestone}>
-              <Plus size={14} />
-            </button>
-          </div>
-        </div>
 
-        <div className="form-actions">
-          <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">{editGoal ? 'Update Goal' : 'Save Goal'}</button>
-        </div>
-      </form>
+          {/* FIRE advanced */}
+          {type === 'fire' && (
+            <div className="fire-advanced-section">
+              <button
+                type="button"
+                className="fire-advanced-toggle"
+                aria-expanded={showAdvanced}
+                onClick={() => setShowAdvanced(v => !v)}
+              >
+                <span>Advanced projection settings</span>
+                <span className={`fire-advanced-chevron ${showAdvanced ? 'open' : ''}`}>▾</span>
+              </button>
+              {showAdvanced && (
+                <div className="form-row fire-advanced-row">
+                  <div className="form-group">
+                    <label htmlFor="goal-return">Return (%/yr)</label>
+                    <input id="goal-return" {...expectedReturnInput.inputProps} className="form-input form-input--sm" aria-label="Expected annual return" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="goal-inflation">Inflation (%/yr)</label>
+                    <input id="goal-inflation" {...inflationRateInput.inputProps} className="form-input form-input--sm" aria-label="Annual inflation rate" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="goal-savings-growth">Savings Growth (%/yr)</label>
+                    <input id="goal-savings-growth" {...annualSavingsGrowthInput.inputProps} className="form-input form-input--sm" aria-label="Annual savings growth" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Target date */}
+          <div className="form-group">
+            <label htmlFor="goal-date">Target Date <span className="form-label-optional">optional</span></label>
+            <input
+              id="goal-date"
+              type="date"
+              className="form-input form-input--sm"
+              value={targetDate}
+              onChange={e => setTargetDate(e.target.value)}
+            />
+          </div>
+
+          {/* Category exclusions */}
+          {assetCategories.length > 0 && (
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <EyeOff size={12} style={{ opacity: 0.55 }} />
+                Exclude categories <span className="form-label-optional">optional</span>
+              </label>
+              <p className="form-hint">Ticked categories won't count toward this goal (e.g. primary home in Real Estate).</p>
+              <div className="exclusion-grid">
+                {assetCategories.map(cat => {
+                  const checked = excludedCategoryIds.includes(cat.id);
+                  return (
+                    <label key={cat.id} className={`exclusion-chip ${checked ? 'exclusion-chip--active' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          setExcludedCategoryIds(prev =>
+                            prev.includes(cat.id) ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                          )
+                        }
+                      />
+                      <span>{cat.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Milestones */}
+          <div className="form-group">
+            <label>Milestones <span className="form-label-optional">optional</span></label>
+            {milestones.length > 0 && (
+              <div className="milestone-list">
+                {milestones.map(m => (
+                  <div key={m.id} className="milestone-list__item">
+                    <span className="milestone-list__label">{m.label}</span>
+                    <span className="milestone-list__amount">
+                      <CurrencyDisplay amount={m.targetAmount} currency={baseCurrency} />
+                    </span>
+                    <button type="button" className="btn-icon danger" aria-label="Remove milestone" onClick={() => handleRemoveMilestone(m.id)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="milestone-add-row">
+              <input
+                type="text"
+                className="form-input form-input--sm"
+                placeholder="Label"
+                value={newMilestoneLabel}
+                onChange={e => setNewMilestoneLabel(e.target.value)}
+              />
+              <input
+                {...milestonAmountInput.inputProps}
+                className="form-input form-input--sm"
+                placeholder="Amount"
+                style={{ maxWidth: '110px' }}
+                aria-label={`Milestone amount in ${baseCurrency}`}
+              />
+              <button type="button" className="btn btn-outline" style={{ padding: '0.45rem 0.75rem' }} onClick={handleAddMilestone}>
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+
+        </form>
+      </div>
+
+      {/* Sticky footer */}
+      <div className="modal-footer">
+        <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+        <button type="submit" form="goal-form" className="btn btn-primary">
+          {editGoal ? 'Update Goal' : 'Save Goal'}
+        </button>
+      </div>
     </Modal>
   );
 };

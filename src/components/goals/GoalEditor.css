@@ -1,7 +1,7 @@
 .goal-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 .form-row {
@@ -30,6 +30,12 @@
   font-family: var(--font-sans);
   font-size: 1rem;
   transition: border-color var(--transition-fast);
+  width: 100%;
+}
+
+.form-input--sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
 }
 
 .form-input:focus {
@@ -37,13 +43,14 @@
   border-color: var(--accent-primary);
 }
 
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255,255,255,0.05);
+.form-label-optional {
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.7;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 0.25rem;
 }
 
 .milestone-list {
