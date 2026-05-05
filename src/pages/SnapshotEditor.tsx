@@ -26,11 +26,27 @@ export const SnapshotEditor: React.FC = () => {
     if (id) {
       const existing = snapshots.find(s => s.id === id);
       if (existing) {
-        setSnapshot(JSON.parse(JSON.stringify(existing)));
+        const snap: Snapshot = JSON.parse(JSON.stringify(existing));
+
+        // Inject any custom category templates that aren't already in this snapshot.
+        // Match by name+type so we never add duplicates. New categories get empty items
+        // and a fresh UUID — they won't be persisted unless the user saves.
+        const templates = preferences?.customCategories ?? [];
+        const missing = templates.filter(
+          tmpl => !snap.categories.some(c => c.name === tmpl.name && c.type === tmpl.type)
+        );
+        if (missing.length > 0) {
+          snap.categories = [
+            ...snap.categories,
+            ...missing.map(tmpl => ({ ...tmpl, id: crypto.randomUUID(), items: [] })),
+          ];
+        }
+
+        setSnapshot(snap);
         isDirtyRef.current = false;
       }
     }
-  }, [id, snapshots]);
+  }, [id, snapshots, preferences?.customCategories]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
