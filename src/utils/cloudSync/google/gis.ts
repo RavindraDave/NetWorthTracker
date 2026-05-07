@@ -65,7 +65,12 @@ function injectGisScript(): Promise<void> {
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Google Identity Services script'));
+    script.onerror = () => {
+      gisScriptPromise = null; // allow retry on next attempt
+      reject(new Error(
+        'Could not load Google Sign-In. Check that accounts.google.com is reachable and not blocked by a browser extension or firewall.'
+      ));
+    };
     document.head.appendChild(script);
   });
   return gisScriptPromise;

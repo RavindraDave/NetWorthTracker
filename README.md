@@ -165,9 +165,9 @@ The in-app **Setup guide** link (Settings → Cloud Sync → Setup guide) walks 
 1. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
 2. Application type: **Web application**.
 3. Under **Authorized JavaScript origins**, add every URL you'll open the app from:
-   - `http://localhost:5173` — Vite dev server
-   - `http://localhost:3000` — PM2 self-hosted setup
-   - `https://your-domain.com` — your deployed URL (if applicable)
+   - `http://localhost:3000` — local dev / PM2 self-hosted
+   - `https://your-app.vercel.app` — your Vercel deployment URL
+   - `https://your-custom-domain.com` — if you use a custom domain
 4. Click **Create**. The Client ID appears immediately in the confirmation dialog.
 
 #### Step 5 — Add the Client ID to the app
@@ -178,11 +178,15 @@ The Client ID looks like `123456789012-abcdefghijklmnop.apps.googleusercontent.c
 
 Settings → Cloud Sync → paste Client ID into the field → **Save**.
 
-**Option B — Environment variable (recommended for Vercel/Netlify hosting):**
+**Option B — Vercel environment variable:**
+
+In your Vercel project: **Settings → Environment Variables**, add:
 
 ```
 VITE_GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
 ```
+
+Then **trigger a new deployment** — Vite bakes env vars into the bundle at build time, so the value won't appear in the app until a new build runs.
 
 **Option C — `.env.local` for local dev:**
 
