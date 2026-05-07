@@ -9,9 +9,11 @@ interface FIREDashboardProps {
   goal: Goal;
   currentSnapshot: Snapshot | null;
   baseCurrency: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnapshot, baseCurrency }) => {
+export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnapshot, baseCurrency, onEdit, onDelete }) => {
   const metrics = calcFIREMetrics(goal, currentSnapshot, baseCurrency);
   const progressPct = Math.min(Math.max(metrics.progressPercentage, 0), 100);
 
@@ -21,9 +23,12 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
       {/* Header */}
       <div className="fire-dash-head">
         <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
             <Target size={16} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
             <span className="fire-dash-name">{goal.name}</span>
+            {metrics.isFI && (
+              <span className="fire-achieved-badge">Financially Independent 🎉</span>
+            )}
           </div>
           <span className="fire-dash-meta">
             Target&nbsp;
@@ -31,8 +36,19 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
             &nbsp;·&nbsp;{goal.multiplier}× annual expenses&nbsp;·&nbsp;{metrics.realReturnRate.toFixed(1)}% real return
           </span>
         </div>
-        {metrics.isFI && (
-          <span className="fire-achieved-badge">Financially Independent 🎉</span>
+        {(onEdit || onDelete) && (
+          <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, alignSelf: 'flex-start' }}>
+            {onEdit && (
+              <button className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={onEdit}>
+                Edit
+              </button>
+            )}
+            {onDelete && (
+              <button className="btn btn-outline danger" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={onDelete}>
+                Delete
+              </button>
+            )}
+          </div>
         )}
       </div>
 

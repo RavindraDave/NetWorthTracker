@@ -61,21 +61,14 @@ export const Goals: React.FC = () => {
       ) : (
         <>
           {fireGoals.map(fireGoal => (
-            <div key={fireGoal.id} style={{ position: 'relative' }}>
-              <FIREDashboard
-                goal={fireGoal}
-                currentSnapshot={currentSnapshot}
-                baseCurrency={baseCurrency}
-              />
-              <div style={{ display: 'flex', gap: '0.5rem', position: 'absolute', top: '1.25rem', right: '1.25rem' }}>
-                <button className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={() => handleEdit(fireGoal)}>
-                  Edit
-                </button>
-                <button className="btn btn-outline danger" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={() => handleDelete(fireGoal.id)}>
-                  Delete
-                </button>
-              </div>
-            </div>
+            <FIREDashboard
+              key={fireGoal.id}
+              goal={fireGoal}
+              currentSnapshot={currentSnapshot}
+              baseCurrency={baseCurrency}
+              onEdit={() => handleEdit(fireGoal)}
+              onDelete={() => handleDelete(fireGoal.id)}
+            />
           ))}
 
           <div className="goals-grid-container">
