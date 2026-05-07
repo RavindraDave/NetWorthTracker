@@ -19,6 +19,7 @@
     "@fontsource/dm-mono": "^5.2.7",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/outfit": "^5.2.8",
+    "@vercel/analytics": "^2.0.1",
     "date-fns": "^3.6.0",
     "dexie": "^4.0.4",
     "lucide-react": "^0.378.0",
