@@ -1,6 +1,7 @@
 import React from 'react';
 import { Goal, Snapshot } from '../../types';
 import { calcNetWorthForGoal } from '../../utils/calculations';
+import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { Edit2, Trash2 } from 'lucide-react';
 import './GoalCard.css';
@@ -30,12 +31,20 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseCurrency, onEdit, onDelete }) => {
-  const currentNW = currentSnapshot
-    ? calcNetWorthForGoal(currentSnapshot, baseCurrency, goal.excludedCategoryIds)
-    : 0;
+  // FIRE goals: use calcFIREMetrics (investable NW + item exclusions) — same as FIREDashboard
+  // Other goals: use overall NW minus per-goal category exclusions
+  const isFIRE = goal.type === 'fire';
+  const fireMetrics = isFIRE ? calcFIREMetrics(goal, currentSnapshot, baseCurrency) : null;
 
-  const rawProgress = goal.targetAmount > 0 ? (currentNW / goal.targetAmount) * 100 : 0;
-  const progressPct = Math.min(Math.max(rawProgress, 0), 100);
+  const currentNW = isFIRE
+    ? (fireMetrics!.currentNetWorth)
+    : (currentSnapshot ? calcNetWorthForGoal(currentSnapshot, baseCurrency, goal.excludedCategoryIds) : 0);
+
+  const target = isFIRE ? fireMetrics!.fiNumber : goal.targetAmount;
+  const progressPct = isFIRE
+    ? fireMetrics!.progressPercentage
+    : Math.min(Math.max(target > 0 ? (currentNW / target) * 100 : 0, 0), 100);
+
   const hasExclusions = (goal.excludedCategoryIds?.length ?? 0) > 0;
 
   return (
@@ -82,7 +91,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseC
           </span>
           {' / '}
           <span style={{ fontFamily: 'var(--font-numeric)' }}>
-            <CurrencyDisplay amount={goal.targetAmount} currency={baseCurrency} abbreviated />
+            <CurrencyDisplay amount={target} currency={baseCurrency} abbreviated />
           </span>
         </span>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', fontFamily: 'var(--font-numeric)' }}>
