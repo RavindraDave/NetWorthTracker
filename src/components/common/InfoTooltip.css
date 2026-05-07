@@ -58,3 +58,15 @@
   border: 5px solid transparent;
   border-top-color: var(--border-strong);
 }
+
+/* Flip variant — appears below trigger when near viewport top */
+.info-tooltip-popover[data-below] {
+  transform: translate(-50%, 8px);
+}
+
+.info-tooltip-popover[data-below]::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--border-strong);
+}

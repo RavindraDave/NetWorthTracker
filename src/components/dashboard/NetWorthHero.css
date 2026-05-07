@@ -41,6 +41,19 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hero-card .info-tooltip-trigger {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.hero-card .info-tooltip-trigger:hover,
+.hero-card .info-tooltip-trigger[aria-expanded="true"] {
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 1;
 }
 
 .hero-num {
