@@ -7,7 +7,11 @@
 //   2. Runtime ID stored via configureClientId() (entered by self-hosters in Settings)
 
 const SESSION_KEY = 'gis_token';
-const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+
+// drive.appdata  — hidden per-app Drive folder
+// profile        — user's name and profile photo
+// email          — user's email address
+const SCOPE = 'https://www.googleapis.com/auth/drive.appdata profile email';
 
 // Set by AppContext when preferences load a user-saved client ID.
 let _runtimeClientId = '';
@@ -28,6 +32,8 @@ interface TokenRecord {
   accessToken: string;
   expiresAt: number;
   email: string;
+  name: string;
+  picture: string;
 }
 
 // Declared by the GIS script; loaded lazily via injectGisScript().
@@ -94,23 +100,30 @@ function clearToken(): void {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
-async function fetchEmail(accessToken: string): Promise<string> {
+interface UserProfile {
+  email: string;
+  name: string;
+  picture: string;
+}
+
+async function fetchProfile(accessToken: string): Promise<UserProfile> {
   try {
-    // POST keeps the token out of URLs, browser history, and server access logs.
-    const res = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `access_token=${encodeURIComponent(accessToken)}`,
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) return '';
-    const json = await res.json() as { email?: string };
-    return json.email ?? '';
+    if (!res.ok) return { email: '', name: '', picture: '' };
+    const json = await res.json() as { email?: string; name?: string; picture?: string };
+    return {
+      email:   json.email   ?? '',
+      name:    json.name    ?? '',
+      picture: json.picture ?? '',
+    };
   } catch {
-    return '';
+    return { email: '', name: '', picture: '' };
   }
 }
 
-export async function signIn(): Promise<{ accessToken: string; expiresAt: number; email: string }> {
+export async function signIn(): Promise<{ accessToken: string; expiresAt: number; email: string; name: string; picture: string }> {
   const clientId = resolveClientId();
   if (!clientId) {
     throw new Error('Google Client ID not configured. Enter it in Settings → Cloud Sync, or ask the app host to configure VITE_GOOGLE_CLIENT_ID.');
@@ -119,7 +132,7 @@ export async function signIn(): Promise<{ accessToken: string; expiresAt: number
   // Return cached valid token
   const cached = loadToken();
   if (cached && cached.expiresAt > Date.now() + 60_000) {
-    return { accessToken: cached.accessToken, expiresAt: cached.expiresAt, email: cached.email };
+    return { accessToken: cached.accessToken, expiresAt: cached.expiresAt, email: cached.email, name: cached.name, picture: cached.picture };
   }
 
   await injectGisScript();
@@ -134,8 +147,8 @@ export async function signIn(): Promise<{ accessToken: string; expiresAt: number
           return;
         }
         const expiresAt = Date.now() + (resp.expires_in ?? 3600) * 1000;
-        const email = await fetchEmail(resp.access_token);
-        const record: TokenRecord = { accessToken: resp.access_token, expiresAt, email };
+        const profile = await fetchProfile(resp.access_token);
+        const record: TokenRecord = { accessToken: resp.access_token, expiresAt, ...profile };
         saveToken(record);
         resolve(record);
       },
@@ -161,6 +174,14 @@ export function isSignedIn(): boolean {
 
 export function getEmail(): string | null {
   return loadToken()?.email ?? null;
+}
+
+export function getName(): string | null {
+  return loadToken()?.name || null;
+}
+
+export function getPicture(): string | null {
+  return loadToken()?.picture || null;
 }
 
 /** Returns a valid access token, re-authing silently if needed. */

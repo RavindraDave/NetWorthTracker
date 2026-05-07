@@ -260,6 +260,8 @@ export const CloudSyncCard: React.FC = () => {
   const isEnabled = cloudSync.enabled && cloudSync.provider === 'google';
   const signedIn = googleDriveProvider.isSignedIn();
   const email = googleDriveProvider.getEmail();
+  const displayName = googleDriveProvider.getName();
+  const avatarUrl = googleDriveProvider.getPicture();
 
   // The Client ID is either baked into the build (Vercel env) or saved by the user in Settings.
   const savedClientId = cloudSync.clientId ?? '';
@@ -365,10 +367,39 @@ export const CloudSyncCard: React.FC = () => {
           {/* ── Connected state ── */}
           {isEnabled && (
             <>
-              {email && (
-                <p className="text-muted text-sm" style={{ marginBottom: '0.25rem' }}>
-                  Signed in as <strong>{email}</strong>
-                </p>
+              {(displayName || email) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', margin: '0.4rem 0' }}>
+                  {/* Avatar: photo or initials fallback */}
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName ?? email ?? 'Google account'}
+                      referrerPolicy="no-referrer"
+                      style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--accent-soft)', color: 'var(--accent-text)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: '0.85rem', fontFamily: 'var(--font-display)',
+                    }}>
+                      {(displayName || email || 'G').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    {displayName && (
+                      <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-1)', lineHeight: 1.3 }}>
+                        {displayName}
+                      </p>
+                    )}
+                    {email && (
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {email}
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
               {cloudSync.lastSyncISO && (
                 <p className="text-muted text-sm">Last synced: {formatDate(cloudSync.lastSyncISO)}</p>
