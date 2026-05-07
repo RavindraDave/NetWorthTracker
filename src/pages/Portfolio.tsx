@@ -43,29 +43,29 @@ export const Portfolio: React.FC = () => {
 
   if (!currentSnapshot || !breakdown) {
     return (
-      <div className="glass-card empty-state">
-        <LayoutGrid size={48} className="empty-state__icon" />
-        <h2 className="text-h2">No portfolio data yet</h2>
-        <p className="text-muted">Create your first snapshot to see your asset allocation and net worth breakdown.</p>
-        <button className="btn btn-primary" onClick={() => navigate('/')}>Go to Dashboard</button>
+      <div className="wp-page">
+        <div className="wp-card empty-state">
+          <LayoutGrid size={48} className="empty-state__icon" style={{ opacity: 0.5 }} />
+          <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>No portfolio data yet</h2>
+          <p style={{ color: 'var(--text-3)', maxWidth: 320 }}>Create your first snapshot to see your asset allocation and net worth breakdown.</p>
+          <button className="btn btn-primary" onClick={() => navigate('/')}>Go to Dashboard</button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="portfolio-page">
-      <div className="portfolio-header">
-        <div>
-          <h1 className="text-h1">Portfolio Allocation</h1>
-          <p className="text-muted">Detailed view of your current holdings.</p>
-        </div>
+    <div className="wp-page">
+      <div>
+        <div className="section-label" style={{ marginBottom: 2 }}>Portfolio Allocation</div>
+        <div className="section-sub">Detailed view of your current holdings.</div>
       </div>
 
-      <div className="portfolio-charts" style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
+      <div style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
         <DonutChart />
       </div>
 
-      <div className="portfolio-table-section glass-card">
+      <div className="portfolio-table-section wp-card">
         <div className="portfolio-table-header">
           <h2 className="text-h2">Holdings</h2>
           <Badge variant="positive">Assets</Badge>
@@ -93,6 +93,7 @@ export const Portfolio: React.FC = () => {
                       <div className="asset-name-col">
                         <span>{asset.name || 'Unnamed Asset'}</span>
                         {asset.excludeFromNetWorth && <Badge variant="negative" style={{ fontSize: '0.6rem' }}>Excluded</Badge>}
+                        {asset.excludeFromGoals && !asset.excludeFromNetWorth && <Badge variant="default" style={{ fontSize: '0.6rem' }}>Goal-excluded</Badge>}
                       </div>
                     </td>
                     <td><Badge variant="default">{asset.categoryName}</Badge></td>
@@ -113,7 +114,7 @@ export const Portfolio: React.FC = () => {
         </div>
       </div>
       {liabilities.length > 0 && (
-        <div className="portfolio-table-section glass-card" style={{ marginTop: '2rem' }}>
+        <div className="portfolio-table-section wp-card">
           <div className="portfolio-table-header">
             <h2 className="text-h2">Holdings</h2>
             <Badge variant="negative">Liabilities</Badge>
@@ -141,6 +142,7 @@ export const Portfolio: React.FC = () => {
                         <div className="asset-name-col">
                           <span>{liability.name || 'Unnamed Liability'}</span>
                           {liability.excludeFromNetWorth && <Badge variant="negative" style={{ fontSize: '0.6rem' }}>Excluded</Badge>}
+                          {liability.excludeFromGoals && !liability.excludeFromNetWorth && <Badge variant="default" style={{ fontSize: '0.6rem' }}>Goal-excluded</Badge>}
                         </div>
                       </td>
                       <td><Badge variant="default">{liability.categoryName}</Badge></td>

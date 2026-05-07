@@ -1,0 +1,61 @@
+.incl-chips {
+  display: inline-flex;
+  gap: 3px;
+  padding: 2px;
+  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.incl-chips--sm .incl-chip {
+  width: 26px;
+  height: 26px;
+}
+
+.incl-chips--lg .incl-chip {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.incl-chip {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-numeric);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.incl-chip:hover {
+  color: var(--text-1);
+  background: var(--border);
+}
+
+.incl-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.incl-active.incl-accent {
+  background: var(--accent);
+  color: white;
+}
+
+.incl-active.incl-amber {
+  background: var(--amber);
+  color: white;
+}
+
+.incl-active.incl-rose {
+  background: var(--rose);
+  color: white;
+}

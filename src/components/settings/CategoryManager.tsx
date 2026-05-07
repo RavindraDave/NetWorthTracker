@@ -1,109 +1,223 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CategoryTemplate } from '../../types';
-import { Plus, Trash2, Pencil, Check } from 'lucide-react';
+import { DEFAULT_CATEGORY_TEMPLATES } from '../../utils/defaultCategories';
+import { InfoTooltip } from '../common/InfoTooltip';
+import { HELP } from '../common/dashboardHelp';
+import { Plus, Trash2, Pencil, Check, EyeOff, Eye } from 'lucide-react';
 import './CategoryManager.css';
 
-const ICONS = ['wallet', 'trending-up', 'piggy-bank', 'home', 'coins', 'car', 'briefcase', 'globe', 'building', 'credit-card', 'file-text', 'alert-circle', 'layers', 'star', 'shield', 'gift'];
+const ICONS = [
+  'wallet', 'trending-up', 'piggy-bank', 'home', 'coins', 'car',
+  'briefcase', 'globe', 'building', 'credit-card', 'file-text',
+  'alert-circle', 'layers', 'star', 'shield', 'gift',
+];
 
 export const CategoryManager: React.FC = () => {
-  const { preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences, snapshots } = useApp();
 
-  const [name, setName]         = useState('');
-  const [type, setType]         = useState<'asset' | 'liability'>('asset');
-  const [icon, setIcon]         = useState('layers');
-  const [isLiquid, setIsLiquid] = useState(false);
+  const [name, setName]           = useState('');
+  const [type, setType]           = useState<'asset' | 'liability'>('asset');
+  const [icon, setIcon]           = useState('layers');
+  const [isLiquid, setIsLiquid]   = useState(false);
   const [isInvestable, setIsInvestable] = useState(false);
 
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editingName, setEditingName]   = useState('');
+  const [editingId, setEditingId]   = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
 
   if (!preferences) return null;
 
-  const customCategories: CategoryTemplate[] = preferences.customCategories ?? [];
+  const templates: CategoryTemplate[] =
+    preferences.categoryTemplates ?? DEFAULT_CATEGORY_TEMPLATES;
+
+  // Count items per template across all snapshots for usage display / delete guard
+  const usageMap = useMemo(() => {
+    const map: Record<string, { snapshotCount: number; itemCount: number }> = {};
+    for (const tmpl of templates) {
+      let snapshotCount = 0;
+      let itemCount = 0;
+      for (const snap of snapshots) {
+        const cat = snap.categories.find(
+          c => c.id === tmpl.id || (c.name === tmpl.name && c.type === tmpl.type)
+        );
+        if (cat && cat.items.length > 0) {
+          snapshotCount++;
+          itemCount += cat.items.length;
+        }
+      }
+      map[tmpl.id] = { snapshotCount, itemCount };
+    }
+    return map;
+  }, [templates, snapshots]);
+
+  const updateTemplate = (id: string, patch: Partial<CategoryTemplate>) => {
+    const updated = templates.map(t => t.id === id ? { ...t, ...patch } : t);
+    updatePreferences({ categoryTemplates: updated });
+  };
+
+  const deleteTemplate = (id: string) => {
+    updatePreferences({ categoryTemplates: templates.filter(t => t.id !== id) });
+  };
+
+  const startEdit = (tmpl: CategoryTemplate) => {
+    setEditingId(tmpl.id);
+    setEditingName(tmpl.name);
+    setTimeout(() => editInputRef.current?.focus(), 0);
+  };
+
+  const commitEdit = () => {
+    if (!editingId) return;
+    const trimmed = editingName.trim();
+    if (trimmed) updateTemplate(editingId, { name: trimmed });
+    setEditingId(null);
+  };
 
   const handleAdd = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const newCat: CategoryTemplate = { name: trimmed, type, icon, isLiquid, isInvestable };
-    updatePreferences({ customCategories: [...customCategories, newCat] });
+    const newTmpl: CategoryTemplate = {
+      id: crypto.randomUUID(),
+      name: trimmed,
+      type,
+      icon,
+      isLiquid,
+      isInvestable,
+      isBuiltIn: false,
+    };
+    updatePreferences({ categoryTemplates: [...templates, newTmpl] });
     setName('');
     setIsLiquid(false);
     setIsInvestable(false);
   };
 
-  const handleDelete = (index: number) => {
-    updatePreferences({ customCategories: customCategories.filter((_, i) => i !== index) });
-  };
+  const assets      = templates.filter(t => t.type === 'asset');
+  const liabilities = templates.filter(t => t.type === 'liability');
 
-  const startEdit = (index: number) => {
-    setEditingIndex(index);
-    setEditingName(customCategories[index].name);
-    setTimeout(() => editInputRef.current?.focus(), 0);
-  };
+  const renderRow = (tmpl: CategoryTemplate) => {
+    const usage = usageMap[tmpl.id];
+    const hasItems = (usage?.itemCount ?? 0) > 0;
+    const isEditing = editingId === tmpl.id;
 
-  const commitEdit = () => {
-    if (editingIndex === null) return;
-    const trimmed = editingName.trim();
-    if (trimmed) {
-      const updated = customCategories.map((c, i) =>
-        i === editingIndex ? { ...c, name: trimmed } : c
-      );
-      updatePreferences({ customCategories: updated });
-    }
-    setEditingIndex(null);
+    return (
+      <div key={tmpl.id} className={`cat-manager__item ${tmpl.disabled ? 'cat-manager__item--disabled' : ''}`}>
+        <span className="cat-manager__badge" data-type={tmpl.type}>{tmpl.type}</span>
+
+        {isEditing ? (
+          <input
+            ref={editInputRef}
+            className="cat-manager__rename-input"
+            value={editingName}
+            onChange={e => setEditingName(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={e => {
+              if (e.key === 'Enter')  { e.preventDefault(); commitEdit(); }
+              if (e.key === 'Escape') setEditingId(null);
+            }}
+          />
+        ) : (
+          <span className="cat-manager__name">{tmpl.name}</span>
+        )}
+
+        <span className="cat-manager__flags">
+          <button
+            className={`cat-flag-btn ${tmpl.isLiquid ? 'active' : ''}`}
+            title={tmpl.isLiquid ? 'Liquid (click to unset)' : 'Not liquid (click to set)'}
+            onClick={() => updateTemplate(tmpl.id, { isLiquid: !tmpl.isLiquid })}
+          >Liquid</button>
+          <button
+            className={`cat-flag-btn ${tmpl.isInvestable ? 'active investable' : ''}`}
+            title={tmpl.isInvestable ? 'Investable (click to unset)' : 'Not investable (click to set)'}
+            onClick={() => updateTemplate(tmpl.id, { isInvestable: !tmpl.isInvestable })}
+          >Investable</button>
+        </span>
+
+        {usage && (usage.itemCount > 0) && (
+          <span className="cat-manager__usage" title={`${usage.itemCount} items across ${usage.snapshotCount} snapshot(s)`}>
+            {usage.itemCount} items
+          </span>
+        )}
+
+        {/* Rename */}
+        {isEditing ? (
+          <button className="btn-icon" aria-label="Confirm rename" onClick={commitEdit}><Check size={14} /></button>
+        ) : (
+          <button className="btn-icon" aria-label="Rename category" onClick={() => startEdit(tmpl)}><Pencil size={14} /></button>
+        )}
+
+        {/* Show / Hide from new snapshots */}
+        <button
+          className="btn-icon"
+          aria-label={tmpl.disabled ? 'Show in new snapshots' : 'Hide from new snapshots'}
+          title={tmpl.disabled
+            ? 'Hidden — not added to new snapshots. Click to show.'
+            : hasItems
+              ? `Hide from new snapshots (has ${usage?.itemCount} saved items — hiding keeps history intact)`
+              : 'Hide from new snapshots'}
+          onClick={() => updateTemplate(tmpl.id, { disabled: !tmpl.disabled })}
+        >
+          {tmpl.disabled ? <Eye size={14} /> : <EyeOff size={14} />}
+        </button>
+
+        {/* Delete — only when custom and no items */}
+        {!tmpl.isBuiltIn && (
+          <button
+            className="btn-icon danger"
+            aria-label="Remove category"
+            disabled={hasItems}
+            title={hasItems
+              ? `Cannot delete — ${usage?.itemCount} items saved across ${usage?.snapshotCount} snapshot(s). Disable instead.`
+              : 'Remove category'}
+            onClick={() => !hasItems && deleteTemplate(tmpl.id)}
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
     <div className="cat-manager">
-      <h2 className="text-h2" style={{ marginBottom: '0.5rem' }}>Custom Categories</h2>
-      <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1.25rem' }}>
-        Custom categories appear in every new snapshot you create, alongside the defaults.
-      </p>
+      <div className="cat-manager__header">
+        <h2 className="text-h2" style={{ marginBottom: 0 }}>Categories</h2>
+        <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+          Configure which categories appear in new snapshots and how they count in calculations.
+        </p>
+      </div>
 
-      {customCategories.length > 0 && (
-        <div className="cat-manager__list">
-          {customCategories.map((cat, i) => (
-            <div key={i} className="cat-manager__item">
-              <span className="cat-manager__badge" data-type={cat.type}>{cat.type}</span>
-              {editingIndex === i ? (
-                <input
-                  ref={editInputRef}
-                  className="cat-manager__rename-input"
-                  value={editingName}
-                  onChange={e => setEditingName(e.target.value)}
-                  onBlur={commitEdit}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
-                    if (e.key === 'Escape') setEditingIndex(null);
-                  }}
-                />
-              ) : (
-                <span className="cat-manager__name">{cat.name}</span>
-              )}
-              <span className="cat-manager__flags">
-                {cat.isLiquid && <span className="cat-flag">Liquid</span>}
-                {cat.isInvestable && <span className="cat-flag">Investable</span>}
-              </span>
-              {editingIndex === i ? (
-                <button className="btn-icon" aria-label="Confirm rename" onClick={commitEdit}>
-                  <Check size={14} />
-                </button>
-              ) : (
-                <button className="btn-icon" aria-label="Rename category" onClick={() => startEdit(i)}>
-                  <Pencil size={14} />
-                </button>
-              )}
-              <button className="btn-icon danger" aria-label="Remove category" onClick={() => handleDelete(i)}>
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
+      <div className="cat-manager__flag-legend">
+        <span className="cat-flag-legend-item">
+          <span className="cat-flag-btn active" style={{ cursor: 'default' }}>Liquid</span>
+          <InfoTooltip body={HELP.liquidFlag} />
+        </span>
+        <span className="cat-flag-legend-item">
+          <span className="cat-flag-btn active investable" style={{ cursor: 'default' }}>Investable</span>
+          <InfoTooltip body={HELP.investableFlag} />
+        </span>
+        <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+          Click a flag badge on any row to toggle it.
+        </span>
+      </div>
+
+      {assets.length > 0 && (
+        <div className="cat-manager__group">
+          <h3 className="cat-manager__group-label">Assets</h3>
+          <div className="cat-manager__list">{assets.map(renderRow)}</div>
+        </div>
+      )}
+
+      {liabilities.length > 0 && (
+        <div className="cat-manager__group">
+          <h3 className="cat-manager__group-label">Liabilities</h3>
+          <div className="cat-manager__list">{liabilities.map(renderRow)}</div>
         </div>
       )}
 
       <div className="cat-manager__form">
+        <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+          Add a custom category:
+        </p>
         <div className="cat-form-row">
           <input
             type="text"

@@ -2,7 +2,6 @@ import React from 'react';
 import { Goal, Snapshot } from '../../types';
 import { calcNetWorthForGoal } from '../../utils/calculations';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
-import { ProgressRing } from './ProgressRing';
 import { Edit2, Trash2 } from 'lucide-react';
 import './GoalCard.css';
 
@@ -14,31 +13,57 @@ interface GoalCardProps {
   onDelete?: (id: string) => void;
 }
 
+const TYPE_CLASS: Record<string, string> = {
+  fire: 'goal-type-fire',
+  net_worth_target: 'goal-type-savings',
+  savings: 'goal-type-savings',
+  debt_freedom: 'goal-type-debt',
+  custom: 'goal-type-savings',
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  fire: 'FIRE',
+  net_worth_target: 'Net Worth',
+  savings: 'Savings',
+  debt_freedom: 'Debt',
+  custom: 'Custom',
+};
+
 export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseCurrency, onEdit, onDelete }) => {
   const currentNW = currentSnapshot
     ? calcNetWorthForGoal(currentSnapshot, baseCurrency, goal.excludedCategoryIds)
     : 0;
-  const hasExclusions = (goal.excludedCategoryIds?.length ?? 0) > 0;
 
   const rawProgress = goal.targetAmount > 0 ? (currentNW / goal.targetAmount) * 100 : 0;
-  const progressPercentage = Math.min(Math.max(rawProgress, 0), 100);
+  const progressPct = Math.min(Math.max(rawProgress, 0), 100);
+  const hasExclusions = (goal.excludedCategoryIds?.length ?? 0) > 0;
 
   return (
-    <div className="goal-card glass-card">
-      <div className="goal-card__header">
-        <h3 className="goal-card__title">{goal.name}</h3>
-        <div className="goal-card__header-right">
-          <span className="goal-card__type badge-default">{goal.type.replace(/_/g, ' ')}</span>
+    <div className="goal-card">
+      <div className="goal-card-head">
+        <div style={{ minWidth: 0 }}>
+          <div className="goal-name">{goal.name}</div>
+          <div className="goal-eta">
+            {goal.targetDate
+              ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+              : 'No target date'}
+            {hasExclusions && ` · ${goal.excludedCategoryIds!.length} excl.`}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <span className={`goal-type ${TYPE_CLASS[goal.type] ?? 'goal-type-savings'}`}>
+            {TYPE_LABEL[goal.type] ?? goal.type}
+          </span>
           {(onEdit || onDelete) && (
-            <div className="goal-card__actions">
+            <div style={{ display: 'flex', gap: 4 }}>
               {onEdit && (
-                <button className="btn-icon" aria-label="Edit goal" onClick={() => onEdit(goal)}>
-                  <Edit2 size={14} />
+                <button className="btn-icon" aria-label="Edit goal" onClick={() => onEdit(goal)} style={{ width: 26, height: 26 }}>
+                  <Edit2 size={12} />
                 </button>
               )}
               {onDelete && (
-                <button className="btn-icon danger" aria-label="Delete goal" onClick={() => onDelete(goal.id)}>
-                  <Trash2 size={14} />
+                <button className="btn-icon danger" aria-label="Delete goal" onClick={() => onDelete(goal.id)} style={{ width: 26, height: 26 }}>
+                  <Trash2 size={12} />
                 </button>
               )}
             </div>
@@ -46,41 +71,24 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseC
         </div>
       </div>
 
-      <div className="goal-card__body">
-        <div className="goal-card__progress-col">
-          <ProgressRing radius={45} stroke={6} progress={progressPercentage} color="#a855f7">
-            <span style={{ fontSize: '1rem', fontWeight: 700 }}>{progressPercentage.toFixed(0)}%</span>
-          </ProgressRing>
-        </div>
-        <div className="goal-card__info-col">
-          <p className="goal-card__label">Current</p>
-          <p className="goal-card__value"><CurrencyDisplay amount={currentNW} currency={baseCurrency}  /></p>
-
-          <div className="goal-card__divider" />
-
-          <p className="goal-card__label">Target</p>
-          <p className="goal-card__value"><CurrencyDisplay amount={goal.targetAmount} currency={baseCurrency}  /></p>
-        </div>
+      <div className="goal-progress">
+        <div className="goal-progress-fill" style={{ width: `${progressPct}%` }} />
       </div>
 
-      {goal.milestones && goal.milestones.length > 0 && (
-        <div className="goal-card__milestones">
-          <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-            {goal.milestones.length} milestone{goal.milestones.length !== 1 ? 's' : ''}
+      <div className="goal-card-foot">
+        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+          <span style={{ fontFamily: 'var(--font-numeric)', color: 'var(--text-1)', fontWeight: 600 }}>
+            <CurrencyDisplay amount={currentNW} currency={baseCurrency} abbreviated />
           </span>
-        </div>
-      )}
-
-      {(goal.targetDate || hasExclusions) && (
-        <div className="goal-card__footer">
-          {goal.targetDate && <span>Target: {new Date(goal.targetDate).toLocaleDateString()}</span>}
-          {hasExclusions && (
-            <span title={`Excluding ${goal.excludedCategoryIds!.length} categor${goal.excludedCategoryIds!.length === 1 ? 'y' : 'ies'} from net worth`}>
-              {goal.excludedCategoryIds!.length} excl.
-            </span>
-          )}
-        </div>
-      )}
+          {' / '}
+          <span style={{ fontFamily: 'var(--font-numeric)' }}>
+            <CurrencyDisplay amount={goal.targetAmount} currency={baseCurrency} abbreviated />
+          </span>
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', fontFamily: 'var(--font-numeric)' }}>
+          {progressPct.toFixed(0)}%
+        </span>
+      </div>
     </div>
   );
 };

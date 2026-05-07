@@ -5,35 +5,72 @@ import { useToast } from '../components/common/Toast';
 import { SnapshotCompare } from '../components/history/SnapshotCompare';
 import { calcNetWorth } from '../utils/calculations';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
-import { Calendar, Trash2, Edit2, TrendingUp, TrendingDown, GitCompare } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid, ReferenceLine,
+} from 'recharts';
+import { Calendar, Trash2, Edit2, ChevronDown, GitCompare, Search } from 'lucide-react';
 import './History.css';
 
 export const History: React.FC = () => {
-  const { snapshots, deleteSnapshot, preferences } = useApp();
+  const { snapshots, deleteSnapshot, preferences, goals } = useApp();
   const { confirm } = useToast();
   const navigate = useNavigate();
   const baseCurrency = preferences?.baseCurrency || 'INR';
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [compareA, setCompareA] = useState('');
   const [compareB, setCompareB] = useState('');
   const [showCompare, setShowCompare] = useState(false);
 
-  const sortedSnapshots = useMemo(
-    () => [...snapshots].sort((a, b) => b.month.localeCompare(a.month)),
-    [snapshots]
-  );
   const chronological = useMemo(
     () => [...snapshots].sort((a, b) => a.month.localeCompare(b.month)),
+    [snapshots]
+  );
+  const sortedSnapshots = useMemo(
+    () => [...snapshots].sort((a, b) => b.month.localeCompare(a.month)),
     [snapshots]
   );
 
   const filtered = useMemo(() => sortedSnapshots.filter(s => {
     if (filterFrom && s.month < filterFrom) return false;
     if (filterTo   && s.month > filterTo)   return false;
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      const monthLabel = new Date(s.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toLowerCase();
+      if (!monthLabel.includes(q) && !(s.notes ?? '').toLowerCase().includes(q) && !s.month.includes(q)) return false;
+    }
     return true;
-  }), [sortedSnapshots, filterFrom, filterTo]);
+  }), [sortedSnapshots, filterFrom, filterTo, searchText]);
+
+  // Chart data (chronological)
+  const chartData = useMemo(() => chronological.map(s => ({
+    month: s.month,
+    label: new Date(s.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+    nw: calcNetWorth(s, baseCurrency).netWorth,
+  })), [chronological, baseCurrency]);
+
+  // FIRE goal target line
+  const fireTarget = useMemo(() => {
+    const fireGoal = goals.find(g => g.type === 'fire' && g.targetAmount > 0);
+    return fireGoal?.targetAmount ?? null;
+  }, [goals]);
+
+  // MoM change map
+  const changeMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (let i = 0; i < chronological.length; i++) {
+      if (i === 0) continue;
+      const curr = calcNetWorth(chronological[i], baseCurrency).netWorth;
+      const prev = calcNetWorth(chronological[i - 1], baseCurrency).netWorth;
+      map.set(chronological[i].id, curr - prev);
+    }
+    return map;
+  }, [chronological, baseCurrency]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -45,150 +82,241 @@ export const History: React.FC = () => {
     }
   };
 
-  const snapForCompare = (id: string) => snapshots.find(s => s.id === id);
   const canCompare = compareA && compareB && compareA !== compareB;
+  const isFiltered = !!(filterFrom || filterTo || searchText);
 
   if (snapshots.length === 0) {
     return (
-      <div className="glass-card empty-state">
-        <Calendar size={48} className="empty-state__icon" />
-        <h2 className="text-h2">No history yet</h2>
-        <p className="text-muted">Create your first snapshot to start tracking your journey over time.</p>
+      <div className="wp-page">
+        <div className="wp-card empty-state">
+          <Calendar size={48} className="empty-state__icon" style={{ opacity: 0.5 }} />
+          <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>No history yet</h2>
+          <p style={{ color: 'var(--text-3)', maxWidth: 320 }}>Create your first snapshot to start tracking your journey over time.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="history-page">
-      <div className="history-header">
-        <div>
-          <h1 className="text-h1">Snapshot History</h1>
-          <p className="text-muted">Review and manage your past net worth records.</p>
+    <div className="wp-page">
+      {/* Timeline Chart */}
+      <div className="wp-card hist-timeline">
+        <div className="chart-head" style={{ marginBottom: 16 }}>
+          <div>
+            <div className="section-label">Net Worth Timeline</div>
+            <div className="section-sub">{snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''} · {chronological[0]?.month} to {chronological[chronological.length - 1]?.month}</div>
+          </div>
+          <div className="hist-compare-group">
+            <select
+              className="hist-select"
+              value={compareA}
+              onChange={e => setCompareA(e.target.value)}
+              aria-label="Compare snapshot A"
+            >
+              <option value="">Compare A…</option>
+              {sortedSnapshots.map(s => <option key={s.id} value={s.id}>{s.month}</option>)}
+            </select>
+            <select
+              className="hist-select"
+              value={compareB}
+              onChange={e => setCompareB(e.target.value)}
+              aria-label="Compare snapshot B"
+            >
+              <option value="">Compare B…</option>
+              {sortedSnapshots.map(s => <option key={s.id} value={s.id}>{s.month}</option>)}
+            </select>
+            <button className="btn btn-outline" disabled={!canCompare} onClick={() => setShowCompare(true)}>
+              <GitCompare size={14} /> Compare
+            </button>
+          </div>
         </div>
+
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="hist-nw-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="10%" stopColor="#0ea58a" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#0ea58a" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} />
+            <YAxis hide />
+            <Tooltip
+              contentStyle={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+              formatter={(val: number) => [new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val), 'Net Worth']}
+            />
+            {fireTarget !== null && (
+              <ReferenceLine
+                y={fireTarget}
+                stroke="var(--amber)"
+                strokeDasharray="5 3"
+                label={{ value: 'FIRE', position: 'right', fill: 'var(--amber)', fontSize: 10 }}
+              />
+            )}
+            <Area
+              type="monotone"
+              dataKey="nw"
+              stroke="#0ea58a"
+              strokeWidth={2}
+              fill="url(#hist-nw-grad)"
+              dot={false}
+              activeDot={{ r: 4, fill: '#0ea58a', stroke: 'var(--bg-card-solid)', strokeWidth: 2 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
-      {/* Filters */}
-      <div className="history-filters glass-card">
-        <div className="history-filter-group">
-          <label className="history-filter-label">From</label>
-          <input type="month" className="history-filter-input" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
+      {/* Filter Bar */}
+      <div className="hist-filter-bar">
+        <div className="hist-search-wrap">
+          <Search size={13} />
+          <input
+            type="search"
+            className="hist-search"
+            placeholder="Search month or notes…"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            aria-label="Search snapshots"
+          />
         </div>
-        <div className="history-filter-group">
-          <label className="history-filter-label">To</label>
-          <input type="month" className="history-filter-input" value={filterTo}   onChange={e => setFilterTo(e.target.value)} />
+        <div className="hist-filter-group">
+          <label className="hist-filter-label">From</label>
+          <input type="month" className="hist-filter-input" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
         </div>
-        {(filterFrom || filterTo) && (
+        <div className="hist-filter-group">
+          <label className="hist-filter-label">To</label>
+          <input type="month" className="hist-filter-input" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
+        </div>
+        {isFiltered && (
           <>
-            <div className="history-filter-badge">
-              Showing {filtered.length} of {snapshots.length}
-              {filterFrom && ` · from ${filterFrom}`}
-              {filterTo && ` to ${filterTo}`}
-            </div>
-            <button className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={() => { setFilterFrom(''); setFilterTo(''); }}>
+            <span className="hist-count-badge">
+              {filtered.length} / {snapshots.length}
+            </span>
+            <button
+              className="btn btn-outline"
+              style={{ fontSize: '0.78rem', padding: '0.25rem 0.6rem' }}
+              onClick={() => { setFilterFrom(''); setFilterTo(''); setSearchText(''); }}
+            >
               Clear
             </button>
           </>
         )}
-
-        <div style={{ flex: 1 }} />
-
-        {/* Compare */}
-        <div className="history-compare-group">
-          <select className="history-filter-input" value={compareA} onChange={e => setCompareA(e.target.value)}>
-            <option value="">Compare A…</option>
-            {sortedSnapshots.map(s => <option key={s.id} value={s.id}>{s.month}</option>)}
-          </select>
-          <select className="history-filter-input" value={compareB} onChange={e => setCompareB(e.target.value)}>
-            <option value="">Compare B…</option>
-            {sortedSnapshots.map(s => <option key={s.id} value={s.id}>{s.month}</option>)}
-          </select>
-          <button className="btn btn-outline" disabled={!canCompare} onClick={() => setShowCompare(true)}>
-            <GitCompare size={14} /> Compare
-          </button>
-        </div>
       </div>
 
-      <div className="history-grid">
-        {filtered.map((snap) => {
+      {/* Snapshot List */}
+      <div className="hist-list">
+        {filtered.map(snap => {
           const breakdown = calcNetWorth(snap, baseCurrency, 'overall');
-          const chronoIdx = chronological.findIndex(s => s.id === snap.id);
-          const prevSnap = chronoIdx > 0 ? chronological[chronoIdx - 1] : undefined;
-          let change = 0;
-
-          if (prevSnap) {
-            const prevBreakdown = calcNetWorth(prevSnap, baseCurrency, 'overall');
-            change = breakdown.netWorth - prevBreakdown.netWorth;
-          }
-
-          const isPositive = change >= 0;
+          const change = changeMap.get(snap.id) ?? null;
+          const isPos = (change ?? 0) >= 0;
+          const isExpanded = expandedId === snap.id;
+          const monthLabel = new Date(snap.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
           return (
-            <div
-              key={snap.id}
-              className="history-card glass-card"
-              onClick={() => navigate(`/editor/${snap.id}`)}
-            >
-              <div className="history-card__header">
-                <div className="history-card__month">
-                  <Calendar size={18} className="text-muted" />
-                  <span className="text-h3">
-                    {new Date(snap.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                  </span>
+            <div key={snap.id} className={`hist-card${isExpanded ? ' hist-card--open' : ''}`}>
+              <div
+                className="hist-card-row"
+                onClick={() => setExpandedId(isExpanded ? null : snap.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setExpandedId(isExpanded ? null : snap.id); }}
+                aria-expanded={isExpanded}
+              >
+                <div className="hist-card-month">
+                  <span className="hist-month-label">{monthLabel}</span>
+                  {snap.notes && (
+                    <span className="hist-note-preview">{snap.notes.slice(0, 60)}{snap.notes.length > 60 ? '…' : ''}</span>
+                  )}
                 </div>
-                <div className="history-card__actions">
-                  <button className="btn-icon" aria-label="Edit snapshot" onClick={(e) => { e.stopPropagation(); navigate(`/editor/${snap.id}`); }}>
-                    <Edit2 size={16} />
+
+                <div className="hist-card-nw">
+                  <CurrencyDisplay amount={breakdown.netWorth} currency={baseCurrency} className="hist-nw-val" />
+                  {change !== null && (
+                    <span className={`hist-change-pill${isPos ? ' pos' : ' neg'}`}>
+                      {isPos ? '+' : '−'}<CurrencyDisplay amount={Math.abs(change)} currency={baseCurrency} abbreviated />
+                    </span>
+                  )}
+                </div>
+
+                <div className="hist-card-actions">
+                  <button
+                    className="btn-icon"
+                    aria-label={`Edit ${monthLabel}`}
+                    onClick={e => { e.stopPropagation(); navigate(`/editor/${snap.id}`); }}
+                  >
+                    <Edit2 size={14} />
                   </button>
                   <button
                     className="btn-icon danger"
-                    aria-label="Delete snapshot"
+                    aria-label={`Delete ${monthLabel}`}
                     disabled={deletingId === snap.id}
-                    onClick={(e) => handleDelete(e, snap.id)}
+                    onClick={e => handleDelete(e, snap.id)}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={14} />
                   </button>
+                  <ChevronDown
+                    size={14}
+                    className="hist-chevron"
+                    style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                  />
                 </div>
               </div>
 
-              <div className="history-card__body">
-                <div className="history-card__nw">
-                  <span className="text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>Net Worth</span>
-                  <CurrencyDisplay amount={breakdown.netWorth} currency={baseCurrency} className="text-h2" />
-                </div>
-
-                {prevSnap && (
-                  <div className={`history-card__change ${isPositive ? 'positive' : 'negative'}`}>
-                    {isPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                    <CurrencyDisplay amount={Math.abs(change)} currency={baseCurrency} abbreviated />
+              {isExpanded && (
+                <div className="hist-breakdown">
+                  <div className="hist-breakdown-grid">
+                    {snap.categories
+                      .filter(c => c.items.length > 0)
+                      .map(cat => {
+                        const catTotal = calcNetWorth({ ...snap, categories: [cat] }, baseCurrency);
+                        const val = cat.type === 'asset' ? catTotal.totalAssets : catTotal.totalLiabilities;
+                        const maxVal = Math.max(...snap.categories.map(c => {
+                          const ct = calcNetWorth({ ...snap, categories: [c] }, baseCurrency);
+                          return c.type === 'asset' ? ct.totalAssets : ct.totalLiabilities;
+                        }));
+                        const pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                        return (
+                          <div key={cat.id} className="hist-cat-row">
+                            <span className="hist-cat-name">{cat.name}</span>
+                            <div className="hist-cat-bar-wrap">
+                              <div
+                                className={`hist-cat-bar${cat.type === 'liability' ? ' neg' : ''}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className={`hist-cat-val${cat.type === 'liability' ? ' neg' : ''}`}>
+                              <CurrencyDisplay amount={val} currency={baseCurrency} abbreviated />
+                            </span>
+                          </div>
+                        );
+                      })}
                   </div>
-                )}
-              </div>
-
-              <div className="history-card__footer">
-                <div className="history-card__stat">
-                  <span className="text-muted">Assets:</span>
-                  <span className="text-positive"><CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} abbreviated /></span>
+                  <div className="hist-breakdown-foot">
+                    <span style={{ color: 'var(--text-3)', fontSize: 11 }}>
+                      Assets <CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} abbreviated /> · Liabilities <CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} abbreviated />
+                    </span>
+                    <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => navigate(`/editor/${snap.id}`)}>
+                      <Edit2 size={12} /> Edit
+                    </button>
+                  </div>
                 </div>
-                <div className="history-card__stat">
-                  <span className="text-muted">Liabilities:</span>
-                  <span className="text-negative"><CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} abbreviated /></span>
-                </div>
-              </div>
+              )}
             </div>
           );
         })}
+
+        {filtered.length === 0 && (
+          <div className="wp-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-3)' }}>
+            No snapshots match your filter.
+          </div>
+        )}
       </div>
 
-      {filtered.length === 0 && (
-        <p className="text-muted text-center" style={{ padding: '2rem' }}>
-          No snapshots in the selected date range.
-        </p>
-      )}
-
-      {showCompare && compareA && compareB && snapForCompare(compareA) && snapForCompare(compareB) && (
+      {showCompare && compareA && compareB && (
         <SnapshotCompare
-          snapA={snapForCompare(compareA)!}
-          snapB={snapForCompare(compareB)!}
+          snapA={snapshots.find(s => s.id === compareA)!}
+          snapB={snapshots.find(s => s.id === compareB)!}
           baseCurrency={baseCurrency}
           onClose={() => setShowCompare(false)}
         />

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db, initializePreferences, UserPreferencesRecord } from '../db/database';
-import { Snapshot, Goal, UserPreferences, AutoBackupRecord } from '../types';
+import { Snapshot, Goal, UserPreferences, AutoBackupRecord, CategoryTemplate } from '../types';
 import { googleDriveProvider } from '../utils/cloudSync/google/drive';
 import { configureClientId } from '../utils/cloudSync/google/gis';
 
@@ -11,9 +11,22 @@ function normalizeRates(snap: Snapshot): Snapshot {
   }
   return { ...snap, exchangeRates: rates };
 }
+
+function rehydrateFlags(snaps: Snapshot[], templates: CategoryTemplate[]): Snapshot[] {
+  if (!templates.length) return snaps;
+  const byId = new Map(templates.map(t => [t.id, t]));
+  const byNameType = new Map(templates.map(t => [`${t.name}::${t.type}`, t]));
+  return snaps.map(s => ({
+    ...s,
+    categories: s.categories.map(c => {
+      const t = byId.get(c.id) ?? byNameType.get(`${c.name}::${c.type}`);
+      return t ? { ...c, isLiquid: t.isLiquid, isInvestable: t.isInvestable } : c;
+    }),
+  }));
+}
 import { BackupData, exportToJSON } from '../utils/importExport';
 import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
-import { generateDefaultCategories } from '../utils/defaultCategories';
+import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { ViewMode } from '../utils/calculations';
 
 interface AppContextType {
@@ -75,9 +88,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         db.goals.toArray(),
         db.preferences.get(1),
       ]);
-      setSnapshots(snaps.map(normalizeRates));
       setGoals(gs);
-      setPreferences(prefs ?? null);
+
+      // One-time migration: seed categoryTemplates from defaults + customCategories
+      let finalPrefs = prefs ?? null;
+      if (finalPrefs && !finalPrefs.categoryTemplates) {
+        const migrated = [
+          ...DEFAULT_CATEGORY_TEMPLATES,
+          ...(finalPrefs.customCategories ?? []).map(t => ({
+            ...t,
+            id: (t as { id?: string }).id ?? crypto.randomUUID(),
+            isBuiltIn: false,
+          })),
+        ];
+        finalPrefs = { ...finalPrefs, categoryTemplates: migrated };
+        await db.preferences.put({ ...finalPrefs, id: 1 } as UserPreferencesRecord);
+      }
+      setPreferences(finalPrefs);
+      // Apply flag rehydration so all pages see current isLiquid/isInvestable from templates
+      const rehydrated = finalPrefs?.categoryTemplates
+        ? rehydrateFlags(snaps.map(normalizeRates), finalPrefs.categoryTemplates)
+        : snaps.map(normalizeRates);
+      setSnapshots(rehydrated);
     } finally {
       setIsLoading(false);
     }
@@ -160,6 +192,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updated: UserPreferencesRecord = { ...base, ...prefs, id: 1 };
     await db.preferences.put(updated);
     setPreferences(updated);
+    if (prefs.categoryTemplates) {
+      setSnapshots(prev => rehydrateFlags(prev, prefs.categoryTemplates!));
+    }
     recordAutoBackup('preferences', snapshotsRef.current, goalsRef.current, updated).catch(() => {});
   };
 
@@ -224,24 +259,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cloudSyncTimerRef.current = setTimeout(() => { syncToCloud().catch(() => {}); }, 5000);
   };
 
-  // Returns any custom category templates that are absent from the given category list.
-  // Used to keep cloneLatestSnapshot and createNewSnapshot in sync with preferences.
-  const missingCustomCats = (existing: Snapshot['categories']) =>
-    (preferences?.customCategories ?? [])
-      .filter(tmpl => !existing.some(c => c.name === tmpl.name && c.type === tmpl.type))
-      .map(tmpl => ({ ...tmpl, id: crypto.randomUUID(), items: [] as Snapshot['categories'][number]['items'] }));
+  const getEnabledTemplates = () =>
+    (preferences?.categoryTemplates ?? DEFAULT_CATEGORY_TEMPLATES).filter(t => !t.disabled);
 
   const createNewSnapshot = (): Snapshot => {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const defaultCats = generateDefaultCategories();
+    const categories = getEnabledTemplates().map(buildCategoryFromTemplate);
     return {
       id: crypto.randomUUID(),
       month,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
       exchangeRates: { USD: 83, SGD: 62, EUR: 90, GBP: 105, AED: 22.6, AUD: 54 },
-      categories: [...defaultCats, ...missingCustomCats(defaultCats)],
+      categories,
     };
   };
 
@@ -254,16 +285,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const newMonth = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-    const missing = missingCustomCats(currentSnapshot.categories);
+
+    const enabledTemplates = getEnabledTemplates();
+    const existing = currentSnapshot.categories;
+    const missing = enabledTemplates
+      .filter(t => !existing.some(c => c.id === t.id || (c.name === t.name && c.type === t.type)))
+      .map(buildCategoryFromTemplate);
+
     return {
       ...currentSnapshot,
       id: crypto.randomUUID(),
       month: newMonth,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
-      categories: missing.length > 0
-        ? [...currentSnapshot.categories, ...missing]
-        : currentSnapshot.categories,
+      categories: missing.length > 0 ? [...existing, ...missing] : existing,
     };
   };
 

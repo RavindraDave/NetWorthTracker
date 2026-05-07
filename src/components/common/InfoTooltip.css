@@ -1,0 +1,60 @@
+.info-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.info-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 50%;
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.info-tooltip-trigger:hover,
+.info-tooltip-trigger[aria-expanded="true"] {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* Portal-rendered — position: fixed, positioned by JS via inline style top/left */
+.info-tooltip-popover {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 8px));
+  width: 220px;
+  padding: 0.6rem 0.8rem;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+[data-theme="light"] .info-tooltip-popover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.info-tooltip-popover::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--border-strong);
+}

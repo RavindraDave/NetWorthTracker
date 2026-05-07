@@ -1,3 +1,98 @@
-.performance-chart {
-  margin-bottom: 1.5rem;
+.section-card {
+  padding: 22px 24px;
+}
+
+.perf-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.perf-bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 110px;
+  gap: 14px;
+  align-items: center;
+  opacity: 0;
+  animation: perf-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes perf-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.perf-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.perf-track {
+  position: relative;
+  height: 22px;
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+.perf-mid {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-strong);
+  z-index: 1;
+}
+
+.perf-fill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 2px;
+  animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform: scaleX(0);
+}
+
+.perf-fill-pos {
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.perf-fill-neg {
+  background: var(--rose);
+  transform-origin: right center;
+}
+
+@keyframes perf-bar-grow {
+  to { transform: scaleX(1); }
+}
+
+.perf-val {
+  font-family: var(--font-numeric);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.perf-val.pos { color: var(--accent-text); }
+.perf-val.neg { color: var(--rose); }
+
+@media (max-width: 640px) {
+  .perf-bar-row {
+    grid-template-columns: 100px 1fr 80px;
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perf-bar-row,
+  .perf-fill {
+    animation: none;
+    opacity: 1;
+  }
 }

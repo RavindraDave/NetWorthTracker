@@ -1,31 +1,14 @@
 import React, { useMemo } from 'react';
-import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '../../context/AppContext';
 import { buildAllocationData } from '../../utils/calculations';
 import { ChartTooltip } from './ChartTooltip';
 import './DonutChart.css';
 
-const COLORS = ['#4ade80', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#94a3b8'];
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const renderLegend = (props: any) => {
-  const { payload } = props;
-  if (!payload) return null;
-
-  return (
-    <ul className="donut-legend">
-      {payload.map((entry: any, i: number) => (
-        <li key={i} className="donut-legend__item">
-          <span className="donut-legend__dot" style={{ background: entry.color }} />
-          <span className="donut-legend__label">{entry.value}</span>
-          <span className="donut-legend__pct">{entry.payload.percentage.toFixed(1)}%</span>
-        </li>
-      ))}
-    </ul>
-  );
-};
+const COLORS = [
+  '#0ea58a', '#3b82f6', '#8b5cf6', '#0891b2', '#f59e0b',
+  '#f472b6', '#fb923c', '#34d399', '#94a3b8',
+];
 
 export const DonutChart: React.FC = () => {
   const { currentSnapshot, preferences } = useApp();
@@ -38,44 +21,53 @@ export const DonutChart: React.FC = () => {
       .slice(0, 9);
   }, [currentSnapshot, baseCurrency]);
 
+  const total = data.reduce((s, d) => s + d.value, 0);
+
   if (data.length === 0) {
     return (
-      <div className="donut-chart glass-card">
-        <h3 className="chart-title">Asset Composition</h3>
+      <div className="wp-card chart-donut">
+        <div className="section-label">Asset Allocation</div>
+        <div className="section-sub" style={{ marginBottom: 14 }}>By category</div>
         <div className="chart-empty">No asset data yet</div>
       </div>
     );
   }
 
   return (
-    <div className="donut-chart glass-card">
-      <div className="chart-header">
-        <div>
-          <h3 className="chart-title">Asset Composition</h3>
-          <p className="chart-subtitle">By category</p>
-        </div>
+    <div className="wp-card chart-donut">
+      <div className="section-label">Asset Allocation</div>
+      <div className="section-sub" style={{ marginBottom: 14 }}>By category</div>
+      <div className="donut-wrap">
+        <ResponsiveContainer width="100%" height={190}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={58}
+              outerRadius={90}
+              paddingAngle={3}
+              dataKey="value"
+              nameKey="name"
+              stroke="none"
+            >
+              {data.map((_, i) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<ChartTooltip usePayloadName showPercentage />} />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
-      <ResponsiveContainer width="100%" height={260}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={95}
-            paddingAngle={3}
-            dataKey="value"
-            nameKey="name"
-            stroke="none"
-          >
-            {data.map((_, index) => (
-              <Cell key={index} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip content={<ChartTooltip usePayloadName showPercentage />} />
-          <Legend content={renderLegend} />
-        </PieChart>
-      </ResponsiveContainer>
+      <div className="alloc-legend">
+        {data.map((d, i) => (
+          <div key={i} className="alloc-leg-row">
+            <span className="alloc-leg-dot" style={{ background: COLORS[i % COLORS.length] }} />
+            <span className="alloc-leg-name">{d.name}</span>
+            <span className="alloc-leg-pct">{total > 0 ? ((d.value / total) * 100).toFixed(1) : 0}%</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

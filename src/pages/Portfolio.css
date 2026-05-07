@@ -1,26 +1,13 @@
-.portfolio-page {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.portfolio-header {
-  margin-bottom: 2rem;
-}
-
-.portfolio-charts {
-  margin-bottom: 2rem;
-}
-
 .portfolio-table-section {
-  padding: 1.5rem;
+  padding: 20px 24px;
   overflow: hidden;
 }
 
 .portfolio-table-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .table-responsive {
@@ -33,23 +20,33 @@
   font-size: 0.875rem;
 }
 
-.holdings-table th,
-.holdings-table td {
-  padding: 1rem;
+.holdings-table th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 0 12px 10px;
   text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border);
 }
 
-.holdings-table th {
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.75rem;
+.holdings-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-1);
+}
+
+.holdings-table tr:last-child td {
+  border-bottom: none;
 }
 
 .holdings-table tr:hover td {
   background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] .holdings-table tr:hover td {
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .holdings-table tr.excluded {
@@ -59,9 +56,25 @@
 .asset-name-col {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 6px;
 }
 
 .text-right {
   text-align: right !important;
+}
+
+.holdings-table td:last-child,
+.holdings-table th:last-child {
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .holdings-table th,
+  .holdings-table td {
+    padding: 8px 6px;
+    font-size: 0.8rem;
+  }
+  .portfolio-table-section {
+    padding: 14px 12px;
+  }
 }

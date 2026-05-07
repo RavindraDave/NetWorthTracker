@@ -1,57 +1,116 @@
-/* DM Mono for financial numbers — precise, terminal-grade feel */
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+/* Fonts loaded offline via @fontsource in main.tsx — no CDN dependency */
 
+/* ── Light theme (default) ─────────────────────────────────────────────── */
 :root {
-  /* Numeric font for all financial amounts */
+  /* Surface & elevation */
+  --bg:              oklch(98.5% 0.005 95);
+  --bg-elev:         oklch(99.5% 0.003 95);
+  --bg-card:         rgba(255, 255, 255, 0.72);
+  --bg-card-solid:   oklch(99.5% 0.003 95);
+  --bg-hero-a:       oklch(28% 0.018 240);
+  --bg-hero-b:       oklch(30% 0.075 175);
+
+  /* Text */
+  --text-1:          oklch(20% 0.012 240);
+  --text-2:          oklch(40% 0.01 240);
+  --text-3:          oklch(55% 0.008 240);
+
+  /* Borders */
+  --border:          rgba(15, 23, 42, 0.08);
+  --border-strong:   rgba(15, 23, 42, 0.14);
+  --grid:            rgba(15, 23, 42, 0.06);
+  --slate-line:      oklch(45% 0.04 240);
+
+  /* Accent — Cool-Emerald */
+  --accent:          #0ea58a;
+  --accent-soft:     rgba(14, 165, 138, 0.14);
+  --accent-text:     #047857;
+
+  /* Feedback colours */
+  --amber:           #d97706;
+  --amber-soft:      rgba(217, 119, 6, 0.12);
+  --rose:            #e11d48;
+  --rose-soft:       rgba(225, 29, 72, 0.12);
+  --info:            #2563eb;
+  --info-soft:       rgba(37, 99, 235, 0.12);
+
+  /* Shadows */
+  --shadow-card:     0 1px 2px rgba(15,23,42,0.04), 0 1px 0 rgba(15,23,42,0.03);
+  --shadow-hero:     0 8px 32px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.08);
+
+  /* Shape */
+  --radius:          16px;
+  --radius-sm:       10px;
+  --radius-md:       8px;
+  --radius-lg:       16px;
+  --radius-full:     9999px;
+
+  /* Motion */
+  --transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Fonts */
+  --font-sans:    'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Outfit', var(--font-sans);
   --font-numeric: 'DM Mono', 'Courier New', monospace;
 
-  /* Spacing scale */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
+  /* Spacing */
+  --space-xs:  0.25rem;
+  --space-sm:  0.5rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2rem;
   --space-2xl: 3rem;
 
-  /* Breakpoints (used as reference in media queries below) */
-  /* --bp-mobile: 480px; --bp-tablet: 768px; --bp-desktop: 1024px */
+  /* ── Legacy aliases — keep unmigrated components working ── */
+  --bg-primary:        var(--bg);
+  --bg-secondary:      var(--bg-elev);
+  --bg-surface:        var(--bg-card-solid);
+  --bg-tertiary:       var(--bg-card);
+  --border-color:      var(--border);
+  --accent-green:      var(--accent-text);
+  --accent-green-dark: var(--accent);
+  --accent-red:        var(--rose);
+  --accent-red-dark:   #dc2626;
+  --accent-blue-gray:  oklch(55% 0.04 240);
+  --accent-primary:    var(--accent);
+  --text-primary:      var(--text-1);
+  --text-secondary:    var(--text-2);
+  --text-muted:        var(--text-3);
+}
 
-  /* Colors - Base (dark mode defaults) */
-  --bg-primary: #0d1117;
-  --bg-secondary: #161b22;
-  --bg-surface: #1c2128;
-  --bg-tertiary: rgba(255, 255, 255, 0.05);
-  --border-color: rgba(255, 255, 255, 0.08);
+/* ── Dark theme ─────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:              oklch(15% 0.014 240);
+  --bg-elev:         oklch(18% 0.014 240);
+  --bg-card:         rgba(255, 255, 255, 0.03);
+  --bg-card-solid:   oklch(20% 0.015 240);
+  --bg-hero-a:       oklch(22% 0.02 240);
+  --bg-hero-b:       oklch(28% 0.07 175);
+  --text-1:          oklch(96% 0.005 240);
+  --text-2:          oklch(75% 0.012 240);
+  --text-3:          oklch(58% 0.014 240);
+  --border:          rgba(255, 255, 255, 0.08);
+  --border-strong:   rgba(255, 255, 255, 0.14);
+  --grid:            rgba(255, 255, 255, 0.06);
+  --slate-line:      oklch(70% 0.05 240);
 
-  /* Colors - Accents */
-  --accent-green: #4ade80;
-  --accent-green-dark: #22c55e;
-  --accent-red: #f87171;
-  --accent-red-dark: #ef4444;
-  --accent-blue-gray: #64748b;
-  --accent-primary: #3b82f6;
+  /* Accent — Cool-Emerald dark */
+  --accent:          #0ea58a;
+  --accent-soft:     rgba(14, 165, 138, 0.14);
+  --accent-text:     #2dd4bf;
 
-  /* Typography */
-  --text-primary: #ffffff;
-  --text-secondary: #d1d5db;
-  --text-muted: #9ca3af;
+  /* Feedback */
+  --amber:           #f59e0b;
+  --amber-soft:      rgba(245, 158, 11, 0.14);
+  --rose:            #f43f5e;
+  --rose-soft:       rgba(244, 63, 94, 0.14);
+  --info:            #60a5fa;
+  --info-soft:       rgba(96, 165, 250, 0.14);
 
-  /* Font Families — Inter is served from SW cache after first visit.
-     System fonts render on the very first offline load (pre-cache).
-     Run `npm install @fontsource/inter` and import in main.tsx to
-     bundle the font fully offline (no CDN dependency at all). */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  
-  /* Shadows & Effects */
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 1rem;
-  --radius-full: 9999px;
-  
-  /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Shadows */
+  --shadow-card:     0 1px 2px rgba(0,0,0,0.4);
+  --shadow-hero:     0 12px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
 }
 
 * {
@@ -62,12 +121,49 @@
 
 body {
   font-family: var(--font-sans);
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-  background-attachment: fixed;
-  color: var(--text-primary);
+  background: var(--bg);
+  color: var(--text-1);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
+
+/* ── v4 page wrapper ────────────────────────────────────────────────── */
+.wp-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 36px 80px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── v4 card primitives ─────────────────────────────────────────────── */
+.wp-card {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+@media (max-width: 768px) {
+  .wp-page {
+    padding: 20px 16px 80px;
+    gap: 16px;
+  }
 }
 
 /* Glassmorphic Card */
@@ -170,12 +266,13 @@ body {
 }
 
 .btn-primary {
-  background-color: var(--accent-primary);
+  background-color: var(--accent);
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: #2563eb;
+  background-color: var(--accent-text);
+  color: white;
 }
 
 .btn-destructive {
@@ -213,29 +310,12 @@ body {
   pointer-events: none;
 }
 
-/* Light theme overrides */
-[data-theme="light"] {
-  --bg-primary: #f0f4f8;
-  --bg-secondary: #e2e8f0;
-  --bg-surface: #ffffff;
-  --bg-tertiary: rgba(0, 0, 0, 0.04);
-  --border-color: rgba(0, 0, 0, 0.1);
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-}
-
-[data-theme="light"] body {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-}
-
+/* Light theme — tokens live in :root; only overrides needed here */
 [data-theme="light"] .glass-card {
   background: rgba(255, 255, 255, 0.8);
   border-color: rgba(0,0,0,0.08);
 }
-
-[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg-elev); }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
 
 /* Scrollbar */

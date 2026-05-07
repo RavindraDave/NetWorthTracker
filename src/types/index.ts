@@ -6,6 +6,7 @@ export interface Snapshot {
   exchangeRates: Record<string, number>; // e.g., { "SGD": 72, "USD": 83 }
   ratesLastUpdated?: string; // ISO string — set when user refreshes or manually edits rates
   categories: Category[];
+  notes?: string;
   monthlyIncome?: number;
   monthlyExpenses?: number;
 }
@@ -27,6 +28,7 @@ export interface LineItem {
   currency: string; // ISO code
   notes?: string;
   excludeFromNetWorth?: boolean;
+  excludeFromGoals?: boolean;
 }
 
 export type GoalType = 'net_worth_target' | 'fire' | 'savings' | 'debt_freedom' | 'custom';
@@ -61,8 +63,16 @@ export interface FlattenedItem extends LineItem {
   isLiquid?: boolean;
 }
 
-// Phase 3.1 — stored in UserPreferences to support custom category templates
-export type CategoryTemplate = Omit<Category, 'id' | 'items'>;
+export interface CategoryTemplate {
+  id: string;
+  name: string;
+  type: 'asset' | 'liability';
+  icon: string;
+  isLiquid: boolean;
+  isInvestable: boolean;
+  disabled?: boolean;
+  isBuiltIn?: boolean;
+}
 
 export type BackupCadence = 'off' | 'daily' | 'weekly' | 'monthly';
 export type BackupMode = 'download' | 'fsa';
@@ -97,6 +107,7 @@ export interface UserPreferences {
   theme: 'dark' | 'light' | 'system';
   profileName: string;
   customCategories?: CategoryTemplate[];
+  categoryTemplates?: CategoryTemplate[];
   autoBackup?: AutoBackupConfig;
   staleBackupSnoozeUntil?: string;
   cloudSync?: CloudSyncConfig;

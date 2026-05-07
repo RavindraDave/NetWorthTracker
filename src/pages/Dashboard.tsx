@@ -9,9 +9,9 @@ import { LedgerActivity } from '../components/dashboard/LedgerActivity';
 import { GoalCard } from '../components/goals/GoalCard';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
-import { Rocket, Edit2, Plus, Target } from 'lucide-react';
 import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
 import { DriveRestoreButton } from '../components/common/DriveRestoreButton';
+import { Rocket, Target } from 'lucide-react';
 import './Dashboard.css';
 
 export const Dashboard: React.FC = () => {
@@ -35,15 +35,16 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-
   return (
-    <div className="dashboard">
+    <div className="wp-page">
       <StaleBackupBanner />
       {!currentSnapshot ? (
-        <div className="glass-card empty-state" style={{ marginTop: '2rem' }}>
-          <Rocket size={52} className="empty-state__icon" style={{ color: 'var(--accent-green)', opacity: 0.7 }} />
-          <h2 className="text-h1">Welcome to WealthPulse</h2>
-          <p className="text-muted" style={{ fontSize: '1rem', maxWidth: '380px' }}>
+        <div className="wp-card empty-state">
+          <Rocket size={52} className="empty-state__icon" style={{ color: 'var(--accent)', opacity: 0.7 }} />
+          <h2 style={{ fontSize: '1.5rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+            Welcome to WealthPulse
+          </h2>
+          <p style={{ fontSize: '1rem', color: 'var(--text-3)', maxWidth: '380px' }}>
             Start tracking your net worth by creating your first monthly snapshot.
           </p>
           <button className="btn btn-primary" onClick={handleCreateSnapshot} style={{ fontSize: '1rem', padding: '0.7rem 2rem' }}>
@@ -56,17 +57,27 @@ export const Dashboard: React.FC = () => {
           <NetWorthHero />
           <MetricCards />
 
+          <div className="chart-row">
+            <TrendChart />
+            <DonutChart />
+          </div>
+
+          <PerformanceChart />
+          <LedgerActivity />
+
           {goals.length > 0 && (
-            <div className="dashboard-section">
-              <div className="dashboard-section__header">
-                <Target size={14} />
-                <span>Goals</span>
-                {goals.length > 2 && (
-                  <span className="dashboard-section__count">{goals.length} total</span>
-                )}
+            <div className="goals-section">
+              <div className="chart-head" style={{ marginBottom: 14, padding: 0 }}>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Target size={14} />
+                    Active Goals
+                  </div>
+                  <div className="section-sub">Progress toward financial milestones</div>
+                </div>
               </div>
-              <div className="dashboard-charts-row">
-                {goals.slice(0, 2).map(goal => (
+              <div className="goals-grid">
+                {goals.map(goal => (
                   <GoalCard
                     key={goal.id}
                     goal={goal}
@@ -74,29 +85,9 @@ export const Dashboard: React.FC = () => {
                     baseCurrency={baseCurrency}
                   />
                 ))}
-                {goals.length === 1 && <div />}
               </div>
             </div>
           )}
-
-          <div className="dashboard-charts-row">
-            <TrendChart />
-            <DonutChart />
-          </div>
-
-          <div className="dashboard-charts-row dashboard-charts-row--wide">
-            <PerformanceChart />
-            <LedgerActivity />
-          </div>
-
-          <div className="dashboard-actions">
-            <button className="btn btn-outline" onClick={() => navigate(`/editor/${currentSnapshot.id}`)}>
-              <Edit2 size={15} style={{ marginRight: '0.4rem' }} /> Edit Snapshot
-            </button>
-            <button className="btn btn-primary" onClick={handleCreateSnapshot}>
-              <Plus size={15} style={{ marginRight: '0.4rem' }} /> New Month
-            </button>
-          </div>
         </>
       )}
     </div>

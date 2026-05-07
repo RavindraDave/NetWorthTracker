@@ -3,9 +3,26 @@ import { useApp } from '../../context/AppContext';
 import { LineItem } from '../../types';
 import { convertToBase } from '../../utils/calculations';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
+import { InclusionChips, exclusionStateToInclusion, inclusionToExclusionState } from '../common/InclusionChips';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
-import { Trash2, Eye, EyeOff } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import './LineItemRow.css';
+
+type ExclusionState = 'all' | 'goals-only' | 'everywhere';
+
+function getExclusionState(item: LineItem): ExclusionState {
+  if (item.excludeFromNetWorth) return 'everywhere';
+  if (item.excludeFromGoals)    return 'goals-only';
+  return 'all';
+}
+
+function applyExclusionState(item: LineItem, state: ExclusionState): LineItem {
+  return {
+    ...item,
+    excludeFromNetWorth: state === 'everywhere',
+    excludeFromGoals:    state === 'goals-only',
+  };
+}
 
 interface LineItemRowProps {
   item: LineItem;
@@ -29,8 +46,11 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onCh
     max: 1e15,
   });
 
+  const exclusionState = getExclusionState(item);
+  const inclusionVal = exclusionStateToInclusion(exclusionState);
+
   return (
-    <div className={`line-item-row ${item.excludeFromNetWorth ? 'excluded' : ''}`}>
+    <div className={`line-item-row${exclusionState === 'everywhere' ? ' li-excluded' : ''}`}>
       <input
         type="text"
         className="line-item-input name-input"
@@ -66,18 +86,20 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, onCh
         )}
       </div>
 
-      <div className="line-item-actions">
-        <button
-          className="btn-icon"
-          onClick={() => onChange({ ...item, excludeFromNetWorth: !item.excludeFromNetWorth })}
-          title={item.excludeFromNetWorth ? 'Include in Net Worth' : 'Exclude from Net Worth'}
-        >
-          {item.excludeFromNetWorth ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button>
-        <button className="btn-icon danger" onClick={() => onRemove(item.id)} title="Remove Item">
-          <Trash2 size={16} />
-        </button>
-      </div>
+      <InclusionChips
+        value={inclusionVal}
+        onChange={next => onChange(applyExclusionState(item, inclusionToExclusionState(next)))}
+        size="sm"
+      />
+
+      <button
+        className="btn-icon danger"
+        onClick={() => onRemove(item.id)}
+        title="Remove item"
+        aria-label="Remove item"
+      >
+        <Trash2 size={14} />
+      </button>
     </div>
   );
 };

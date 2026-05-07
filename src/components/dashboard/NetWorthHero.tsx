@@ -1,14 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { calcNetWorth, calcMonthChange, ViewMode } from '../../utils/calculations';
+import { calcNetWorth, calcMonthChange } from '../../utils/calculations';
+import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
+import { ScopeToggle } from './ScopeToggle';
 import './NetWorthHero.css';
-
-const VIEWS: { label: string; value: ViewMode }[] = [
-  { label: 'Overall', value: 'overall' },
-  { label: 'Liquid', value: 'liquid' },
-  { label: 'Investable', value: 'investable' },
-];
 
 function useCountUp(target: number, duration = 1200) {
   const [value, setValue] = useState(0);
@@ -24,7 +20,7 @@ function useCountUp(target: number, duration = 1200) {
     const step = (ts: number) => {
       if (startRef.current === null) startRef.current = ts;
       const progress = Math.min((ts - startRef.current) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
       setValue(Math.round(start + diff * eased));
       if (progress < 1) rafRef.current = requestAnimationFrame(step);
       else prevTarget.current = target;
@@ -38,7 +34,7 @@ function useCountUp(target: number, duration = 1200) {
 }
 
 export const NetWorthHero: React.FC = () => {
-  const { currentSnapshot, previousSnapshot, preferences, viewMode, setViewMode } = useApp();
+  const { currentSnapshot, previousSnapshot, preferences, viewMode, goals } = useApp();
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
 
   const breakdown = currentSnapshot
@@ -51,46 +47,65 @@ export const NetWorthHero: React.FC = () => {
 
   const animatedNW = useCountUp(breakdown.netWorth);
   const isPositive = change >= 0;
+
   const month = currentSnapshot?.month
-    ? new Date(currentSnapshot.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    ? new Date(currentSnapshot.month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : 'No Data';
 
+  const savingsRate = useMemo(() => {
+    const income = currentSnapshot?.monthlyIncome ?? 0;
+    if (income <= 0) return null;
+    const expenses = currentSnapshot?.monthlyExpenses ?? 0;
+    return ((income - expenses) / income) * 100;
+  }, [currentSnapshot?.monthlyIncome, currentSnapshot?.monthlyExpenses]);
+
+  const fireMetrics = useMemo(() => {
+    const fireGoal = goals.find(g => g.type === 'fire');
+    if (!fireGoal || !currentSnapshot) return null;
+    return calcFIREMetrics(fireGoal, currentSnapshot, baseCurrency);
+  }, [goals, currentSnapshot, baseCurrency]);
+
   return (
-    <div className="nw-hero glass-card">
-      <div className="nw-hero__top">
-        <div>
-          <p className="nw-hero__label">Total Net Worth · {month}</p>
-          <div className="nw-hero__amount">
-            <CurrencyDisplay amount={animatedNW} currency={baseCurrency} />
-          </div>
-          {currentSnapshot && (
-            <div className={`nw-hero__change ${isPositive ? 'positive' : 'negative'}`}>
-              <span className="nw-hero__change-arrow" aria-label={isPositive ? 'increase' : 'decrease'}>{isPositive ? '▲' : '▼'}</span>
-              <CurrencyDisplay amount={Math.abs(change)} currency={baseCurrency} showSign={false} />
-              <span className="nw-hero__change-pct">({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)</span>
-              <span className="nw-hero__change-label">vs last month</span>
-            </div>
+    <div className="hero-card">
+      <div className="hero-grad" aria-hidden="true" />
+      <div className="hero-left">
+        <div className="hero-eyebrow">Total Net Worth · {month}</div>
+        <div className="hero-num">
+          <span className="hero-curr">{baseCurrency === 'INR' ? '₹' : baseCurrency === 'USD' ? '$' : ''}</span>
+          <span>{animatedNW.toLocaleString()}</span>
+        </div>
+        <div className="hero-meta">
+          <span className={`hero-pill${isPositive ? '' : ' neg'}`}>
+            {isPositive ? '▲' : '▼'} <CurrencyDisplay amount={Math.abs(change)} currency={baseCurrency} /> · {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
+          </span>
+          <span className="hero-meta-text">vs last month</span>
+          {savingsRate !== null && (
+            <>
+              <span className="hero-meta-sep" />
+              <span className="hero-meta-text">
+                Savings rate <strong>{savingsRate.toFixed(1)}%</strong>
+              </span>
+            </>
+          )}
+          {fireMetrics && fireMetrics.fiNumber > 0 && (
+            <>
+              <span className="hero-meta-sep" />
+              <span className="hero-meta-text">
+                Time to FI <strong>
+                  {fireMetrics.isFI
+                    ? 'Achieved!'
+                    : fireMetrics.yearsToFI !== null
+                      ? `~${fireMetrics.yearsToFI.toFixed(1)} yrs`
+                      : 'Set savings'}
+                </strong>
+              </span>
+            </>
           )}
         </div>
-
-        {/* View Mode Toggle */}
-        <div className="nw-hero__view-toggle">
-          {VIEWS.map(v => (
-            <button
-              key={v.value}
-              className={`view-toggle-btn ${viewMode === v.value ? 'active' : ''}`}
-              onClick={() => setViewMode(v.value)}
-              aria-pressed={viewMode === v.value}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
       </div>
-
-      {!currentSnapshot && (
-        <p className="nw-hero__empty">No snapshot yet. Create your first monthly snapshot to get started.</p>
-      )}
+      <div className="hero-right">
+        <ScopeToggle />
+      </div>
     </div>
   );
 };

@@ -3,12 +3,13 @@ import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { Snapshot, Category } from '../types';
+import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { calcNetWorth } from '../utils/calculations';
 import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
 import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
-import { Save, ArrowLeft, Download, Pencil } from 'lucide-react';
+import { Save, Download, FileText, ChevronDown } from 'lucide-react';
 import { exportSnapshotToCSV, downloadFile } from '../utils/importExport';
 import './SnapshotEditor.css';
 
@@ -20,7 +21,9 @@ export const SnapshotEditor: React.FC = () => {
   const baseCurrency = preferences?.baseCurrency || 'INR';
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [noteOpen, setNoteOpen] = useState(false);
   const isDirtyRef = useRef(false);
+  const prevIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -28,25 +31,26 @@ export const SnapshotEditor: React.FC = () => {
       if (existing) {
         const snap: Snapshot = JSON.parse(JSON.stringify(existing));
 
-        // Inject any custom category templates that aren't already in this snapshot.
-        // Match by name+type so we never add duplicates. New categories get empty items
-        // and a fresh UUID — they won't be persisted unless the user saves.
-        const templates = preferences?.customCategories ?? [];
-        const missing = templates.filter(
-          tmpl => !snap.categories.some(c => c.name === tmpl.name && c.type === tmpl.type)
+        const allTemplates = preferences?.categoryTemplates ?? DEFAULT_CATEGORY_TEMPLATES;
+        const enabledTemplates = allTemplates.filter(t => !t.disabled);
+        const missing = enabledTemplates.filter(
+          t => !snap.categories.some(c => c.id === t.id || (c.name === t.name && c.type === t.type))
         );
         if (missing.length > 0) {
-          snap.categories = [
-            ...snap.categories,
-            ...missing.map(tmpl => ({ ...tmpl, id: crypto.randomUUID(), items: [] })),
-          ];
+          snap.categories = [...snap.categories, ...missing.map(buildCategoryFromTemplate)];
         }
 
         setSnapshot(snap);
         isDirtyRef.current = false;
+
+        // Auto-open note area if notes exist on first load
+        if (snap.id !== prevIdRef.current) {
+          prevIdRef.current = snap.id;
+          if (snap.notes) setNoteOpen(true);
+        }
       }
     }
-  }, [id, snapshots, preferences?.customCategories]);
+  }, [id, snapshots, preferences?.categoryTemplates]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -59,7 +63,6 @@ export const SnapshotEditor: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
-  // Block in-app navigation when there are unsaved changes
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
     isDirtyRef.current && currentLocation.pathname !== nextLocation.pathname
   );
@@ -77,7 +80,6 @@ export const SnapshotEditor: React.FC = () => {
     }
   }, [blocker, confirm]);
 
-  // Income / expenses inputs — hooks must be called unconditionally
   const incomeInput = useDecimalInput({
     value: snapshot?.monthlyIncome ?? 0,
     onCommit: (next) => {
@@ -105,7 +107,7 @@ export const SnapshotEditor: React.FC = () => {
   };
 
   if (!snapshot) {
-    return <div className="p-8 text-center text-muted">Snapshot not found or loading...</div>;
+    return <div className="wp-page" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '40vh', color: 'var(--text-3)' }}>Loading snapshot…</div>;
   }
 
   const handleRateChange = (currency: string, rate: number) => {
@@ -121,31 +123,17 @@ export const SnapshotEditor: React.FC = () => {
     isDirtyRef.current = true;
     setSnapshot(prev => {
       if (!prev) return prev;
-      return {
-        ...prev,
-        exchangeRates: { ...prev.exchangeRates, ...rates },
-        ratesLastUpdated: updatedAt,
-      };
+      return { ...prev, exchangeRates: { ...prev.exchangeRates, ...rates }, ratesLastUpdated: updatedAt };
     });
   };
 
   const handleCategoryChange = (updated: Category) => {
     isDirtyRef.current = true;
-    setSnapshot({
-      ...snapshot,
-      categories: snapshot.categories.map(c => c.id === updated.id ? updated : c)
-    });
-  };
-
-  const handleBack = async () => {
-    if (isDirtyRef.current) {
-      const ok = await confirm('You have unsaved changes. Leave without saving?');
-      if (!ok) return;
-    }
-    navigate(-1);
+    setSnapshot({ ...snapshot, categories: snapshot.categories.map(c => c.id === updated.id ? updated : c) });
   };
 
   const handleSave = async () => {
+    const monthDisplay = new Date(snapshot.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
     if (duplicate) {
       const ok = await confirm(`A snapshot for ${monthDisplay} already exists. Saving will overwrite it. Continue?`);
@@ -166,68 +154,103 @@ export const SnapshotEditor: React.FC = () => {
     }
   };
 
-  const monthDisplay = new Date(snapshot.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const breakdown = calcNetWorth(snapshot, baseCurrency);
+
+  // Goals NW: exclude items marked as excludeFromGoals
+  const goalsNW = calcNetWorth(
+    {
+      ...snapshot,
+      categories: snapshot.categories.map(cat => ({
+        ...cat,
+        items: cat.items.map(item =>
+          item.excludeFromGoals ? { ...item, excludeFromNetWorth: true } : item
+        ),
+      })),
+    },
+    baseCurrency
+  ).netWorth;
 
   const assets = snapshot.categories.filter(c => c.type === 'asset');
   const liabilities = snapshot.categories.filter(c => c.type === 'liability');
 
+  const notePreview = snapshot.notes
+    ? snapshot.notes.slice(0, 72) + (snapshot.notes.length > 72 ? '…' : '')
+    : 'Add a note for this month…';
+
   return (
-    <div className="snapshot-editor">
+    <div className="wp-page editor-page">
+      {/* Header */}
       <div className="editor-header">
-        <div className="editor-header__left">
-          <button className="btn-icon" onClick={handleBack} title="Go back" aria-label="Go back">
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-h2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Editing
-              <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                <input
-                  type="month"
-                  value={snapshot.month}
-                  onChange={e => {
-                    if (!e.target.value) return;
-                    isDirtyRef.current = true;
-                    setSnapshot(prev => prev ? { ...prev, month: e.target.value } : prev);
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    borderBottom: '2px solid var(--accent-primary)',
-                    color: 'inherit',
-                    font: 'inherit',
-                    fontWeight: 'inherit',
-                    cursor: 'pointer',
-                    padding: '0 0.25rem',
-                    outline: 'none',
-                    width: 'auto',
-                  }}
-                  title="Click to change month"
-                />
-                <Pencil size={14} style={{ color: 'var(--accent-primary)', opacity: 0.8, flexShrink: 0 }} />
-              </span>
-            </h1>
-            <p className="text-muted" style={{ fontSize: '0.75rem' }}>
-              Snapshot ID: {snapshot.id.slice(0,8)}… · <span style={{ color: 'var(--accent-primary)', opacity: 0.75 }}>Click month to change</span>
-            </p>
+        <div className="editor-header-left">
+          <div className="month-pill-wrap">
+            <input
+              type="month"
+              className="month-pill"
+              value={snapshot.month}
+              onChange={e => {
+                if (!e.target.value) return;
+                isDirtyRef.current = true;
+                setSnapshot(prev => prev ? { ...prev, month: e.target.value } : prev);
+              }}
+              title="Click to change month"
+              aria-label="Snapshot month"
+            />
           </div>
+          <span className="editor-id-hint">ID {snapshot.id.slice(0, 8)}…</span>
         </div>
 
-        <div className="editor-header__right">
-          <div className="live-networth glass-card">
-            <span className="live-networth__label">Live Net Worth</span>
-            <CurrencyDisplay amount={breakdown.netWorth} currency={baseCurrency} className="live-networth__amount" />
+        <div className="editor-header-right">
+          <div className="live-preview">
+            <span className="live-preview-label">Live Net Worth</span>
+            <CurrencyDisplay
+              amount={breakdown.netWorth}
+              currency={baseCurrency}
+              className={`live-preview-val${breakdown.netWorth < 0 ? ' neg' : ''}`}
+            />
           </div>
           <button className="btn btn-outline" onClick={handleExportCSV} title="Export CSV">
-            <Download size={16} />
+            <Download size={15} />
+            <span>Export CSV</span>
           </button>
           <button className="btn btn-primary" onClick={handleSave}>
-            <Save size={16} style={{ marginRight: '0.5rem' }} /> Save Snapshot
+            <Save size={15} />
+            <span>Save Snapshot</span>
           </button>
         </div>
       </div>
 
+      {/* Collapsible Note Area */}
+      <div className={`note-area${noteOpen ? ' note-area--open' : ''}`}>
+        <button
+          className="note-trigger"
+          onClick={() => setNoteOpen(o => !o)}
+          aria-expanded={noteOpen}
+          aria-controls="note-textarea"
+        >
+          <FileText size={13} />
+          <span className="note-trigger-text">{noteOpen ? 'Notes' : notePreview}</span>
+          <ChevronDown
+            size={13}
+            style={{ marginLeft: 'auto', flexShrink: 0, transition: 'transform 0.2s', transform: noteOpen ? 'rotate(180deg)' : 'none' }}
+          />
+        </button>
+        {noteOpen && (
+          <textarea
+            id="note-textarea"
+            className="note-textarea"
+            placeholder="What changed this month? (e.g., bonus, market move, large purchase)"
+            value={snapshot.notes ?? ''}
+            maxLength={2000}
+            rows={4}
+            onChange={e => {
+              isDirtyRef.current = true;
+              setSnapshot(prev => prev ? { ...prev, notes: e.target.value } : prev);
+            }}
+          />
+        )}
+      </div>
+
+      {/* Exchange Rate Bar */}
       <ExchangeRateBar
         rates={snapshot.exchangeRates}
         ratesLastUpdated={snapshot.ratesLastUpdated}
@@ -235,41 +258,18 @@ export const SnapshotEditor: React.FC = () => {
         onRatesRefreshed={handleRatesRefreshed}
       />
 
-      <div className="editor-grid">
-        <div className="editor-column">
-          <div className="editor-column__header">
-            <h2 className="text-h2">Assets</h2>
-            <div className="editor-column__total positive">
-              <CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} />
-            </div>
-          </div>
-          {assets.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
-          ))}
-        </div>
-
-        <div className="editor-column">
-          <div className="editor-column__header">
-            <h2 className="text-h2">Liabilities</h2>
-            <div className="editor-column__total negative">
-              <CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} />
-            </div>
-          </div>
-          {liabilities.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
-          ))}
-        </div>
-      </div>
-
-      <div className="cashflow-section glass-card" style={{ marginTop: '2rem' }}>
-        <h2 className="text-h2" style={{ marginBottom: '1rem' }}>Monthly Cash Flow (Optional)</h2>
-        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+      {/* Cash Flow (optional) */}
+      <div className="wp-card cashflow-card">
+        <span className="section-label">
+          Monthly Cash Flow
+          <span style={{ fontWeight: 400, color: 'var(--text-3)', marginLeft: 6 }}>(optional)</span>
+        </span>
+        <div className="cashflow-inputs">
           <div className="exchange-rate-input-group">
             <label className="exchange-rate-label">Income ({baseCurrency})</label>
             <input
               {...incomeInput.inputProps}
               className="exchange-rate-input"
-              style={{ width: '100px' }}
               placeholder="0.00"
               aria-label={`Monthly income in ${baseCurrency}`}
             />
@@ -279,11 +279,68 @@ export const SnapshotEditor: React.FC = () => {
             <input
               {...expensesInput.inputProps}
               className="exchange-rate-input"
-              style={{ width: '100px' }}
               placeholder="0.00"
               aria-label={`Monthly expenses in ${baseCurrency}`}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Two-Column Editor */}
+      <div className="editor-cols">
+        <div className="editor-col">
+          <div className="col-title pos">
+            Assets
+            <span className="col-total">
+              <CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} />
+            </span>
+          </div>
+          {assets.map(cat => (
+            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
+          ))}
+        </div>
+
+        <div className="editor-col">
+          <div className="col-title neg">
+            Liabilities
+            <span className="col-total">
+              <CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} />
+            </span>
+          </div>
+          {liabilities.map(cat => (
+            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
+          ))}
+        </div>
+      </div>
+
+      {/* Sticky Summary Bar */}
+      <div className="editor-summary">
+        <div className="summ-block">
+          <span className="summ-label">Net Worth</span>
+          <span className={`summ-val${breakdown.netWorth >= 0 ? ' pos' : ' neg'}`}>
+            <CurrencyDisplay amount={breakdown.netWorth} currency={baseCurrency} abbreviated />
+          </span>
+        </div>
+        <div className="summ-sep" />
+        <div className="summ-block">
+          <span className="summ-label">Goals NW</span>
+          <span className="summ-val">
+            <CurrencyDisplay amount={goalsNW} currency={baseCurrency} abbreviated />
+          </span>
+        </div>
+        <div className="summ-sep" />
+        <div className="summ-block">
+          <span className="summ-label">Total Assets</span>
+          <span className="summ-val pos">
+            <CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} abbreviated />
+          </span>
+        </div>
+        <div className="summ-sep" />
+        <div className="summ-block">
+          <span className="summ-label">Total Liabilities</span>
+          <span className="summ-val neg">
+            <CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} abbreviated />
+          </span>
         </div>
       </div>
     </div>

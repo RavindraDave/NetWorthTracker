@@ -36,11 +36,11 @@ export const Goals: React.FC = () => {
   };
 
   return (
-    <div className="goals-page">
+    <div className="wp-page goals-page">
       <div className="goals-header">
         <div>
-          <h1 className="text-h1">Goals & FIRE Tracker</h1>
-          <p className="text-muted">Track your journey to Financial Independence and other milestones.</p>
+          <div className="section-label" style={{ marginBottom: 2 }}>Goals & FIRE Tracker</div>
+          <div className="section-sub">Track your journey to Financial Independence and other milestones.</div>
         </div>
         <button className="btn btn-primary" onClick={() => setIsEditorOpen(true)}>
           <Plus size={16} style={{ marginRight: '0.5rem' }} /> Add Goal
@@ -48,10 +48,10 @@ export const Goals: React.FC = () => {
       </div>
 
       {goals.length === 0 ? (
-        <div className="glass-card empty-state">
-          <Target size={48} className="empty-state__icon" />
-          <h2 className="text-h2">No goals set yet</h2>
-          <p className="text-muted">
+        <div className="wp-card empty-state">
+          <Target size={48} className="empty-state__icon" style={{ opacity: 0.5 }} />
+          <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>No goals set yet</h2>
+          <p style={{ color: 'var(--text-3)', maxWidth: 320 }}>
             Set a target net worth or calculate your FIRE number to start tracking your progress.
           </p>
           <button className="btn btn-primary" onClick={() => setIsEditorOpen(true)}>

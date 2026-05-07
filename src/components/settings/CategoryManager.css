@@ -1,32 +1,69 @@
+.cat-manager__header { margin-bottom: 1rem; }
+
+.cat-manager__flag-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding: 0.6rem 0.9rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+[data-theme="light"] .cat-manager__flag-legend { background: rgba(0,0,0,0.03); }
+
+.cat-flag-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cat-manager__group { margin-bottom: 1.5rem; }
+
+.cat-manager__group-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
 .cat-manager__list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
+  gap: 0.3rem;
 }
 
 .cat-manager__item {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
   background: rgba(255,255,255,0.04);
   border-radius: var(--radius-sm);
+  transition: opacity var(--transition-fast);
+}
+[data-theme="light"] .cat-manager__item { background: rgba(0,0,0,0.03); }
+
+.cat-manager__item--disabled {
+  opacity: 0.45;
 }
 
 .cat-manager__badge {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.15rem 0.4rem;
   border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
-
 .cat-manager__badge[data-type="asset"]     { background: rgba(74,222,128,0.12); color: var(--accent-green); }
 .cat-manager__badge[data-type="liability"] { background: rgba(248,113,113,0.12); color: var(--accent-red); }
 
-.cat-manager__name  { flex: 1; font-size: 0.875rem; }
+.cat-manager__name  { flex: 1; font-size: 0.875rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .cat-manager__rename-input {
   flex: 1;
@@ -39,17 +76,37 @@
   outline: none;
 }
 [data-theme="light"] .cat-manager__rename-input { background: rgba(0,0,0,0.05); }
-.cat-manager__flags { display: flex; gap: 0.3rem; }
 
-.cat-flag {
-  font-size: 0.65rem;
-  padding: 0.1rem 0.35rem;
+.cat-manager__flags { display: flex; gap: 0.25rem; flex-shrink: 0; }
+
+.cat-flag-btn {
+  font-size: 0.62rem;
+  padding: 0.1rem 0.4rem;
   border-radius: var(--radius-sm);
-  background: rgba(96,165,250,0.1);
-  color: #60a5fa;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+.cat-flag-btn:hover { background: rgba(96,165,250,0.12); color: #60a5fa; border-color: rgba(96,165,250,0.25); }
+.cat-flag-btn.active { background: rgba(96,165,250,0.12); color: #60a5fa; border-color: rgba(96,165,250,0.3); }
+.cat-flag-btn.active.investable { background: rgba(167,139,250,0.12); color: #a78bfa; border-color: rgba(167,139,250,0.3); }
+
+.cat-manager__usage {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.cat-manager__form { border-top: 1px solid var(--border-color); padding-top: 1rem; }
+.cat-manager__form {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
 
 .cat-form-row {
   display: flex;
@@ -58,7 +115,6 @@
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
 }
-
 .cat-form-row--flags { margin-bottom: 0; }
 
 .cat-checkbox {
@@ -68,4 +124,10 @@
   cursor: pointer;
   font-size: 0.875rem;
   color: var(--text-secondary);
+}
+
+/* Disabled delete button */
+.btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }

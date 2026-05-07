@@ -1,88 +1,272 @@
-.snapshot-editor {
-  max-width: 1200px;
-  margin: 0 auto;
+.editor-page {
+  padding-bottom: 100px; /* room for sticky summary */
 }
 
+/* ── Header ──────────────────────────────────────────────── */
 .editor-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 1rem;
 }
 
-.editor-header__left {
+.editor-header-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 10px;
 }
 
-.editor-header__right {
+.month-pill-wrap {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
 }
 
-.live-networth {
+.month-pill {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-1);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  padding: 2px 6px 2px 0;
+  cursor: pointer;
+  outline: none;
+  letter-spacing: -0.02em;
+  transition: border-color var(--transition-fast);
+}
+
+.month-pill:focus {
+  border-color: var(--accent-text);
+}
+
+.editor-id-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-numeric);
+}
+
+.editor-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-preview {
   display: flex;
   flex-direction: column;
-  padding: 0.5rem 1.25rem;
-  background: rgba(74, 222, 128, 0.05);
-  border-color: rgba(74, 222, 128, 0.2);
+  align-items: flex-end;
+  padding: 6px 14px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklch, var(--accent) 30%, transparent);
+  border-radius: var(--radius-sm);
 }
 
-.live-networth__label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-.live-networth__amount {
-  font-size: 1.25rem;
+.live-preview-label {
+  font-size: 9.5px;
   font-weight: 700;
-  color: var(--text-primary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-text);
 }
 
-.editor-grid {
+.live-preview-val {
+  font-family: var(--font-numeric);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.live-preview-val.neg {
+  color: var(--rose);
+}
+
+/* ── Note Area ───────────────────────────────────────────── */
+.note-area {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.note-area--open {
+  border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
+}
+
+.note-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  text-align: left;
+  transition: color var(--transition-fast);
+}
+
+.note-trigger:hover {
+  color: var(--text-1);
+}
+
+.note-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.note-area--open .note-trigger {
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.note-trigger-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.note-textarea {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  padding: 12px 16px;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+  line-height: 1.6;
+}
+
+/* ── Cash Flow ───────────────────────────────────────────── */
+.cashflow-card {
+  padding: 16px 20px;
+}
+
+.cashflow-inputs {
+  display: flex;
+  gap: 24px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Two-Column Editor ───────────────────────────────────── */
+.editor-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+  gap: 20px;
+  align-items: start;
 }
 
-.editor-column__header {
+.col-title {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid rgba(255,255,255,0.05);
-}
-
-.editor-column__total {
-  font-size: 1.5rem;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-size: 1rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
 }
 
-.editor-column__total.positive { color: var(--accent-green); }
-.editor-column__total.negative { color: var(--accent-red); }
+.col-title.pos { color: var(--accent-text); border-color: color-mix(in oklch, var(--accent) 30%, transparent); }
+.col-title.neg { color: var(--rose);        border-color: color-mix(in oklch, var(--rose) 30%, transparent); }
 
+.col-total {
+  font-family: var(--font-numeric);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+/* ── Sticky Summary ──────────────────────────────────────── */
+.editor-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hero);
+  position: sticky;
+  bottom: 16px;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.summ-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 24px;
+  flex: 1;
+}
+
+.summ-sep {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.summ-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.summ-val {
+  font-family: var(--font-numeric);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.summ-val.pos { color: var(--accent-text); font-size: 1.25rem; }
+.summ-val.neg { color: var(--rose); }
+
+/* ── Media Queries ───────────────────────────────────────── */
 @media (max-width: 900px) {
-  .editor-grid {
+  .editor-cols {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .editor-header {
     flex-direction: column;
     align-items: stretch;
   }
-  .editor-header__right {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
+  .editor-header-right {
+    flex-wrap: wrap;
+    gap: 8px;
   }
+  .live-preview { align-items: flex-start; }
+
+  .editor-summary {
+    flex-wrap: wrap;
+    position: static;
+    bottom: unset;
+  }
+  .summ-block { padding: 10px 14px; }
+  .summ-sep { display: none; }
+}
+
+@media (max-width: 480px) {
+  .summ-block { flex: 1 1 40%; }
 }

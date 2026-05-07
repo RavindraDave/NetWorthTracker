@@ -1,77 +1,102 @@
 import React, { useMemo } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell
-} from 'recharts';
 import { useApp } from '../../context/AppContext';
-import { buildAllocationData } from '../../utils/calculations';
-import { formatCompactNumber as fmt } from '../../utils/numberFormat';
-import { ChartTooltip } from './ChartTooltip';
+import { calcCategoryTotal } from '../../utils/calculations';
+import { formatCompactNumber } from '../../utils/numberFormat';
 import './PerformanceChart.css';
 
-const COLORS = ['#4ade80', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6', '#fb923c', '#facc15'];
-
 export const PerformanceChart: React.FC = () => {
-  const { currentSnapshot, preferences } = useApp();
+  const { currentSnapshot, previousSnapshot, preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
 
   const data = useMemo(() => {
-    if (!currentSnapshot) return [];
-    return buildAllocationData(currentSnapshot, baseCurrency)
-      .filter(d => d.type === 'asset' && d.value > 0)
-      .slice(0, 6)
-      .map(d => ({
-        name: d.name.length > 16 ? d.name.slice(0, 14) + '…' : d.name,
-        fullName: d.name,
-        value: d.value,
-        percentage: d.percentage,
-      }));
-  }, [currentSnapshot, baseCurrency]);
+    if (!currentSnapshot || !previousSnapshot) return [];
+    return currentSnapshot.categories
+      .filter(c => c.type === 'asset')
+      .map(cat => {
+        const curr = calcCategoryTotal(cat, baseCurrency, currentSnapshot.exchangeRates);
+        const prevCat = previousSnapshot.categories.find(
+          c => c.id === cat.id || (c.name === cat.name && c.type === cat.type)
+        );
+        const prev = prevCat ? calcCategoryTotal(prevCat, baseCurrency, previousSnapshot.exchangeRates) : 0;
+        return {
+          name: cat.name.length > 22 ? cat.name.slice(0, 20) + '…' : cat.name,
+          value: curr - prev,
+        };
+      })
+      .filter(d => d.value !== 0)
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+      .slice(0, 7);
+  }, [currentSnapshot, previousSnapshot, baseCurrency]);
+
+  const prevMonth = previousSnapshot?.month
+    ? new Date(previousSnapshot.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    : null;
+
+  const maxAbs = data.length > 0 ? Math.max(...data.map(d => Math.abs(d.value))) : 1;
+
+  if (!previousSnapshot) {
+    return (
+      <div className="wp-card section-card">
+        <div className="chart-head">
+          <div className="section-label">Monthly Performance</div>
+        </div>
+        <div className="chart-empty">Add another snapshot to see month-over-month changes</div>
+      </div>
+    );
+  }
 
   if (data.length === 0) {
     return (
-      <div className="performance-chart glass-card">
-        <h3 className="chart-title">Portfolio Performance</h3>
-        <div className="chart-empty">No asset data to display</div>
+      <div className="wp-card section-card">
+        <div className="chart-head">
+          <div className="section-label">Monthly Performance</div>
+        </div>
+        <div className="chart-empty">No changes between snapshots</div>
       </div>
     );
   }
 
   return (
-    <div className="performance-chart glass-card">
-      <div className="chart-header">
+    <div className="wp-card section-card">
+      <div className="chart-head">
         <div>
-          <h3 className="chart-title">Portfolio Performance</h3>
-          <p className="chart-subtitle">Asset breakdown by category</p>
+          <div className="section-label">Monthly Performance</div>
+          <div className="section-sub">Per-category change vs {prevMonth}</div>
         </div>
+        {currentSnapshot?.month && (
+          <span className="muted-chip">
+            {new Date(currentSnapshot.month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+          </span>
+        )}
       </div>
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 48 }}>
-          <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" vertical={false} />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: '#6b7280', fontSize: 10 }}
-            axisLine={false}
-            tickLine={false}
-            angle={-35}
-            textAnchor="end"
-            interval={0}
-          />
-          <YAxis
-            tickFormatter={fmt}
-            tick={{ fill: '#6b7280', fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            width={52}
-          />
-          <Tooltip content={<ChartTooltip usePayloadName showPercentage />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-            {data.map((_, index) => (
-              <Cell key={index} fill={COLORS[index % COLORS.length]} fillOpacity={0.85} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="perf-bars">
+        {data.map((item, i) => {
+          const isPos = item.value >= 0;
+          const pct = (Math.abs(item.value) / maxAbs) * 50;
+          return (
+            <div
+              key={i}
+              className="perf-bar-row"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              <div className="perf-name" title={item.name}>{item.name}</div>
+              <div className="perf-track">
+                <div className="perf-mid" />
+                <div
+                  className={`perf-fill${isPos ? ' perf-fill-pos' : ' perf-fill-neg'}`}
+                  style={isPos
+                    ? { left: '50%', width: `${pct}%` }
+                    : { right: '50%', width: `${pct}%` }
+                  }
+                />
+              </div>
+              <div className={`perf-val${isPos ? ' pos' : ' neg'}`}>
+                {isPos ? '+' : '−'}{formatCompactNumber(Math.abs(item.value))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

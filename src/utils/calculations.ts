@@ -24,10 +24,11 @@ export function convertToBase(
 export function calcCategoryTotal(
   category: Category,
   baseCurrency: string,
-  exchangeRates: Record<string, number>
+  exchangeRates: Record<string, number>,
+  forGoals = false
 ): number {
   return category.items
-    .filter(item => !item.excludeFromNetWorth)
+    .filter(item => !item.excludeFromNetWorth && !(forGoals && item.excludeFromGoals))
     .reduce((sum, item) => sum + convertToBase(item.amount, item.currency, baseCurrency, exchangeRates), 0);
 }
 
@@ -98,7 +99,7 @@ export function calcNetWorthForGoal(
   let liabilities = 0;
   for (const cat of filtered) {
     if (excluded.has(cat.id)) continue;
-    const total = calcCategoryTotal(cat, baseCurrency, exchangeRates);
+    const total = calcCategoryTotal(cat, baseCurrency, exchangeRates, true);
     if (cat.type === 'asset') assets += total;
     else liabilities += total;
   }

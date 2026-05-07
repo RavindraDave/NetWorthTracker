@@ -87,13 +87,12 @@ export function downloadFile(content: string, filename: string, mimeType: string
  * Quick CSV export for a snapshot's line items.
  */
 export function exportSnapshotToCSV(snapshot: Snapshot) {
-  let csv = 'Category,Type,Item Name,Currency,Amount,Excluded\n';
+  let csv = 'Category,Type,Item Name,Currency,Amount,Excluded,GoalExcluded\n';
   snapshot.categories.forEach(cat => {
     cat.items.forEach(item => {
-      // Escape names for CSV
-      const safeCatName = cat.name.replace(/"/g, '""');
+      const safeCatName  = cat.name.replace(/"/g, '""');
       const safeItemName = item.name.replace(/"/g, '""');
-      csv += `"${safeCatName}","${cat.type}","${safeItemName}",${item.currency},${item.amount},${item.excludeFromNetWorth ? 'Yes' : 'No'}\n`;
+      csv += `"${safeCatName}","${cat.type}","${safeItemName}",${item.currency},${item.amount},${item.excludeFromNetWorth ? 'Yes' : 'No'},${item.excludeFromGoals ? 'Yes' : 'No'}\n`;
     });
   });
   return csv;
