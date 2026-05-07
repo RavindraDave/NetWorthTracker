@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { googleDriveProvider } from '../../utils/cloudSync/google/drive';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -33,9 +34,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewSnapshot }) => {
   const { preferences } = useApp();
   const isEditor = location.pathname.startsWith('/editor');
 
-  const name = preferences?.profileName ?? '';
-  const initials = name
-    ? name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join('')
+  const driveConnected = preferences?.cloudSync?.enabled && preferences.cloudSync.provider === 'google';
+  const driveName    = driveConnected ? googleDriveProvider.getName()    : null;
+  const driveAvatar  = driveConnected ? googleDriveProvider.getPicture() : null;
+
+  const displayName = driveName || preferences?.profileName || '';
+  const initials = displayName
+    ? displayName.trim().split(/\s+/).map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join('')
     : 'WP';
 
   return (
@@ -115,10 +120,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewSnapshot }) => {
       </div>
 
       <div className="wp-sidebar-foot">
-        <div className="wp-user-avatar">{initials}</div>
+        {driveAvatar
+          ? <img src={driveAvatar} alt={displayName} className="wp-user-avatar wp-user-avatar--photo" referrerPolicy="no-referrer" />
+          : <div className="wp-user-avatar">{initials}</div>
+        }
         <div>
-          <div className="wp-user-name">{name || 'WealthPulse'}</div>
-          <div className="wp-user-tier">Local-only · Encrypted</div>
+          <div className="wp-user-name">{displayName || 'WealthPulse'}</div>
+          <div className="wp-user-tier">
+            {driveConnected ? 'Google Drive · Synced' : 'Local-only · Encrypted'}
+          </div>
         </div>
       </div>
     </nav>
