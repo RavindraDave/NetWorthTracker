@@ -119,14 +119,12 @@ These scripts install Node.js if missing, build the production app, and configur
 
 ## Cloud Sync — Google Drive Setup
 
-<a name="cloud-sync-setup"></a>
-
 WealthPulse can automatically back up your data to a **hidden, app-only folder** in your Google Drive (`appDataFolder`). This folder:
 
 - Is **invisible** in your Google Drive UI — it never clutters your files
 - Is **inaccessible** to any other app — only WealthPulse can read or write to it
 - **Survives browser data clears, cache wipes, and device loss**
-- Uses a read-only scope (`drive.appdata`) — WealthPulse **cannot** see or touch any of your other Drive files
+- Uses the `drive.appdata` scope — WealthPulse **cannot** see or touch any of your other Drive files
 
 ---
 
@@ -135,7 +133,9 @@ WealthPulse can automatically back up your data to a **hidden, app-only folder**
 | Scenario | What you need to do |
 |---|---|
 | **Using the hosted app** | Nothing — just click **Settings → Cloud Sync → Connect Google Drive** and sign in |
-| **Self-hosting or running locally** | Follow the one-time GCP setup below, then paste your Client ID in the app |
+| **Self-hosting or running locally** | Complete the one-time GCP setup below (~10 min), then paste your Client ID in the app |
+
+The in-app **Setup guide** link (Settings → Cloud Sync → Setup guide) walks through these same steps inside the app.
 
 ---
 
@@ -143,42 +143,62 @@ WealthPulse can automatically back up your data to a **hidden, app-only folder**
 
 #### Step 1 — Create a Google Cloud project
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com/) and sign in.
-2. Click the project dropdown → **New Project**. Give it a name and click **Create**.
+1. Go to [console.cloud.google.com/projectcreate](https://console.cloud.google.com/projectcreate) and sign in.
+2. Give the project any name (e.g. *WealthPulse*) and click **Create**.
 
 #### Step 2 — Enable the Google Drive API
 
-1. **APIs & Services → Library** → search **Google Drive API** → **Enable**.
+1. Go to **APIs & Services → Library** (or use the [direct link](https://console.cloud.google.com/apis/library/drive.googleapis.com)).
+2. Search for **Google Drive API** → click it → click **Enable**.
 
 #### Step 3 — Configure the OAuth consent screen
 
-1. **APIs & Services → OAuth consent screen** → choose **External** → **Create**.
-2. Fill in App name, support email, and developer contact.
-3. On **Scopes**, add `../auth/drive.appdata`.
-4. On **Test users**, add your own Google account email.
+1. Go to **APIs & Services → OAuth consent screen**.
+2. User type: choose **External** → **Create**.
+3. Fill in the three required fields: **App name**, **User support email**, and **Developer contact email**.
+4. On the **Scopes** step, click **Add or remove scopes**, search for `.../auth/drive.appdata`, select it, then click **Update**.
+5. On the **Test users** step, click **Add users** and add your own Google account email. Only listed test users can sign in while the app is unverified.
+6. Click **Save and Continue** through the remaining steps.
 
 #### Step 4 — Create an OAuth Client ID
 
-1. **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
-2. Type: **Web application**.
-3. Under **Authorized JavaScript origins**, add your app URL (e.g. `http://localhost:5173` for local dev).
-4. Copy the **Client ID** — it looks like `123456789-abcdefg.apps.googleusercontent.com`.
+1. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
+2. Application type: **Web application**.
+3. Under **Authorized JavaScript origins**, add every URL you'll open the app from:
+   - `http://localhost:5173` — Vite dev server
+   - `http://localhost:3000` — PM2 self-hosted setup
+   - `https://your-domain.com` — your deployed URL (if applicable)
+4. Click **Create**. The Client ID appears immediately in the confirmation dialog.
 
-#### Step 5 — Add the Client ID to your app
+#### Step 5 — Add the Client ID to the app
 
-**Option A — Environment variable (recommended for hosting):**
+The Client ID looks like `123456789012-abcdefghijklmnop.apps.googleusercontent.com`. It is **not a secret** — it's safe to store in the app.
 
-Set `VITE_GOOGLE_CLIENT_ID=your-client-id` in your deployment platform (Vercel, Netlify, etc.).
+**Option A — In-app (no rebuild needed):**
 
-**Option B — In-app (no rebuild needed):**
+Settings → Cloud Sync → paste Client ID into the field → **Save**.
 
-Settings → Cloud Sync → paste Client ID → **Save**. Stored in `localStorage`.
+**Option B — Environment variable (recommended for Vercel/Netlify hosting):**
+
+```
+VITE_GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
+```
 
 **Option C — `.env.local` for local dev:**
 
 ```
 VITE_GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
 ```
+
+---
+
+### Troubleshooting
+
+| Error | Fix |
+|---|---|
+| **Error 400: redirect_uri_mismatch** | The URL you're using (including port) isn't in the Authorized JavaScript origins list. Add it and wait ~5 minutes. |
+| **Sign-in blocked / access denied** | Your Google account isn't in the Test users list. Add it in OAuth consent screen → Test users. |
+| **Popup blocked** | Allow popups for the app's domain in your browser settings. |
 
 ---
 
@@ -193,7 +213,7 @@ VITE_GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
 
 ### Security notes
 
-- The Client ID is **not a secret** — it's a public identifier, like an app name. Security comes from Google only accepting OAuth requests from registered domains.
+- The Client ID is **not a secret** — security comes from Google only accepting OAuth requests from registered domains.
 - WealthPulse never sends your financial data to any server other than your own Google account.
 - Access can be revoked at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
 - Backups are stored as **plaintext JSON** in your Drive's hidden app folder. End-to-end encryption is planned as a future phase.

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Cloud, CloudOff, RefreshCw, Download, LogOut, AlertCircle, ExternalLink, KeyRound } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, Download, LogOut, AlertCircle, ExternalLink, KeyRound, X, BookOpen } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
 import { Modal } from '../common/Modal';
@@ -21,6 +21,109 @@ function maskClientId(id: string): string {
   if (id.length <= 12) return id;
   return `${id.slice(0, 8)}…${id.slice(-4)}`;
 }
+
+// ── GCP Setup Guide modal ─────────────────────────────────────────────────────
+
+const GCPSetupGuide: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const link = (href: string, label: string) => (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      style={{ color: 'var(--accent-text)', textDecoration: 'none', fontWeight: 500 }}>
+      {label} <ExternalLink size={10} style={{ verticalAlign: 'middle' }} />
+    </a>
+  );
+
+  const step = (n: number, title: string, body: React.ReactNode) => (
+    <div style={{ display: 'flex', gap: '0.85rem', marginBottom: '1.25rem' }}>
+      <div style={{
+        flexShrink: 0, width: 24, height: 24, borderRadius: '50%',
+        background: 'var(--accent-soft)', color: 'var(--accent-text)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '0.75rem', fontWeight: 700, marginTop: 2,
+      }}>{n}</div>
+      <div>
+        <p style={{ margin: '0 0 0.4rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>{title}</p>
+        <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', lineHeight: 1.6 }}>{body}</div>
+      </div>
+    </div>
+  );
+
+  const code = (t: string) => (
+    <code style={{ background: 'var(--surface-glass, rgba(0,0,0,0.15))', padding: '1px 5px', borderRadius: 3, fontFamily: 'var(--font-numeric)', fontSize: '0.8rem' }}>{t}</code>
+  );
+
+  return (
+    <Modal onClose={onClose} aria-label="Google Cloud setup guide" contentStyle={{ maxWidth: 560, maxHeight: '85vh', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <BookOpen size={16} style={{ color: 'var(--accent-text)' }} />
+          Google Cloud Setup Guide
+        </h3>
+        <button onClick={onClose} className="btn-icon" aria-label="Close" style={{ color: 'var(--text-3)' }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <p style={{ fontSize: '0.82rem', color: 'var(--text-3)', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+        One-time setup (~10 min). You only need this if you're self-hosting or running locally.
+        The hosted app at wealthpulse.app has a Client ID pre-configured.
+      </p>
+
+      {step(1, 'Create a Google Cloud project', <>
+        Open {link('https://console.cloud.google.com/projectcreate', 'console.cloud.google.com → New Project')}.
+        Give it any name (e.g. <em>WealthPulse</em>) and click <strong>Create</strong>.
+      </>)}
+
+      {step(2, 'Enable the Google Drive API', <>
+        In the left menu go to <strong>APIs &amp; Services → Library</strong>.
+        Search for <strong>Google Drive API</strong>, click it, then click <strong>Enable</strong>.
+        <br />Or use this {link('https://console.cloud.google.com/apis/library/drive.googleapis.com', 'direct link')}.
+      </>)}
+
+      {step(3, 'Configure the OAuth consent screen', <>
+        Go to <strong>APIs &amp; Services → OAuth consent screen</strong>.<br />
+        • User type: choose <strong>External</strong> → <strong>Create</strong>.<br />
+        • Fill in <em>App name</em>, <em>User support email</em>, and <em>Developer contact email</em> — all three are required.<br />
+        • On the <strong>Scopes</strong> step, click <strong>Add or remove scopes</strong> and search for{' '}
+        {code('.../auth/drive.appdata')}. Select it → <strong>Update</strong>.<br />
+        • On the <strong>Test users</strong> step, click <strong>Add users</strong> and add your own Google account email.
+        Only listed test users can sign in while the app is unverified.<br />
+        • Click <strong>Save and Continue</strong> through the remaining steps.
+      </>)}
+
+      {step(4, 'Create an OAuth Client ID', <>
+        Go to <strong>APIs &amp; Services → Credentials</strong> → <strong>Create Credentials → OAuth client ID</strong>.<br />
+        • Application type: <strong>Web application</strong>.<br />
+        • Under <strong>Authorized JavaScript origins</strong> add every URL you'll use:<br />
+        <div style={{ margin: '0.4rem 0 0.4rem 0.75rem', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {code('http://localhost:5173')} — Vite local dev<br />
+          {code('http://localhost:3000')} — if you use the PM2 self-hosted setup<br />
+          {code('https://your-domain.com')} — your deployed URL (if applicable)
+        </div>
+        Click <strong>Create</strong>.
+      </>)}
+
+      {step(5, 'Copy the Client ID and paste it here', <>
+        The Client ID is shown immediately in the popup that appears — it looks like:<br />
+        {code('123456789012-abcdefghij.apps.googleusercontent.com')}<br />
+        Copy it and paste it into the <strong>Google OAuth Client ID</strong> field in this card, then click <strong>Save</strong>.
+        The Client ID is not a secret — it's safe to store in the app.
+      </>)}
+
+      <div style={{
+        background: 'var(--accent-soft)', border: '1px solid color-mix(in oklch, var(--accent) 25%, transparent)',
+        borderRadius: 'var(--radius-sm)', padding: '0.65rem 0.9rem', fontSize: '0.8rem', color: 'var(--text-2)', lineHeight: 1.6,
+      }}>
+        <strong style={{ color: 'var(--accent-text)' }}>Troubleshooting</strong><br />
+        <strong>Error 400 — redirect_uri_mismatch:</strong> The URL you're using isn't in the Authorized JavaScript origins list. Add the exact URL (including port) and wait ~5 minutes for it to propagate.<br />
+        <strong>Sign-in blocked:</strong> Your Google account isn't in the Test users list. Add it in the OAuth consent screen → Test users tab.
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <button className="btn btn-primary" onClick={onClose}>Done</button>
+      </div>
+    </Modal>
+  );
+};
 
 // ── Restore picker dialog ─────────────────────────────────────────────────────
 
@@ -79,9 +182,10 @@ interface ClientIdFormProps {
   savedId: string;
   onSave: (id: string) => Promise<void>;
   onClear: () => Promise<void>;
+  onShowGuide: () => void;
 }
 
-const ClientIdForm: React.FC<ClientIdFormProps> = ({ savedId, onSave, onClear }) => {
+const ClientIdForm: React.FC<ClientIdFormProps> = ({ savedId, onSave, onClear, onShowGuide }) => {
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
   const isValid = input.trim().length > 10 && input.includes('.apps.googleusercontent.com');
@@ -110,9 +214,12 @@ const ClientIdForm: React.FC<ClientIdFormProps> = ({ savedId, onSave, onClear })
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
       <p className="text-muted" style={{ fontSize: '0.8rem' }}>
         Paste your OAuth 2.0 Client ID from Google Cloud Console.{' '}
-        <a href="#cloud-sync-setup" style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>
+        <button
+          onClick={onShowGuide}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-text)', fontSize: '0.8rem', fontWeight: 500 }}
+        >
           Setup guide <ExternalLink size={11} style={{ verticalAlign: 'middle' }} />
-        </a>
+        </button>
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <input
@@ -140,6 +247,7 @@ export const CloudSyncCard: React.FC = () => {
 
   const [signingIn, setSigningIn] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [restoreFiles, setRestoreFiles] = useState<CloudBackupFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -287,6 +395,7 @@ export const CloudSyncCard: React.FC = () => {
                 savedId={savedClientId}
                 onSave={handleSaveClientId}
                 onClear={handleClearClientId}
+                onShowGuide={() => setShowSetupGuide(true)}
               />
             </div>
           )}
@@ -325,6 +434,8 @@ export const CloudSyncCard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {showSetupGuide && <GCPSetupGuide onClose={() => setShowSetupGuide(false)} />}
 
       {showRestoreDialog && (
         <RestoreDialog
