@@ -23,8 +23,8 @@ export const MilestoneTimeline: React.FC<MilestoneTimelineProps> = ({ goals, cur
   if (sortedGoals.length === 0) return null;
 
   return (
-    <div className="milestone-timeline glass-card">
-      <h3 className="text-h2" style={{ marginBottom: '1.5rem' }}>Milestone Journey</h3>
+    <div className="milestone-timeline wp-card">
+      <h3 className="section-label" style={{ marginBottom: '1.25rem' }}>Milestone Journey</h3>
       <div className="timeline-container">
         {sortedGoals.map((goal, idx) => {
           const target = goal.type === 'fire' ? (goal.annualExpenses || 0) * (goal.multiplier || 25) : goal.targetAmount;
@@ -39,7 +39,9 @@ export const MilestoneTimeline: React.FC<MilestoneTimelineProps> = ({ goals, cur
           return (
             <div key={goal.id} className={`timeline-item ${isAchieved ? 'achieved' : ''}`}>
               <div className="timeline-marker">
-                {isAchieved ? <CheckCircle2 className="text-positive" size={20} /> : <Circle className="text-muted" size={20} />}
+                {isAchieved
+                  ? <CheckCircle2 size={20} style={{ color: 'var(--accent-text)' }} />
+                  : <Circle size={20} style={{ color: 'var(--text-3)' }} />}
                 {idx < sortedGoals.length - 1 && <div className="timeline-line" />}
               </div>
               <div className="timeline-content">
