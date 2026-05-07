@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
-import { exportToJSON, parseBackupJSON, downloadFile, parseExcelToSnapshotItems } from '../utils/importExport';
+import { exportToJSON, parseBackupJSON, downloadFile, parseExcelToSnapshotItems, exportAllToExcel } from '../utils/importExport';
 import { ALL_CURRENCIES } from '../utils/currencies';
 import { CategoryManager } from '../components/settings/CategoryManager';
 import { StorageStatusCard } from '../components/settings/StorageStatusCard';
@@ -370,6 +370,18 @@ export const Settings: React.FC = () => {
                   <p className="text-muted text-sm">Download your complete database as a JSON file for safekeeping.</p>
                 </div>
                 <button className="btn btn-outline" onClick={handleExport}>Download JSON</button>
+              </div>
+
+              <div className="settings-row">
+                <div>
+                  <h3 className="text-h3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <FileSpreadsheet size={18} className="text-positive" /> Export History to Excel
+                  </h3>
+                  <p className="text-muted text-sm">Download all snapshots as a multi-sheet Excel workbook — one summary sheet plus a detail sheet per month.</p>
+                </div>
+                <button className="btn btn-outline" onClick={() => exportAllToExcel(snapshots, preferences.baseCurrency)} disabled={snapshots.length === 0}>
+                  Download .xlsx
+                </button>
               </div>
 
               <div className="data-action-card">

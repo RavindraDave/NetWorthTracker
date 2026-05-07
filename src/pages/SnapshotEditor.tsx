@@ -9,8 +9,9 @@ import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
 import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
-import { Save, Download, FileText, ChevronDown } from 'lucide-react';
-import { exportSnapshotToCSV, downloadFile } from '../utils/importExport';
+import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer } from 'lucide-react';
+import { exportSnapshotToCSV, downloadFile, exportSnapshotToExcel } from '../utils/importExport';
+import { printSnapshotReport } from '../utils/printReport';
 import './SnapshotEditor.css';
 
 export const SnapshotEditor: React.FC = () => {
@@ -112,6 +113,16 @@ export const SnapshotEditor: React.FC = () => {
     if (!snapshot) return;
     const csv = exportSnapshotToCSV(snapshot);
     downloadFile(csv, `snapshot-${snapshot.month}.csv`, 'text/csv');
+  };
+
+  const handleExportExcel = () => {
+    if (!snapshot) return;
+    exportSnapshotToExcel(snapshot, baseCurrency);
+  };
+
+  const handlePrint = () => {
+    if (!snapshot) return;
+    printSnapshotReport(snapshot, baseCurrency);
   };
 
   if (!snapshot) {
@@ -219,6 +230,14 @@ export const SnapshotEditor: React.FC = () => {
           <button className="btn btn-outline" onClick={handleExportCSV} title="Export CSV">
             <Download size={15} />
             <span>Export CSV</span>
+          </button>
+          <button className="btn btn-outline" onClick={handleExportExcel} title="Export Excel">
+            <FileSpreadsheet size={15} />
+            <span>Export Excel</span>
+          </button>
+          <button className="btn btn-outline" onClick={handlePrint} title="Print / Save PDF">
+            <Printer size={15} />
+            <span>Print / PDF</span>
           </button>
           <button className="btn btn-primary" onClick={handleSave}>
             <Save size={15} />

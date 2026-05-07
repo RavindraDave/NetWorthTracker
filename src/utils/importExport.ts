@@ -1,5 +1,6 @@
 import { Snapshot, Goal, UserPreferences } from '../types';
 import * as XLSX from 'xlsx';
+import { calcNetWorth, convertToBase } from './calculations';
 
 export interface BackupData {
   version: number;
@@ -99,6 +100,129 @@ export function exportSnapshotToCSV(snapshot: Snapshot) {
 }
 
 export type ExcelRow = Record<string, string | number | boolean | undefined>;
+
+/**
+ * Export a single snapshot to a two-sheet Excel workbook.
+ * Sheet "Items": one row per line item with base-currency values.
+ * Sheet "Summary": category totals + grand totals.
+ */
+export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string): void {
+  const { categoryTotals, totalAssets, totalLiabilities, netWorth } = calcNetWorth(snapshot, baseCurrency);
+  const wb = XLSX.utils.book_new();
+
+  // --- Sheet 1: Items ---
+  const itemRows: ExcelRow[] = [];
+  for (const cat of snapshot.categories) {
+    for (const item of cat.items) {
+      const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
+      const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
+      const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
+      itemRows.push({
+        'Category': cat.name,
+        'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
+        'Item Name': item.name,
+        'Currency': item.currency,
+        'Amount': item.amount,
+        [`Value (${baseCurrency})`]: baseValue,
+        'In Net Worth': inNetWorth,
+        'In Goals': inGoals,
+        'Notes': item.notes ?? '',
+      });
+    }
+  }
+  const wsItems = XLSX.utils.json_to_sheet(itemRows);
+  XLSX.utils.book_append_sheet(wb, wsItems, 'Items');
+
+  // --- Sheet 2: Summary ---
+  const summaryRows: ExcelRow[] = [];
+  for (const cat of snapshot.categories) {
+    const catTotal = Math.round(categoryTotals[cat.id] ?? 0);
+    const itemCount = cat.items.filter(i => !i.excludeFromNetWorth).length;
+    summaryRows.push({
+      'Category': cat.name,
+      'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
+      [`Total (${baseCurrency})`]: catTotal,
+      'Items': itemCount,
+    });
+  }
+  // Blank separator row
+  summaryRows.push({ 'Category': '', 'Type': '', [`Total (${baseCurrency})`]: undefined, 'Items': undefined });
+  // Grand totals
+  summaryRows.push({ 'Category': 'Total Assets',      'Type': '', [`Total (${baseCurrency})`]: Math.round(totalAssets),      'Items': undefined });
+  summaryRows.push({ 'Category': 'Total Liabilities', 'Type': '', [`Total (${baseCurrency})`]: Math.round(totalLiabilities), 'Items': undefined });
+  summaryRows.push({ 'Category': 'Net Worth',          'Type': '', [`Total (${baseCurrency})`]: Math.round(netWorth),         'Items': undefined });
+
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+  XLSX.writeFile(wb, `snapshot-${snapshot.month}.xlsx`);
+}
+
+/**
+ * Export all snapshots to a multi-sheet Excel workbook.
+ * Sheet "Net Worth History": one row per snapshot sorted ascending.
+ * Additional sheets (up to 30): item-level detail per snapshot.
+ */
+export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): void {
+  const sorted = [...snapshots].sort((a, b) => a.month.localeCompare(b.month));
+  const wb = XLSX.utils.book_new();
+
+  // --- Sheet: Net Worth History ---
+  const historyRows: ExcelRow[] = sorted.map(snap => {
+    const { totalAssets, totalLiabilities, netWorth } = calcNetWorth(snap, baseCurrency);
+    const income = snap.monthlyIncome ?? 0;
+    const expenses = snap.monthlyExpenses ?? 0;
+    const savings = income - expenses;
+    const savingsRate = income > 0 ? parseFloat((savings / income * 100).toFixed(1)) : 0;
+    return {
+      'Month': snap.month,
+      [`Total Assets (${baseCurrency})`]: Math.round(totalAssets),
+      [`Total Liabilities (${baseCurrency})`]: Math.round(totalLiabilities),
+      [`Net Worth (${baseCurrency})`]: Math.round(netWorth),
+      [`Monthly Income (${baseCurrency})`]: income > 0 ? Math.round(income) : undefined,
+      [`Monthly Expenses (${baseCurrency})`]: expenses > 0 ? Math.round(expenses) : undefined,
+      [`Monthly Savings (${baseCurrency})`]: income > 0 ? Math.round(savings) : undefined,
+      'Savings Rate (%)': income > 0 ? savingsRate : undefined,
+      'Notes': snap.notes ?? '',
+    };
+  });
+  const wsHistory = XLSX.utils.json_to_sheet(historyRows);
+  XLSX.utils.book_append_sheet(wb, wsHistory, 'Net Worth History');
+
+  // --- Detail sheets: up to 30 snapshots (oldest first) ---
+  const detailSnaps = sorted.slice(0, 30);
+  for (const snap of detailSnaps) {
+    const hasItems = snap.categories.some(cat => cat.items.length > 0);
+    if (!hasItems) continue;
+
+    const itemRows: ExcelRow[] = [];
+    for (const cat of snap.categories) {
+      for (const item of cat.items) {
+        const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snap.exchangeRates));
+        const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
+        const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
+        itemRows.push({
+          'Category': cat.name,
+          'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
+          'Item Name': item.name,
+          'Currency': item.currency,
+          'Amount': item.amount,
+          [`Value (${baseCurrency})`]: baseValue,
+          'In Net Worth': inNetWorth,
+          'In Goals': inGoals,
+          'Notes': item.notes ?? '',
+        });
+      }
+    }
+
+    const ws = XLSX.utils.json_to_sheet(itemRows);
+    // Sheet names must be <= 31 chars; YYYY-MM is 7 chars — safe
+    XLSX.utils.book_append_sheet(wb, ws, snap.month);
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `wealthpulse-history-${today}.xlsx`);
+}
 
 /**
  * Very basic Excel parser for a predefined format to import a snapshot.
