@@ -1,151 +1,153 @@
 .fire-dashboard {
-  padding: 2rem;
-  margin-bottom: 2rem;
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(0,0,0,0.2) 100%);
-  border-top: 2px solid rgba(59, 130, 246, 0.3);
+  border-top: 2px solid var(--accent);
+  background: linear-gradient(135deg,
+    color-mix(in oklch, var(--accent) 8%, var(--bg-card-solid)),
+    var(--bg-card-solid)
+  );
 }
 
-.fire-dashboard__header {
+.fire-dashboard--achieved {
+  border-top-color: var(--accent-text);
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.fire-dash-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.fire-badge {
-  padding: 0.5rem 1rem;
-  font-size: 0.8rem;
-  box-shadow: 0 0 15px rgba(74, 222, 128, 0.2);
-  animation: fire-badge-shimmer 2.5s ease-in-out infinite;
+.fire-dash-name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
 }
 
-/* Pulsing glow on the SVG ring when FI is achieved */
-.fire-dashboard__main-progress--achieved svg circle:last-child {
-  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.7));
-  animation: fire-ring-glow 2s ease-in-out infinite;
+.fire-dash-meta {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  line-height: 1.5;
 }
 
-@keyframes fire-ring-glow {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.5)); }
-  50%       { filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.9)); }
+.fire-achieved-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+  animation: fire-badge-pulse 2.5s ease-in-out infinite;
 }
 
-@keyframes fire-badge-shimmer {
-  0%, 100% { box-shadow: 0 0 15px rgba(74, 222, 128, 0.2); }
-  50%       { box-shadow: 0 0 28px rgba(74, 222, 128, 0.55), 0 0 8px rgba(74, 222, 128, 0.3); }
+@keyframes fire-badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 30%, transparent); }
+  50%       { box-shadow: 0 0 0 6px color-mix(in oklch, var(--accent) 0%, transparent); }
 }
 
-.fire-dashboard__grid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3rem;
+/* ── Progress ────────────────────────────────────────────── */
+.fire-dash-progress-section {
+  margin-bottom: 24px;
+}
+
+.fire-dash-progress-bar {
+  height: 10px;
+  background: color-mix(in oklch, var(--accent) 15%, var(--bg));
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.fire-dash-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-text));
+  border-radius: 5px;
+  animation: fire-progress-in 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fire-progress-in {
+  from { width: 0 !important; }
+}
+
+.fire-dash-progress-labels {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
 }
 
-.fire-dashboard__main-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.fire-progress__value {
-  font-size: 2.5rem;
-  font-family: var(--font-numeric);
-  font-weight: 500;
-  line-height: 1;
-  color: var(--text-primary);
-  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-}
-
-.fire-progress__label {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-top: 0.25rem;
-}
-
-.fire-progress__details {
-  text-align: center;
-}
-
-.fire-progress__details .text-h2 {
-  background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.fire-dashboard__stats {
+/* ── Stats ───────────────────────────────────────────────── */
+.fire-dash-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
-.fire-stat-card {
-  background: rgba(0,0,0,0.2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
+.fire-stat {
   display: flex;
-  gap: 1rem;
   align-items: flex-start;
-  transition: transform var(--transition-fast);
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg-card-solid);
+  transition: background var(--transition-fast);
 }
 
-.fire-stat-card:hover {
-  transform: translateY(-2px);
-  background: rgba(255,255,255,0.02);
+.fire-stat:hover {
+  background: color-mix(in oklch, var(--accent) 4%, var(--bg-card-solid));
 }
 
-.fire-stat-card__icon {
-  color: var(--accent-blue-gray);
-  background: rgba(255,255,255,0.05);
-  padding: 0.5rem;
-  border-radius: var(--radius-md);
-  display: flex;
+.fire-stat-icon {
+  color: var(--accent-text);
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
-.fire-stat-card__content {
-  display: flex;
-  flex-direction: column;
-}
-
-.fire-stat-card__label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+.fire-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
+  color: var(--text-3);
+  margin-bottom: 4px;
 }
 
-.fire-stat-card__value {
-  font-size: 1.25rem;
+.fire-stat-value {
   font-family: var(--font-numeric);
-  font-weight: 500;
-  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.2;
 }
 
-.fire-stat-card__subtext {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
+.fire-stat-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
 }
 
-[data-theme="light"] .fire-dashboard {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(0,0,0,0.03) 100%);
-}
-[data-theme="light"] .fire-dashboard__header { border-bottom-color: rgba(0,0,0,0.08); }
-[data-theme="light"] .fire-progress__value { text-shadow: none; }
-[data-theme="light"] .fire-stat-card { background: rgba(0,0,0,0.03); }
-[data-theme="light"] .fire-stat-card:hover { background: rgba(0,0,0,0.05); }
-[data-theme="light"] .fire-stat-card__icon { background: rgba(0,0,0,0.05); }
-
-@media (max-width: 900px) {
-  .fire-dashboard__grid {
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .fire-dash-stats {
     grid-template-columns: 1fr;
-    gap: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fire-dash-progress-fill {
+    animation: none;
+    transition: none;
+  }
+  .fire-achieved-badge {
+    animation: none;
   }
 }

@@ -1,10 +1,8 @@
 import React from 'react';
 import { Goal, Snapshot } from '../../types';
 import { calcFIREMetrics } from '../../utils/fireCalculator';
-import { ProgressRing } from './ProgressRing';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
-import { Badge } from '../common/Badge';
-import { Target, TrendingUp, Clock, AlertCircle } from 'lucide-react';
+import { Target, TrendingUp, Clock, Zap } from 'lucide-react';
 import './FIREDashboard.css';
 
 interface FIREDashboardProps {
@@ -15,83 +13,92 @@ interface FIREDashboardProps {
 
 export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnapshot, baseCurrency }) => {
   const metrics = calcFIREMetrics(goal, currentSnapshot, baseCurrency);
+  const progressPct = Math.min(Math.max(metrics.progressPercentage, 0), 100);
 
   return (
-    <div className="fire-dashboard glass-card">
-      <div className="fire-dashboard__header">
-        <div>
-          <h2 className="text-h2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Target size={24} className="text-positive" />
-            {goal.name}
-          </h2>
-          <p className="text-muted" style={{ marginTop: '0.25rem' }}>
-            Target: <CurrencyDisplay amount={metrics.fiNumber} currency={baseCurrency} abbreviated />
-            {' '}({goal.multiplier}x Annual Expenses) · {metrics.realReturnRate.toFixed(1)}% real return
-          </p>
+    <div className={`wp-card fire-dashboard${metrics.isFI ? ' fire-dashboard--achieved' : ''}`}>
+
+      {/* Header */}
+      <div className="fire-dash-head">
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <Target size={16} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
+            <span className="fire-dash-name">{goal.name}</span>
+          </div>
+          <span className="fire-dash-meta">
+            Target&nbsp;
+            <CurrencyDisplay amount={metrics.fiNumber} currency={baseCurrency} abbreviated />
+            &nbsp;·&nbsp;{goal.multiplier}× annual expenses&nbsp;·&nbsp;{metrics.realReturnRate.toFixed(1)}% real return
+          </span>
         </div>
         {metrics.isFI && (
-          <Badge variant="positive" className="fire-badge">FINANCIALLY INDEPENDENT 🎉</Badge>
+          <span className="fire-achieved-badge">Financially Independent 🎉</span>
         )}
       </div>
 
-      <div className="fire-dashboard__grid">
-        {/* Main Progress Ring */}
-        <div className={`fire-dashboard__main-progress${metrics.isFI ? ' fire-dashboard__main-progress--achieved' : ''}`}>
-          <ProgressRing
-            radius={110}
-            stroke={12}
-            progress={metrics.progressPercentage}
-            color={metrics.isFI ? '#22c55e' : '#3b82f6'}
-          >
-            <span className="fire-progress__value">{metrics.progressPercentage.toFixed(1)}%</span>
-            <span className="fire-progress__label">{metrics.isFI ? '🎉 FI' : 'Funded'}</span>
-          </ProgressRing>
-          <div className="fire-progress__details">
-            <p className="text-muted">Current Portfolio</p>
-            <p className="text-h2"><CurrencyDisplay amount={metrics.currentNetWorth} currency={baseCurrency} abbreviated /></p>
+      {/* Progress */}
+      <div className="fire-dash-progress-section">
+        <div className="fire-dash-progress-bar">
+          <div
+            className="fire-dash-progress-fill"
+            style={{ width: `${progressPct}%` }}
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
+        </div>
+        <div className="fire-dash-progress-labels">
+          <span style={{ fontFamily: 'var(--font-numeric)', fontSize: '0.78rem', color: 'var(--text-2)' }}>
+            <CurrencyDisplay amount={metrics.currentNetWorth} currency={baseCurrency} abbreviated />
+            <span style={{ color: 'var(--text-3)' }}>
+              &nbsp;/&nbsp;<CurrencyDisplay amount={metrics.fiNumber} currency={baseCurrency} abbreviated />
+            </span>
+          </span>
+          <span style={{ fontFamily: 'var(--font-numeric)', fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-text)' }}>
+            {progressPct.toFixed(1)}% Funded
+          </span>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="fire-dash-stats">
+        <div className="fire-stat">
+          <div className="fire-stat-icon"><Clock size={14} /></div>
+          <div>
+            <div className="fire-stat-label">Time to FI</div>
+            <div className="fire-stat-value">
+              {metrics.isFI
+                ? <span style={{ color: 'var(--accent-text)' }}>Achieved!</span>
+                : metrics.yearsToFI !== null
+                  ? `${metrics.yearsToFI.toFixed(1)} yrs`
+                  : metrics.monthlySavings < 0
+                    ? <span style={{ color: 'var(--rose)' }}>Negative savings</span>
+                    : <span style={{ color: 'var(--text-3)', fontSize: '0.8rem' }}>Add cash flow</span>
+              }
+            </div>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="fire-dashboard__stats">
-          <div className="fire-stat-card">
-            <div className="fire-stat-card__icon"><Clock size={18} /></div>
-            <div className="fire-stat-card__content">
-              <p className="fire-stat-card__label">Estimated Time to FI</p>
-              <p className="fire-stat-card__value">
-                {metrics.isFI ? 'Achieved!' : (
-                  metrics.yearsToFI !== null
-                    ? `${metrics.yearsToFI.toFixed(1)} Years`
-                    : metrics.monthlySavings < 0
-                      ? <span style={{ fontSize: '0.9rem', color: 'var(--accent-red)' }}>Negative Savings</span>
-                      : <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Add income & expenses</span>
-                )}
-              </p>
+        <div className="fire-stat">
+          <div className="fire-stat-icon"><TrendingUp size={14} /></div>
+          <div>
+            <div className="fire-stat-label">Savings Rate</div>
+            <div className="fire-stat-value">{metrics.savingsRatePercentage.toFixed(1)}%</div>
+            <div className="fire-stat-sub">
+              <CurrencyDisplay amount={metrics.monthlySavings} currency={baseCurrency} abbreviated /> / mo
             </div>
           </div>
+        </div>
 
-          <div className="fire-stat-card">
-            <div className="fire-stat-card__icon" style={{ color: 'var(--accent-green)' }}><TrendingUp size={18} /></div>
-            <div className="fire-stat-card__content">
-              <p className="fire-stat-card__label">Savings Rate</p>
-              <p className="fire-stat-card__value">
-                {metrics.savingsRatePercentage.toFixed(1)}%
-              </p>
-              <p className="fire-stat-card__subtext">
-                <CurrencyDisplay amount={metrics.monthlySavings} currency={baseCurrency} abbreviated /> / mo
-              </p>
+        <div className="fire-stat">
+          <div className="fire-stat-icon"><Zap size={14} /></div>
+          <div>
+            <div className="fire-stat-label">SWR {metrics.safeWithdrawalRate.toFixed(1)}%</div>
+            <div className="fire-stat-value">
+              <CurrencyDisplay amount={metrics.monthlyPassiveIncome} currency={baseCurrency} abbreviated />
             </div>
-          </div>
-
-          <div className="fire-stat-card">
-            <div className="fire-stat-card__icon" style={{ color: 'var(--accent-purple)' }}><AlertCircle size={18} /></div>
-            <div className="fire-stat-card__content">
-              <p className="fire-stat-card__label">Safe Withdrawal ({metrics.safeWithdrawalRate.toFixed(1)}%)</p>
-              <p className="fire-stat-card__value">
-                <CurrencyDisplay amount={metrics.monthlyPassiveIncome} currency={baseCurrency} abbreviated />
-              </p>
-              <p className="fire-stat-card__subtext">Passive Income / mo</p>
-            </div>
+            <div className="fire-stat-sub">Passive income / mo</div>
           </div>
         </div>
       </div>

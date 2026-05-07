@@ -93,20 +93,23 @@ const GCPSetupGuide: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       {step(4, 'Create an OAuth Client ID', <>
         Go to <strong>APIs &amp; Services → Credentials</strong> → <strong>Create Credentials → OAuth client ID</strong>.<br />
         • Application type: <strong>Web application</strong>.<br />
-        • Under <strong>Authorized JavaScript origins</strong> add every URL you'll use:<br />
+        • Under <strong>Authorized JavaScript origins</strong> add every URL you'll open the app from:<br />
         <div style={{ margin: '0.4rem 0 0.4rem 0.75rem', display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {code('http://localhost:5173')} — Vite local dev<br />
-          {code('http://localhost:3000')} — if you use the PM2 self-hosted setup<br />
-          {code('https://your-domain.com')} — your deployed URL (if applicable)
+          {code('http://localhost:3000')} — local dev / PM2 self-hosted<br />
+          {code('https://your-app.vercel.app')} — your Vercel deployment URL<br />
+          {code('https://your-custom-domain.com')} — if you use a custom domain
         </div>
         Click <strong>Create</strong>.
       </>)}
 
-      {step(5, 'Copy the Client ID and paste it here', <>
-        The Client ID is shown immediately in the popup that appears — it looks like:<br />
-        {code('123456789012-abcdefghij.apps.googleusercontent.com')}<br />
-        Copy it and paste it into the <strong>Google OAuth Client ID</strong> field in this card, then click <strong>Save</strong>.
-        The Client ID is not a secret — it's safe to store in the app.
+      {step(5, 'Add the Client ID to the app', <>
+        The Client ID appears immediately in the popup — it looks like:<br />
+        {code('123456789012-abcdefghij.apps.googleusercontent.com')}<br /><br />
+        <strong>Option A — Paste it here (no rebuild needed):</strong><br />
+        Close this guide, paste it into the <strong>Google OAuth Client ID</strong> field, click <strong>Save</strong>, then <strong>Connect Google Drive</strong>.<br /><br />
+        <strong>Option B — Vercel environment variable:</strong><br />
+        In Vercel: <strong>Settings → Environment Variables</strong>, add {code('VITE_GOOGLE_CLIENT_ID')} = your Client ID,
+        then <strong>trigger a new deployment</strong>. Vite bakes env vars into the bundle at build time — the value won't appear until you redeploy.
       </>)}
 
       <div style={{
@@ -115,7 +118,8 @@ const GCPSetupGuide: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       }}>
         <strong style={{ color: 'var(--accent-text)' }}>Troubleshooting</strong><br />
         <strong>Error 400 — redirect_uri_mismatch:</strong> The URL you're using isn't in the Authorized JavaScript origins list. Add the exact URL (including port) and wait ~5 minutes for it to propagate.<br />
-        <strong>Sign-in blocked:</strong> Your Google account isn't in the Test users list. Add it in the OAuth consent screen → Test users tab.
+        <strong>Sign-in blocked / access denied:</strong> Your Google account isn't in the Test users list. Add it in OAuth consent screen → Test users tab.<br />
+        <strong>Env var not showing after setting in Vercel:</strong> You must trigger a new Vercel deployment after adding/changing the env var.
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -256,6 +260,8 @@ export const CloudSyncCard: React.FC = () => {
   const isEnabled = cloudSync.enabled && cloudSync.provider === 'google';
   const signedIn = googleDriveProvider.isSignedIn();
   const email = googleDriveProvider.getEmail();
+  const displayName = googleDriveProvider.getName();
+  const avatarUrl = googleDriveProvider.getPicture();
 
   // The Client ID is either baked into the build (Vercel env) or saved by the user in Settings.
   const savedClientId = cloudSync.clientId ?? '';
@@ -361,10 +367,39 @@ export const CloudSyncCard: React.FC = () => {
           {/* ── Connected state ── */}
           {isEnabled && (
             <>
-              {email && (
-                <p className="text-muted text-sm" style={{ marginBottom: '0.25rem' }}>
-                  Signed in as <strong>{email}</strong>
-                </p>
+              {(displayName || email) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', margin: '0.4rem 0' }}>
+                  {/* Avatar: photo or initials fallback */}
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName ?? email ?? 'Google account'}
+                      referrerPolicy="no-referrer"
+                      style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--accent-soft)', color: 'var(--accent-text)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: '0.85rem', fontFamily: 'var(--font-display)',
+                    }}>
+                      {(displayName || email || 'G').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    {displayName && (
+                      <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-1)', lineHeight: 1.3 }}>
+                        {displayName}
+                      </p>
+                    )}
+                    {email && (
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {email}
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
               {cloudSync.lastSyncISO && (
                 <p className="text-muted text-sm">Last synced: {formatDate(cloudSync.lastSyncISO)}</p>

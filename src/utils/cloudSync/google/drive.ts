@@ -2,7 +2,7 @@
 // appDataFolder is hidden from the user's Drive UI, uses only `drive.appdata` scope.
 
 import { CloudBackupFile } from '../types';
-import { getToken, signIn, signOut, isSignedIn, getEmail } from './gis';
+import { getToken, signIn, signOut, isSignedIn, getEmail, getName, getPicture } from './gis';
 import type { CloudProvider } from '../types';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
@@ -86,6 +86,8 @@ export const googleDriveProvider: CloudProvider = {
   signOut,
   isSignedIn,
   getEmail,
+  getName,
+  getPicture,
   upload: async (json, filename) => {
     const file = await uploadBackup(json, filename);
     await pruneOldBackups().catch(() => {});
