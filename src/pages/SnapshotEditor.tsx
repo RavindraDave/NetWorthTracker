@@ -22,8 +22,16 @@ export const SnapshotEditor: React.FC = () => {
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [chipsIntroSeen, setChipsIntroSeen] = useState(
+    () => localStorage.getItem('wp_chips_intro_seen') === '1'
+  );
   const isDirtyRef = useRef(false);
   const prevIdRef = useRef<string | null>(null);
+
+  const dismissChipsIntro = () => {
+    localStorage.setItem('wp_chips_intro_seen', '1');
+    setChipsIntroSeen(true);
+  };
 
   useEffect(() => {
     if (id) {
@@ -285,6 +293,21 @@ export const SnapshotEditor: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Chips intro callout — first-run only */}
+      {!chipsIntroSeen && (
+        <div className="chips-intro" role="note">
+          <p className="chips-intro-lead">Each item has three inclusion states — tap a chip to change it.</p>
+          <ul className="chips-intro-list">
+            <li><span className="chips-intro-glyph incl-accent">Σ✓</span> Counted in net worth &amp; goals</li>
+            <li><span className="chips-intro-glyph incl-amber">Σ</span> Counted in net worth only — excluded from goals</li>
+            <li><span className="chips-intro-glyph incl-rose">⊘</span> Excluded from all calculations</li>
+          </ul>
+          <button className="chips-intro-dismiss btn btn-outline" onClick={dismissChipsIntro}>
+            Got it
+          </button>
+        </div>
+      )}
 
       {/* Two-Column Editor */}
       <div className="editor-cols">

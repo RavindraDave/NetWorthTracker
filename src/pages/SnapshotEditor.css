@@ -159,6 +159,63 @@
   flex-wrap: wrap;
 }
 
+/* ── Chips Intro Callout ─────────────────────────────────── */
+.chips-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--bg-card-solid);
+  border: 1px solid color-mix(in oklch, var(--accent) 30%, var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.chips-intro-lead {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.chips-intro-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chips-intro-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+
+.chips-intro-glyph {
+  font-family: var(--font-numeric);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: center;
+}
+
+.incl-accent { background: var(--accent-soft); color: var(--accent-text); }
+.incl-amber  { background: var(--amber-soft);  color: var(--amber); }
+.incl-rose   { background: var(--rose-soft);   color: var(--rose); }
+
+.chips-intro-dismiss {
+  align-self: flex-end;
+  font-size: 0.8rem;
+  padding: 5px 14px;
+}
+
 /* ── Two-Column Editor ───────────────────────────────────── */
 .editor-cols {
   display: grid;
