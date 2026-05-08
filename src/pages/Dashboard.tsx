@@ -11,7 +11,8 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
 import { DriveRestoreButton } from '../components/common/DriveRestoreButton';
-import { Rocket, Target } from 'lucide-react';
+import { Rocket, Target, Printer } from 'lucide-react';
+import { printSnapshotReport } from '../utils/printReport';
 import './Dashboard.css';
 
 export const Dashboard: React.FC = () => {
@@ -54,6 +55,16 @@ export const Dashboard: React.FC = () => {
         </div>
       ) : (
         <>
+          <div className="dashboard-page-actions">
+            <button
+              className="btn btn-outline"
+              style={{ fontSize: '0.8rem' }}
+              onClick={() => printSnapshotReport(currentSnapshot!, baseCurrency)}
+              title="Print or save as PDF"
+            >
+              <Printer size={14} /> Print Report
+            </button>
+          </div>
           <NetWorthHero />
           <MetricCards />
 

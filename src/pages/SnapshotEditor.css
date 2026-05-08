@@ -82,6 +82,49 @@
   color: var(--rose);
 }
 
+/* ── Export Dropdown ─────────────────────────────────────── */
+.export-menu-wrap {
+  position: relative;
+}
+
+.export-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 164px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 200;
+  overflow: hidden;
+}
+
+[data-theme="light"] .export-menu {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.export-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 0.83rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.export-menu-item:hover {
+  background: color-mix(in oklch, var(--accent) 8%, var(--bg-card-solid));
+  color: var(--text-1);
+}
+
 /* ── Note Area ───────────────────────────────────────────── */
 .note-area {
   background: var(--bg-card-solid);

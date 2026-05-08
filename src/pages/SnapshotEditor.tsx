@@ -26,6 +26,8 @@ export const SnapshotEditor: React.FC = () => {
   const [chipsIntroSeen, setChipsIntroSeen] = useState(
     () => localStorage.getItem('wp_chips_intro_seen') === '1'
   );
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const isDirtyRef = useRef(false);
   const prevIdRef = useRef<string | null>(null);
 
@@ -124,6 +126,17 @@ export const SnapshotEditor: React.FC = () => {
     if (!snapshot) return;
     printSnapshotReport(snapshot, baseCurrency);
   };
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node))
+        setShowExportMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showExportMenu]);
 
   if (!snapshot) {
     return <div className="wp-page" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '40vh', color: 'var(--text-3)' }}>Loading snapshot…</div>;
@@ -227,18 +240,31 @@ export const SnapshotEditor: React.FC = () => {
               className={`live-preview-val${breakdown.netWorth < 0 ? ' neg' : ''}`}
             />
           </div>
-          <button className="btn btn-outline" onClick={handleExportCSV} title="Export CSV">
-            <Download size={15} />
-            <span>Export CSV</span>
-          </button>
-          <button className="btn btn-outline" onClick={handleExportExcel} title="Export Excel">
-            <FileSpreadsheet size={15} />
-            <span>Export Excel</span>
-          </button>
-          <button className="btn btn-outline" onClick={handlePrint} title="Print / Save PDF">
-            <Printer size={15} />
-            <span>Print / PDF</span>
-          </button>
+          <div className="export-menu-wrap" ref={exportMenuRef}>
+            <button
+              className="btn btn-outline"
+              onClick={() => setShowExportMenu(o => !o)}
+              aria-haspopup="true"
+              aria-expanded={showExportMenu}
+            >
+              <Download size={15} />
+              <span>Export</span>
+              <ChevronDown size={12} style={{ marginLeft: 2, transition: 'transform 0.15s', transform: showExportMenu ? 'rotate(180deg)' : 'none' }} />
+            </button>
+            {showExportMenu && (
+              <div className="export-menu" role="menu">
+                <button className="export-menu-item" role="menuitem" onClick={() => { handleExportCSV(); setShowExportMenu(false); }}>
+                  <Download size={13} /> CSV
+                </button>
+                <button className="export-menu-item" role="menuitem" onClick={() => { handleExportExcel(); setShowExportMenu(false); }}>
+                  <FileSpreadsheet size={13} /> Excel (.xlsx)
+                </button>
+                <button className="export-menu-item" role="menuitem" onClick={() => { handlePrint(); setShowExportMenu(false); }}>
+                  <Printer size={13} /> Print / PDF
+                </button>
+              </div>
+            )}
+          </div>
           <button className="btn btn-primary" onClick={handleSave}>
             <Save size={15} />
             <span>Save Snapshot</span>

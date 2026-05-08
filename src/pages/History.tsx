@@ -9,7 +9,8 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from 'recharts';
-import { Calendar, Trash2, Edit2, ChevronDown, GitCompare, Search } from 'lucide-react';
+import { Calendar, Trash2, Edit2, ChevronDown, GitCompare, Search, Printer } from 'lucide-react';
+import { printSnapshotReport } from '../utils/printReport';
 import './History.css';
 
 export const History: React.FC = () => {
@@ -242,6 +243,14 @@ export const History: React.FC = () => {
                 <div className="hist-card-actions">
                   <button
                     className="btn-icon"
+                    aria-label={`Print report for ${monthLabel}`}
+                    title="Print / Save PDF"
+                    onClick={e => { e.stopPropagation(); printSnapshotReport(snap, baseCurrency); }}
+                  >
+                    <Printer size={14} />
+                  </button>
+                  <button
+                    className="btn-icon"
                     aria-label={`Edit ${monthLabel}`}
                     onClick={e => { e.stopPropagation(); navigate(`/editor/${snap.id}`); }}
                   >
@@ -296,9 +305,14 @@ export const History: React.FC = () => {
                     <span style={{ color: 'var(--text-3)', fontSize: 11 }}>
                       Assets <CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} abbreviated /> · Liabilities <CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} abbreviated />
                     </span>
-                    <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => navigate(`/editor/${snap.id}`)}>
-                      <Edit2 size={12} /> Edit
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => printSnapshotReport(snap, baseCurrency)}>
+                        <Printer size={12} /> Print
+                      </button>
+                      <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => navigate(`/editor/${snap.id}`)}>
+                        <Edit2 size={12} /> Edit
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
