@@ -170,8 +170,12 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string): v
   ${notesHtml}
 
   <!-- Footer -->
-  <div style="margin-top:32px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;">
-    WealthPulse &middot; ${escHtml(label)} &middot; All values in ${escHtml(baseCurrency)}
+  <div style="margin-top:32px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:11px;color:#9ca3af;">WealthPulse &middot; ${escHtml(label)} &middot; All values in ${escHtml(baseCurrency)}</span>
+    <a href="https://r2dsolutions.com" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:6px;text-decoration:none;opacity:0.6;">
+      <img src="https://extensions.r2dsolutions.com/logo.png" alt="R2DSolutions" style="width:14px;height:14px;border-radius:3px;object-fit:contain;" />
+      <span style="font-size:11px;color:#6b7280;font-weight:500;">R2DSolutions</span>
+    </a>
   </div>
 </body>
 </html>`;

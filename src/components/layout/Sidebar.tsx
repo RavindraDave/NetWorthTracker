@@ -131,6 +131,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewSnapshot }) => {
           </div>
         </div>
       </div>
+
+      <a
+        href="https://r2dsolutions.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="wp-brand-credit"
+        aria-label="Built by R2DSolutions"
+      >
+        <img
+          src="https://extensions.r2dsolutions.com/logo.png"
+          alt="R2DSolutions"
+          className="wp-brand-logo"
+        />
+        <span>by R2DSolutions</span>
+      </a>
     </nav>
   );
 };

@@ -277,3 +277,44 @@
 }
 
 [data-theme="light"] .auto-backup-row { background: rgba(0,0,0,0.03); }
+
+/* ── About / Branding card ───────────────────────────────── */
+.settings-about {
+  margin-top: 8px;
+  padding: 16px 20px;
+}
+
+.settings-about-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text-1);
+  transition: opacity var(--transition-fast);
+}
+
+.settings-about-brand:hover {
+  opacity: 0.8;
+}
+
+.settings-about-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.settings-about-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-1);
+  font-family: var(--font-display);
+}
+
+.settings-about-tagline {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin-top: 1px;
+}

@@ -170,6 +170,33 @@
   color: var(--text-3);
 }
 
+.wp-brand-credit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px 14px;
+  text-decoration: none;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+  letter-spacing: 0.02em;
+}
+
+.wp-brand-credit:hover {
+  opacity: 1;
+  color: var(--text-2);
+}
+
+.wp-brand-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .wp-sidebar {
     display: none;
