@@ -3,12 +3,12 @@ import * as XLSX from 'xlsx';
 import { Modal } from '../common/Modal';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
-import { X } from 'lucide-react';
+import { X, Save, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Category } from '../../types';
+import { Category, CsvFieldName, CsvFieldMapping } from '../../types';
 
-type CsvField = 'Item Name' | 'Category' | 'Amount' | 'Currency' | 'Type';
-type FieldMapping = Partial<Record<CsvField, string>>;
+type CsvField = CsvFieldName;
+type FieldMapping = CsvFieldMapping;
 
 const FIELDS: CsvField[] = ['Item Name', 'Category', 'Amount', 'Currency', 'Type'];
 
@@ -60,7 +60,7 @@ interface CsvImportModalProps {
 }
 
 export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose }) => {
-  const { createNewSnapshot, saveSnapshot, snapshots, preferences } = useApp();
+  const { createNewSnapshot, saveSnapshot, snapshots, preferences, updatePreferences } = useApp();
   const { success, error } = useToast();
   const navigate = useNavigate();
 
@@ -73,6 +73,41 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
   const [allRows, setAllRows] = useState<Record<string, string>[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+
+  // Saved column-mapping profiles (BL-4)
+  const savedProfiles = preferences?.csvMappingProfiles ?? {};
+  const profileNames = Object.keys(savedProfiles);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [profileNameInput, setProfileNameInput] = useState('');
+
+  /** Apply a saved profile, keeping only columns that still exist in this file's headers. */
+  const applyProfile = (name: string) => {
+    const profile = savedProfiles[name];
+    if (!profile) return;
+    const filtered: FieldMapping = {};
+    for (const field of FIELDS) {
+      const col = profile[field];
+      if (col && headers.includes(col)) filtered[field] = col;
+    }
+    setMapping(filtered);
+  };
+
+  const handleSaveProfile = async () => {
+    const name = profileNameInput.trim();
+    if (!name) return;
+    const next = { ...savedProfiles, [name]: mapping };
+    await updatePreferences({ csvMappingProfiles: next });
+    setProfileNameInput('');
+    setShowSaveForm(false);
+    success(`Mapping "${name}" saved.`);
+  };
+
+  const handleDeleteProfile = async (name: string) => {
+    const next = { ...savedProfiles };
+    delete next[name];
+    await updatePreferences({ csvMappingProfiles: next });
+    success(`Mapping "${name}" removed.`);
+  };
 
   useEffect(() => {
     if (file.size > 5 * 1024 * 1024) {
@@ -156,9 +191,15 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
       }
 
       await saveSnapshot(newSnap);
-      success(`Imported ${allRows.length} items as new snapshot for ${targetMonth}.`);
+      const itemCount = newSnap.categories.reduce((sum, c) => sum + c.items.length, 0);
+      const categoryCount = newSnap.categories.filter(c => c.items.length > 0).length;
+      success(`Imported ${itemCount} items as new snapshot for ${targetMonth}.`);
       onClose();
-      navigate(`/editor/${newSnap.id}`);
+      navigate(`/editor/${newSnap.id}`, {
+        state: {
+          importSummary: { itemCount, categoryCount, month: targetMonth, fileName: file.name },
+        },
+      });
     } catch (err) {
       error('Import failed. Please check the file and try again.');
       console.error(err);
@@ -208,6 +249,73 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
                 A snapshot already exists for this month — choose a different month above
               </span>
             )}
+          </div>
+
+          {/* Saved mapping profiles (BL-4) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            {profileNames.length > 0 && (
+              <>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Saved mappings:</span>
+                {profileNames.map(n => (
+                  <span key={n} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    background: 'var(--surface-glass, rgba(0,0,0,0.15))',
+                    borderRadius: 'var(--radius-sm)', padding: '0.15rem 0.15rem 0.15rem 0.5rem',
+                  }}>
+                    <button
+                      onClick={() => applyProfile(n)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', fontSize: '0.78rem', padding: 0 }}
+                      title={`Apply mapping "${n}"`}
+                    >
+                      {n}
+                    </button>
+                    <button
+                      className="btn-icon"
+                      onClick={() => handleDeleteProfile(n)}
+                      title={`Delete mapping "${n}"`}
+                      aria-label={`Delete mapping ${n}`}
+                      style={{ width: 20, height: 20 }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </span>
+                ))}
+              </>
+            )}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {showSaveForm ? (
+                <>
+                  <input
+                    type="text"
+                    className="line-item-input"
+                    value={profileNameInput}
+                    onChange={e => setProfileNameInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSaveProfile()}
+                    placeholder="Mapping name"
+                    style={{ maxWidth: 160, fontSize: '0.8rem' }}
+                    aria-label="Name for this mapping"
+                    autoFocus
+                  />
+                  <button className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                    onClick={handleSaveProfile} disabled={!profileNameInput.trim()}>
+                    Save
+                  </button>
+                  <button className="btn-icon" onClick={() => { setShowSaveForm(false); setProfileNameInput(''); }} aria-label="Cancel">
+                    <X size={14} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-outline"
+                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  onClick={() => setShowSaveForm(true)}
+                  disabled={!isValid}
+                  title={isValid ? 'Save the current column mapping for reuse' : 'Map the required fields first'}
+                >
+                  <Save size={13} style={{ marginRight: '0.3rem' }} /> Save mapping
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Column mapping */}
