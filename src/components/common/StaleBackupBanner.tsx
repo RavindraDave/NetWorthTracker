@@ -2,15 +2,9 @@ import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { exportToJSON, downloadFile } from '../../utils/importExport';
+import { daysSinceISO, staleThresholdDays } from '../../utils/autoBackup';
 
-const STALE_DAYS = 30;
 const SNOOZE_DAYS = 7;
-
-function isStale(lastRunISO: string | undefined): boolean {
-  if (!lastRunISO) return true;
-  const diffMs = Date.now() - new Date(lastRunISO).getTime();
-  return diffMs > STALE_DAYS * 24 * 60 * 60 * 1000;
-}
 
 function isSnoozed(snoozeUntil: string | undefined): boolean {
   if (!snoozeUntil) return false;
@@ -23,7 +17,9 @@ export const StaleBackupBanner: React.FC = () => {
   if (!preferences) return null;
   if (snapshots.length === 0) return null;
   if (isSnoozed(preferences.staleBackupSnoozeUntil)) return null;
-  if (!isStale(preferences.autoBackup?.lastRunISO)) return null;
+
+  const daysSinceBackup = daysSinceISO(preferences.autoBackup?.lastRunISO);
+  if (daysSinceBackup <= staleThresholdDays(preferences.autoBackup?.cadence)) return null;
 
   const handleBackupNow = async () => {
     await manualBackup();
@@ -52,7 +48,7 @@ export const StaleBackupBanner: React.FC = () => {
       <AlertTriangle size={16} style={{ color: 'var(--accent-yellow, #f59e0b)', flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
         Your last backup was {preferences.autoBackup?.lastRunISO
-          ? `${Math.floor((Date.now() - new Date(preferences.autoBackup.lastRunISO).getTime()) / (24 * 60 * 60 * 1000))} days ago`
+          ? `${daysSinceBackup} days ago`
           : 'never'
         }. Back up your data to keep it safe.
       </span>

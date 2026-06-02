@@ -13,6 +13,12 @@ import { Calendar, Trash2, Edit2, ChevronDown, GitCompare, Search, Printer } fro
 import { printSnapshotReport } from '../utils/printReport';
 import './History.css';
 
+/** "YYYY-MM" → same month one year earlier ("YYYY-MM"). */
+function yoyMonth(month: string): string {
+  const [year, mm] = month.split('-');
+  return `${Number(year) - 1}-${mm}`;
+}
+
 export const History: React.FC = () => {
   const { snapshots, deleteSnapshot, preferences, goals } = useApp();
   const { confirm } = useToast();
@@ -213,6 +219,7 @@ export const History: React.FC = () => {
           const isPos = (change ?? 0) >= 0;
           const isExpanded = expandedId === snap.id;
           const monthLabel = new Date(snap.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          const yoyCounterpart = snapshots.find(s => s.month === yoyMonth(snap.month));
 
           return (
             <div key={snap.id} className={`hist-card${isExpanded ? ' hist-card--open' : ''}`}>
@@ -306,6 +313,16 @@ export const History: React.FC = () => {
                       Assets <CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} abbreviated /> · Liabilities <CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} abbreviated />
                     </span>
                     <div style={{ display: 'flex', gap: 6 }}>
+                      {yoyCounterpart && (
+                        <button
+                          className="btn btn-outline"
+                          style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+                          title={`Compare with ${yoyCounterpart.month}`}
+                          onClick={() => { setCompareA(snap.id); setCompareB(yoyCounterpart.id); setShowCompare(true); }}
+                        >
+                          <GitCompare size={12} /> vs last year
+                        </button>
+                      )}
                       <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => printSnapshotReport(snap, baseCurrency)}>
                         <Printer size={12} /> Print
                       </button>

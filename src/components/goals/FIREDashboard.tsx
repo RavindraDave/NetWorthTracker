@@ -2,6 +2,8 @@ import React from 'react';
 import { Goal, Snapshot } from '../../types';
 import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
+import { InfoTooltip } from '../common/InfoTooltip';
+import { HELP } from '../common/dashboardHelp';
 import { Target, TrendingUp, Clock, Zap } from 'lucide-react';
 import './FIREDashboard.css';
 
@@ -16,6 +18,21 @@ interface FIREDashboardProps {
 export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnapshot, baseCurrency, onEdit, onDelete }) => {
   const metrics = calcFIREMetrics(goal, currentSnapshot, baseCurrency);
   const progressPct = Math.min(Math.max(metrics.progressPercentage, 0), 100);
+
+  // A4 — explain why FIRE progress is measured against investable assets only.
+  // Build the list of asset categories left out of the calculation: those not
+  // flagged Investable, plus any this goal explicitly excludes.
+  const categories = currentSnapshot?.categories ?? [];
+  const nonInvestableNames = categories
+    .filter(c => c.type === 'asset' && !c.isInvestable)
+    .map(c => c.name);
+  const goalExcludedNames = (goal.excludedCategoryIds ?? [])
+    .map(id => categories.find(c => c.id === id)?.name)
+    .filter((n): n is string => Boolean(n));
+  const excludedNames = Array.from(new Set([...nonInvestableNames, ...goalExcludedNames]));
+  const scopeTooltip = `${HELP.investableView}${
+    excludedNames.length ? ` Excluded here: ${excludedNames.join(', ')}.` : ''
+  }`;
 
   return (
     <div className={`wp-card fire-dashboard${metrics.isFI ? ' fire-dashboard--achieved' : ''}`}>
@@ -74,6 +91,10 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
           <span style={{ fontFamily: 'var(--font-numeric)', fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-text)' }}>
             {progressPct.toFixed(1)}% Funded
           </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: '0.72rem', color: 'var(--text-3)' }}>
+          <span>Investable assets only</span>
+          <InfoTooltip body={scopeTooltip} />
         </div>
       </div>
 
