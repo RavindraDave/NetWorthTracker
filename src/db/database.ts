@@ -10,12 +10,20 @@ export interface FileHandleRecord {
   handle: FileSystemDirectoryHandle;
 }
 
+// Base state for three-way merge — the last data that was successfully synced to Drive
+export interface SyncMetaRecord {
+  id: 1;
+  updatedISO: string;
+  base: string; // JSON-serialized BackupData (plaintext)
+}
+
 export class WealthPulseDB extends Dexie {
   snapshots!: Table<Snapshot, string>;
   goals!: Table<Goal, string>;
   preferences!: Table<UserPreferencesRecord, number>;
   autoBackups!: Table<AutoBackupRecord, number>;
   fileHandles!: Table<FileHandleRecord, string>;
+  syncMeta!: Table<SyncMetaRecord, number>;
 
   constructor() {
     super('WealthPulseDB');
@@ -39,6 +47,15 @@ export class WealthPulseDB extends Dexie {
       preferences: '++id',
       autoBackups: '++id, createdAt',
       fileHandles: 'id',
+    });
+
+    this.version(4).stores({
+      snapshots: 'id, month, createdAt',
+      goals: 'id, type',
+      preferences: '++id',
+      autoBackups: '++id, createdAt',
+      fileHandles: 'id',
+      syncMeta: 'id',
     });
   }
 }

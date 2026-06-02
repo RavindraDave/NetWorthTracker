@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Cloud, CloudOff, RefreshCw, Download, LogOut, AlertCircle, ExternalLink, KeyRound, X, BookOpen, Lock, LockOpen, Eye, EyeOff } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, Download, LogOut, AlertCircle, ExternalLink, KeyRound, X, BookOpen, Lock, LockOpen, Eye, EyeOff, ArrowDownToLine } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
 import { Modal } from '../common/Modal';
@@ -357,11 +357,12 @@ const PassphraseModal: React.FC<PassphraseModalProps> = ({ mode, onSubmit, onClo
 // ── Main card ─────────────────────────────────────────────────────────────────
 
 export const CloudSyncCard: React.FC = () => {
-  const { preferences, updatePreferences, snapshots, goals, syncToCloud, restoreBackup } = useApp();
+  const { preferences, updatePreferences, snapshots, goals, syncToCloud, pullFromCloud, restoreBackup } = useApp();
   const { success, error, confirm } = useToast();
 
   const [signingIn, setSigningIn] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [pulling, setPulling] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [restoreFiles, setRestoreFiles] = useState<CloudBackupFile[]>([]);
@@ -428,6 +429,22 @@ export const CloudSyncCard: React.FC = () => {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handlePullNow = async () => {
+    setPulling(true);
+    try {
+      await pullFromCloud();
+      success('Pulled latest data from Google Drive.');
+    } catch (err) {
+      error(err instanceof Error ? err.message : 'Pull failed. Try signing in again.');
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const handleSyncModeChange = async (mode: 'merge' | 'override') => {
+    await updatePreferences({ cloudSync: { ...cloudSync, syncMode: mode } });
   };
 
   const handleOpenRestore = useCallback(async () => {
@@ -610,6 +627,33 @@ export const CloudSyncCard: React.FC = () => {
             </p>
           )}
 
+          {/* ── Sync mode (only when Drive is connected) ── */}
+          {isEnabled && (
+            <div style={{ marginTop: '0.85rem' }}>
+              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                Pull behaviour
+              </p>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {(['merge', 'override'] as const).map(m => (
+                  <button
+                    key={m}
+                    className={`btn btn-outline${(cloudSync.syncMode ?? 'merge') === m ? ' btn-outline--active' : ''}`}
+                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', opacity: (cloudSync.syncMode ?? 'merge') === m ? 1 : 0.6 }}
+                    onClick={() => handleSyncModeChange(m)}
+                    aria-pressed={(cloudSync.syncMode ?? 'merge') === m}
+                  >
+                    {m === 'merge' ? 'Merge (smart)' : 'Override (remote wins)'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.35rem' }}>
+                {(cloudSync.syncMode ?? 'merge') === 'merge'
+                  ? 'On pull: combine both sides. Conflicts shown for manual resolution.'
+                  : 'On pull: replace all local data with Drive version (destructive).'}
+              </p>
+            </div>
+          )}
+
           {/* ── Encryption section (only when Drive is connected) ── */}
           {isEnabled && (
             <div style={{ marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-subtle)' }}>
@@ -669,9 +713,13 @@ export const CloudSyncCard: React.FC = () => {
             )
           ) : (
             <>
-              <button className="btn btn-outline" onClick={handleSyncNow} disabled={syncing}>
+              <button className="btn btn-outline" onClick={handleSyncNow} disabled={syncing || pulling} title="Push local data to Drive">
                 <RefreshCw size={14} style={{ marginRight: '0.3rem' }} />
                 {syncing ? 'Syncing…' : 'Sync Now'}
+              </button>
+              <button className="btn btn-outline" onClick={handlePullNow} disabled={pulling || syncing} title="Pull latest data from Drive">
+                <ArrowDownToLine size={14} style={{ marginRight: '0.3rem' }} />
+                {pulling ? 'Pulling…' : 'Pull'}
               </button>
               <button className="btn btn-outline" onClick={handleOpenRestore}>
                 <Download size={14} style={{ marginRight: '0.3rem' }} />

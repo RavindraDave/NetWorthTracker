@@ -52,6 +52,7 @@ export interface Goal {
   type: GoalType;
   name: string;
   createdAt: string;
+  updatedAt?: string;
   targetAmount: number;
   targetDate?: string;
   annualExpenses?: number;
@@ -108,6 +109,7 @@ export interface CloudSyncConfig {
   lastSyncISO?: string;
   lastError?: string;
   encryptionEnabled?: boolean;
+  syncMode?: 'merge' | 'override'; // default 'merge'
 }
 
 export interface UserPreferences {
