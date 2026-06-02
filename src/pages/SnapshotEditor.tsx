@@ -364,7 +364,7 @@ export const SnapshotEditor: React.FC = () => {
             </span>
           </div>
           {assets.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
+            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} snapshotMonth={snapshot.month} onChange={handleCategoryChange} />
           ))}
         </div>
 
@@ -376,7 +376,7 @@ export const SnapshotEditor: React.FC = () => {
             </span>
           </div>
           {liabilities.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
+            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} snapshotMonth={snapshot.month} onChange={handleCategoryChange} />
           ))}
         </div>
       </div>

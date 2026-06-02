@@ -29,6 +29,11 @@ export interface LineItem {
   notes?: string;
   excludeFromNetWorth?: boolean;
   excludeFromGoals?: boolean;
+  // Loan amortisation — when all four are set, outstanding balance is auto-computed
+  loanPrincipal?: number;       // Original principal in item.currency
+  annualInterestRate?: number;  // % e.g. 8.5
+  tenureMonths?: number;        // Total loan term in months
+  loanStartMonth?: string;      // "YYYY-MM" of first EMI
 }
 
 export type GoalType = 'net_worth_target' | 'fire' | 'savings' | 'debt_freedom' | 'custom';

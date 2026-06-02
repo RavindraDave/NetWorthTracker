@@ -13,6 +13,7 @@ import './CategorySection.css';
 interface CategorySectionProps {
   category: Category;
   exchangeRates: Record<string, number>;
+  snapshotMonth: string;
   onChange: (updated: Category) => void;
 }
 
@@ -145,7 +146,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   );
 };
 
-export const CategorySection: React.FC<CategorySectionProps> = ({ category, exchangeRates, onChange }) => {
+export const CategorySection: React.FC<CategorySectionProps> = ({ category, exchangeRates, snapshotMonth, onChange }) => {
   const { preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const enabledCurrencies = preferences?.enabledCurrencies || ['INR', 'USD', 'EUR', 'GBP', 'SGD'];
@@ -196,6 +197,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
                     key={item.id}
                     item={item}
                     exchangeRates={exchangeRates}
+                    snapshotMonth={snapshotMonth}
                     onChange={handleUpdateItem}
                     onRemove={handleRemoveItem}
                   />
