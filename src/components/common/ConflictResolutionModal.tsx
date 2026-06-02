@@ -18,7 +18,7 @@ function formatUpdated(item: Snapshot | Goal): string {
 
 export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve, onDismiss }) => {
   const [choices, setChoices] = useState<Map<string, 'local' | 'remote'>>(() =>
-    new Map(conflicts.map(c => [c.key, 'local']))
+    new Map(conflicts.map(c => [c.id, 'local']))
   );
 
   const setChoice = (key: string, val: 'local' | 'remote') =>
@@ -63,11 +63,11 @@ export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve,
           </thead>
           <tbody>
             {conflicts.map(c => {
-              const choice = choices.get(c.key) ?? 'local';
+              const choice = choices.get(c.id) ?? 'local';
               const localUpdated  = formatUpdated(c.local);
               const remoteUpdated = formatUpdated(c.remote);
               return (
-                <tr key={c.key}>
+                <tr key={c.id}>
                   <td style={cellStyle}>
                     <span style={{ fontWeight: 500, color: 'var(--text-1)' }}>
                       {c.kind === 'snapshot' ? `Snapshot ${c.label}` : c.label}
@@ -82,9 +82,9 @@ export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve,
                     <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
                       <input
                         type="radio"
-                        name={`conflict-${c.key}`}
+                        name={`conflict-${c.id}`}
                         checked={choice === 'local'}
-                        onChange={() => setChoice(c.key, 'local')}
+                        onChange={() => setChoice(c.id, 'local')}
                         aria-label={`Keep local version of ${c.label}`}
                       />
                       {localUpdated && (
@@ -96,9 +96,9 @@ export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve,
                     <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
                       <input
                         type="radio"
-                        name={`conflict-${c.key}`}
+                        name={`conflict-${c.id}`}
                         checked={choice === 'remote'}
-                        onChange={() => setChoice(c.key, 'remote')}
+                        onChange={() => setChoice(c.id, 'remote')}
                         aria-label={`Keep remote version of ${c.label}`}
                       />
                       {remoteUpdated && (
@@ -115,7 +115,7 @@ export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve,
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button className="btn btn-outline" onClick={() => {
-          const all = new Map(conflicts.map(c => [c.key, 'remote' as const]));
+          const all = new Map(conflicts.map(c => [c.id, 'remote' as const]));
           setChoices(all);
         }}>
           Keep all theirs

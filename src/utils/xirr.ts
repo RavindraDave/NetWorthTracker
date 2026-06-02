@@ -34,6 +34,12 @@ export function calculateXIRR(flows: CashFlow[]): number | null {
 
   const t0 = flows.reduce((min, f) => f.date < min ? f.date : min, flows[0].date);
 
+  // Convergence tolerance for the residual NPV scales with the magnitude of the
+  // cash flows — an absolute threshold would reject valid roots for large
+  // portfolios and accept sloppy ones for tiny amounts.
+  const scale = flows.reduce((s, f) => s + Math.abs(f.amount), 0);
+  const npvTolerance = Math.max(1e-4, scale * 1e-7);
+
   let rate = 0.1; // initial guess: 10%
   for (let i = 0; i < 200; i++) {
     const f  = npv(rate, flows, t0);
@@ -41,7 +47,7 @@ export function calculateXIRR(flows: CashFlow[]): number | null {
     if (Math.abs(df) < 1e-14) break;
     const next = rate - f / df;
     if (Math.abs(next - rate) < 1e-8) {
-      if (Math.abs(npv(next, flows, t0)) >= 0.1) return null;
+      if (Math.abs(npv(next, flows, t0)) >= npvTolerance) return null;
       // Cap at 10× (1000% p.a.) — beyond this the number is meaningless to display
       return Math.abs(next) > 10 ? null : next;
     }

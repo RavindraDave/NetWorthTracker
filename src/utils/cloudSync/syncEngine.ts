@@ -4,6 +4,11 @@
 // Conflict rule: both local and remote changed the same record relative to base
 // and the changes are different → surface for user resolution.
 //
+// Edit-vs-delete rule: if one side deleted a record while the other side edited
+// it (vs base), the EDIT wins — the record is kept rather than silently dropped.
+// A deletion only takes effect when the surviving side is unchanged vs base.
+// This biases toward never losing data without asking.
+//
 // When base is null (first sync / meta cleared): fall back to last-write-wins
 // using updatedAt timestamps.
 
@@ -12,10 +17,19 @@ import { Snapshot, Goal } from '../../types';
 
 export interface SyncConflict {
   kind: 'snapshot' | 'goal';
+  id: string;       // globally unique within a result: `${kind}:${key}`
   key: string;      // month for snapshot, id for goal
   label: string;    // human-readable name for the UI
   local: Snapshot | Goal;
   remote: Snapshot | Goal;
+}
+
+function snapshotChanged(s: Snapshot, base: Snapshot): boolean {
+  return s.updatedAt !== base.updatedAt;
+}
+
+function goalStamp(g: Goal): string {
+  return g.updatedAt ?? g.createdAt;
 }
 
 export interface SyncResult {
@@ -54,15 +68,16 @@ function mergeSnapshots(
     if (!l && !r) continue; // deleted on both sides (or only in base)
 
     if (l && !r) {
-      // Remote doesn't have it
-      if (b) continue; // remote deleted it — respect deletion
-      merged.push(l); // new local snapshot not yet on remote → include
+      // Remote doesn't have it. Honor the deletion only if local is unchanged
+      // vs base; otherwise the local edit wins (data is never silently dropped).
+      if (b && !snapshotChanged(l, b)) continue;
+      merged.push(l);
       continue;
     }
     if (r && !l) {
-      // Local doesn't have it
-      if (b) continue; // local deleted it — respect deletion
-      merged.push(r); // new remote snapshot → include
+      // Local doesn't have it. Honor the deletion only if remote is unchanged.
+      if (b && !snapshotChanged(r, b)) continue;
+      merged.push(r);
       continue;
     }
 
@@ -81,8 +96,8 @@ function mergeSnapshots(
       continue;
     }
 
-    const localChanged  = ls.updatedAt !== b.updatedAt;
-    const remoteChanged = rs.updatedAt !== b.updatedAt;
+    const localChanged  = snapshotChanged(ls, b);
+    const remoteChanged = snapshotChanged(rs, b);
 
     if (!localChanged && !remoteChanged) { merged.push(ls); continue; }
     if (localChanged  && !remoteChanged) { merged.push(ls); continue; }
@@ -92,7 +107,7 @@ function mergeSnapshots(
     if (ls.updatedAt === rs.updatedAt) {
       merged.push(ls); // concurrent identical update
     } else {
-      conflicts.push({ kind: 'snapshot', key: month, label: month, local: ls, remote: rs });
+      conflicts.push({ kind: 'snapshot', id: `snapshot:${month}`, key: month, label: month, local: ls, remote: rs });
       merged.push(ls); // placeholder — will be replaced after resolution
     }
   }
@@ -123,12 +138,14 @@ function mergeGoals(
     if (!l && !r) continue;
 
     if (l && !r) {
-      if (b) continue; // remote deleted
+      // Remote deleted. Honor only if local unchanged vs base; else edit wins.
+      if (b && goalStamp(l) === goalStamp(b)) continue;
       merged.push(l);
       continue;
     }
     if (r && !l) {
-      if (b) continue; // local deleted
+      // Local deleted. Honor only if remote unchanged vs base; else edit wins.
+      if (b && goalStamp(r) === goalStamp(b)) continue;
       merged.push(r);
       continue;
     }
@@ -141,17 +158,17 @@ function mergeGoals(
       continue;
     }
 
-    const localChanged  = (lg.updatedAt ?? lg.createdAt) !== (b.updatedAt ?? b.createdAt);
-    const remoteChanged = (rg.updatedAt ?? rg.createdAt) !== (b.updatedAt ?? b.createdAt);
+    const localChanged  = goalStamp(lg) !== goalStamp(b);
+    const remoteChanged = goalStamp(rg) !== goalStamp(b);
 
     if (!localChanged && !remoteChanged) { merged.push(lg); continue; }
     if (localChanged  && !remoteChanged) { merged.push(lg); continue; }
     if (!localChanged && remoteChanged)  { merged.push(rg); continue; }
 
-    if ((lg.updatedAt ?? lg.createdAt) === (rg.updatedAt ?? rg.createdAt)) {
+    if (goalStamp(lg) === goalStamp(rg)) {
       merged.push(lg);
     } else {
-      conflicts.push({ kind: 'goal', key: id, label: lg.name, local: lg, remote: rg });
+      conflicts.push({ kind: 'goal', id: `goal:${id}`, key: id, label: lg.name, local: lg, remote: rg });
       merged.push(lg); // placeholder
     }
   }
@@ -190,14 +207,14 @@ export function applyResolutions(
   const snapshots = result.merged.snapshots.map(s => {
     const conflict = result.conflicts.find(c => c.kind === 'snapshot' && c.key === s.month);
     if (!conflict) return s;
-    const choice = resolutions.get(s.month) ?? 'local';
+    const choice = resolutions.get(conflict.id) ?? 'local';
     return (choice === 'remote' ? conflict.remote : conflict.local) as Snapshot;
   });
 
   const goals = result.merged.goals.map(g => {
     const conflict = result.conflicts.find(c => c.kind === 'goal' && c.key === g.id);
     if (!conflict) return g;
-    const choice = resolutions.get(g.id) ?? 'local';
+    const choice = resolutions.get(conflict.id) ?? 'local';
     return (choice === 'remote' ? conflict.remote : conflict.local) as Goal;
   });
 

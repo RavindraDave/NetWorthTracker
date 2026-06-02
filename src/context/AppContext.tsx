@@ -161,6 +161,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const saveSnapshot = async (snapshot: Snapshot) => {
     const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
     if (duplicate) throw new Error(`duplicate_month:${snapshot.month}`);
+    // Always stamp updatedAt so the sync engine can detect changes regardless of
+    // which call site saved the snapshot (mirrors saveGoal).
+    snapshot = { ...snapshot, updatedAt: new Date().toISOString() };
     await db.snapshots.put(snapshot);
     setSnapshots(prev => {
       const idx = prev.findIndex(s => s.id === snapshot.id);
@@ -229,11 +232,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const restoreBackup = async (data: BackupData) => {
     setIsLoading(true);
     try {
-      await db.transaction('rw', db.snapshots, db.goals, db.preferences, async () => {
+      await db.transaction('rw', db.snapshots, db.goals, db.preferences, db.syncMeta, async () => {
         await db.snapshots.clear();
         await db.goals.clear();
         await db.preferences.clear();
-        
+        // Invalidate the three-way-merge base: after a full replace the old base
+        // no longer describes this data, and a stale base can cause the next pull
+        // to drop or re-introduce records. Sync paths re-seed it via storeSyncMeta.
+        await db.syncMeta.clear();
+
         if (data.snapshots.length) await db.snapshots.bulkAdd(data.snapshots);
         if (data.goals.length) await db.goals.bulkAdd(data.goals);
         if (data.preferences) await db.preferences.put({ ...data.preferences, id: 1 });
@@ -283,7 +290,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const syncToCloud = async () => {
-    const prefs = prefsRef.current;
+    // Read committed prefs from the DB, not prefsRef: callers may invoke this
+    // immediately after updatePreferences(), before the ref-syncing effect runs
+    // (e.g. enabling encryption then pushing). The DB is the source of truth.
+    const prefs = (await db.preferences.get(1)) ?? prefsRef.current ?? undefined;
     if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return;
     const snaps = snapshotsRef.current;
     const gs = goalsRef.current;

@@ -503,7 +503,14 @@ export const CloudSyncCard: React.FC = () => {
 
     if (mode === 'setup') {
       await updatePreferences({ cloudSync: { ...cloudSync, encryptionEnabled: true } });
-      success('Encryption enabled. Your next sync will upload an encrypted backup.');
+      // Immediately replace the canonical Drive file with an encrypted one, so we
+      // never leave a plaintext backup on Drive while prefs claim encryption is on.
+      try {
+        await syncToCloud();
+        success('Encryption enabled — an encrypted backup has been uploaded.');
+      } catch {
+        success('Encryption enabled. Your next sync will upload an encrypted backup.');
+      }
     } else if (mode === 'unlock' && pendingRestoreFile) {
       const file = pendingRestoreFile;
       setPendingRestoreFile(null);

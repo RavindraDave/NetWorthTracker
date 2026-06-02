@@ -37,7 +37,9 @@ function fromBase64(s: string): ArrayBuffer {
   return buf.buffer;
 }
 
-async function deriveKey(passphrase: string, salt: ArrayBuffer): Promise<CryptoKey> {
+const PBKDF2_ITERATIONS = 100_000;
+
+async function deriveKey(passphrase: string, salt: ArrayBuffer, iterations: number): Promise<CryptoKey> {
   const raw = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(passphrase),
@@ -46,7 +48,7 @@ async function deriveKey(passphrase: string, salt: ArrayBuffer): Promise<CryptoK
     ['deriveKey'],
   );
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
     raw,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -59,14 +61,14 @@ export async function encryptJSON(plaintext: string, passphrase: string): Promis
   const ivBuf   = crypto.getRandomValues(new Uint8Array(12));
   const salt    = saltBuf.buffer as ArrayBuffer;
   const iv      = ivBuf.buffer as ArrayBuffer;
-  const key     = await deriveKey(passphrase, salt);
+  const key     = await deriveKey(passphrase, salt, PBKDF2_ITERATIONS);
   const ct      = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
     new TextEncoder().encode(plaintext),
   );
   const envelope: EncryptionEnvelope = {
-    v: 1, kdf: 'PBKDF2', iter: 100_000,
+    v: 1, kdf: 'PBKDF2', iter: PBKDF2_ITERATIONS,
     salt: toBase64(saltBuf),
     iv:   toBase64(ivBuf),
     ct:   toBase64(new Uint8Array(ct)),
@@ -87,7 +89,8 @@ export async function decryptJSON(envelopeStr: string, passphrase: string): Prom
   const salt = fromBase64(envelope.salt);
   const iv   = fromBase64(envelope.iv);
   const ct   = fromBase64(envelope.ct);
-  const key  = await deriveKey(passphrase, salt);
+  const iterations = typeof envelope.iter === 'number' && envelope.iter > 0 ? envelope.iter : PBKDF2_ITERATIONS;
+  const key  = await deriveKey(passphrase, salt, iterations);
   let plain: ArrayBuffer;
   try {
     plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
