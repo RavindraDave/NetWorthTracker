@@ -1,12 +1,13 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { LineItem } from '../../types';
 import { convertToBase } from '../../utils/calculations';
 import { calculateOutstandingBalance, isLoanConfigComplete } from '../../utils/loanCalculator';
+import { calculateXIRR } from '../../utils/xirr';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { InclusionChips, exclusionStateToInclusion, inclusionToExclusionState } from '../common/InclusionChips';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
-import { Trash2, Calculator } from 'lucide-react';
+import { Trash2, Calculator, TrendingUp } from 'lucide-react';
 import './LineItemRow.css';
 
 type ExclusionState = 'all' | 'goals-only' | 'everywhere';
@@ -41,9 +42,10 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
   const hasLoanConfig = isLoanConfigComplete(
     item.loanPrincipal, item.annualInterestRate, item.tenureMonths, item.loanStartMonth
   );
+  const hasCostBasis = !!(item.purchasePrice && item.purchasePrice > 0 && item.purchaseDate);
 
-  // Show loan section if it was previously configured, or user toggled it open
   const [loanOpen, setLoanOpen] = useState(() => hasLoanConfig);
+  const [costOpen, setCostOpen] = useState(() => hasCostBasis);
 
   const baseAmount = convertToBase(item.amount, item.currency, baseCurrency, exchangeRates);
 
@@ -82,7 +84,15 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     blankZero: true,
   });
 
-  // Stable reference to onChange so the auto-compute effect doesn't re-run on identity change
+  const purchasePriceInput = useDecimalInput({
+    value: item.purchasePrice ?? 0,
+    onCommit: (next) => onChange({ ...item, purchasePrice: next || undefined }),
+    precision: 2,
+    min: 0,
+    max: 1e15,
+    blankZero: true,
+  });
+
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; });
 
@@ -115,15 +125,39 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     setLoanOpen(false);
   };
 
+  const clearCostBasis = () => {
+    onChange({ ...item, purchasePrice: undefined, purchaseDate: undefined });
+    setCostOpen(false);
+  };
+
   const exclusionState = getExclusionState(item);
   const inclusionVal = exclusionStateToInclusion(exclusionState);
 
-  // Computed outstanding for display
   const computedOutstanding = hasLoanConfig
     ? Math.round(calculateOutstandingBalance(
         item.loanPrincipal!, item.annualInterestRate!, item.tenureMonths!, item.loanStartMonth!, snapshotMonth
       ))
     : null;
+
+  // Unrealised gain/loss
+  const gainLoss = useMemo(() => {
+    if (!item.purchasePrice || item.purchasePrice <= 0) return null;
+    const gain = item.amount - item.purchasePrice;
+    return { gain, gainPct: (gain / item.purchasePrice) * 100 };
+  }, [item.amount, item.purchasePrice]);
+
+  // XIRR (two-cashflow: purchase → current value)
+  const xirr = useMemo(() => {
+    if (!item.purchasePrice || item.purchasePrice <= 0 || !item.purchaseDate || item.amount <= 0) return null;
+    const purchaseDate = new Date(item.purchaseDate);
+    const [yr, mo] = snapshotMonth.split('-');
+    const snapshotDate = new Date(Number(yr), Number(mo), 0); // last day of month
+    if (purchaseDate >= snapshotDate) return null;
+    return calculateXIRR([
+      { amount: -item.purchasePrice, date: purchaseDate },
+      { amount: item.amount,         date: snapshotDate },
+    ]);
+  }, [item.purchasePrice, item.purchaseDate, item.amount, snapshotMonth]);
 
   return (
     <div className="line-item-wrap">
@@ -173,6 +207,15 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
 
         <div className="line-item-actions">
           <button
+            className={`btn-icon${hasCostBasis ? ' cost-active' : ''}`}
+            onClick={() => setCostOpen(o => !o)}
+            title={costOpen ? 'Hide cost basis' : 'Track cost basis for gain / XIRR'}
+            aria-label="Cost basis"
+            aria-expanded={costOpen}
+          >
+            <TrendingUp size={14} />
+          </button>
+          <button
             className={`btn-icon${hasLoanConfig ? ' loan-active' : ''}`}
             onClick={() => setLoanOpen(o => !o)}
             title={loanOpen ? 'Hide loan configuration' : 'Configure as amortising loan'}
@@ -192,6 +235,56 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
         </div>
       </div>
 
+      {/* Cost basis panel */}
+      {costOpen && (
+        <div className="cost-basis-config">
+          <div className="cost-basis-fields">
+            <div className="loan-field">
+              <label className="loan-label">Purchase Price ({item.currency})</label>
+              <input
+                {...purchasePriceInput.inputProps}
+                className="line-item-input loan-input"
+                placeholder="e.g. 100000"
+                aria-label="Purchase price"
+              />
+            </div>
+            <div className="loan-field">
+              <label className="loan-label">Purchase Date</label>
+              <input
+                type="date"
+                className="line-item-input loan-input"
+                value={item.purchaseDate ?? ''}
+                onChange={e => onChange({ ...item, purchaseDate: e.target.value || undefined })}
+                aria-label="Purchase date"
+              />
+            </div>
+          </div>
+          <div className="cost-basis-foot">
+            {gainLoss ? (
+              <>
+                <span className={gainLoss.gain >= 0 ? 'gain-positive' : 'gain-negative'}>
+                  {gainLoss.gain >= 0 ? '+' : ''}<CurrencyDisplay amount={gainLoss.gain} currency={item.currency} />
+                  {' '}({gainLoss.gainPct >= 0 ? '+' : ''}{gainLoss.gainPct.toFixed(1)}%)
+                </span>
+                {xirr !== null && (
+                  <span className={xirr >= 0 ? 'gain-positive' : 'gain-negative'}>
+                    XIRR&nbsp;{(xirr * 100).toFixed(1)}%
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="loan-hint">Enter purchase price and date to track unrealised gain and XIRR.</span>
+            )}
+            {hasCostBasis && (
+              <button className="btn-link loan-clear" onClick={clearCostBasis}>
+                Clear cost basis
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Loan config panel */}
       {loanOpen && (
         <div className="loan-config">
           <div className="loan-config-fields">

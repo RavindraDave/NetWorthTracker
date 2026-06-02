@@ -172,10 +172,38 @@
   color: var(--rose);
 }
 
+/* Cost basis panel */
+.cost-basis-config {
+  padding: 10px 0 12px 0;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.cost-basis-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cost-basis-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  font-family: var(--font-numeric);
+}
+
+.gain-positive { color: #0ea58a; font-weight: 600; }
+.gain-negative { color: var(--rose); font-weight: 600; }
+
+.btn-icon.cost-active { color: #0ea58a; }
+
 [data-theme="light"] .line-item-wrap { border-bottom-color: rgba(0,0,0,0.07); }
 [data-theme="light"] .line-item-input,
 [data-theme="light"] .line-item-select { background: rgba(0,0,0,0.04); }
 [data-theme="light"] .loan-config { border-top-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .cost-basis-config { border-top-color: rgba(0,0,0,0.08); }
 
 @media (max-width: 900px) {
   .line-item-row {

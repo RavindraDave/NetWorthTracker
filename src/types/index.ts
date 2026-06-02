@@ -34,6 +34,9 @@ export interface LineItem {
   annualInterestRate?: number;  // % e.g. 8.5
   tenureMonths?: number;        // Total loan term in months
   loanStartMonth?: string;      // "YYYY-MM" of first EMI
+  // Cost basis — for unrealised gain/loss and XIRR calculation
+  purchasePrice?: number;       // Original cost in item.currency
+  purchaseDate?: string;        // "YYYY-MM-DD"
 }
 
 export type GoalType = 'net_worth_target' | 'fire' | 'savings' | 'debt_freedom' | 'custom';

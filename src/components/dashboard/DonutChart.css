@@ -41,6 +41,41 @@
   color: var(--text-1);
 }
 
+.donut-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.donut-view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.donut-view-btn {
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 500;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.donut-view-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
 @media (max-width: 640px) {
   .alloc-legend {
     display: grid;

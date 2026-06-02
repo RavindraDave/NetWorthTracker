@@ -67,3 +67,19 @@
 .link-btn:hover {
   text-decoration: underline;
 }
+
+.trend-cat-select {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+}
+
+.trend-cat-select:focus { border-color: var(--accent); }
+
+[data-theme="light"] .trend-cat-select { background: rgba(0,0,0,0.04); }
