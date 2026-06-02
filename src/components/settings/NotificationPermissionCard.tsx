@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, BellOff, BellRing } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -7,6 +7,14 @@ export const NotificationPermissionCard: React.FC = () => {
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
   );
+
+  // Re-read permission when the user returns to the tab (e.g. after changing browser settings)
+  useEffect(() => {
+    if (typeof Notification === 'undefined') return;
+    const handleFocus = () => setPermission(Notification.permission);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
 
   if (!preferences) return null;
   if (typeof Notification === 'undefined') return null;
@@ -38,12 +46,16 @@ export const NotificationPermissionCard: React.FC = () => {
           Monthly Reminders
         </h3>
         <p className="text-muted text-sm">
-          {permission === 'denied'
-            ? 'Notifications are blocked in your browser. Enable them in browser settings to use this feature.'
-            : enabled
-              ? "When you open the app and the current month has no snapshot, you'll receive a reminder notification."
-              : "Get a notification when you open the app and haven't entered this month's snapshot yet."
-          }
+          {permission === 'denied' ? (
+            <>
+              Notifications are blocked. To enable: open your browser&apos;s site settings
+              for this page, set Notifications to &quot;Allow&quot;, then return here.
+            </>
+          ) : enabled ? (
+            "When you open the app and haven't recorded this month yet, a notification will appear. Reminders fire on app open — not in the background."
+          ) : (
+            "Get an in-app notification when you open WealthPulse and haven't recorded your net worth this month yet."
+          )}
         </p>
       </div>
       {permission !== 'denied' && (

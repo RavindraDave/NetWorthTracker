@@ -75,6 +75,10 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
+    if (file.size > 5 * 1024 * 1024) {
+      setParseError('File is too large (max 5 MB). Export a smaller date range and try again.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       try {

@@ -41,7 +41,9 @@ export function calculateXIRR(flows: CashFlow[]): number | null {
     if (Math.abs(df) < 1e-14) break;
     const next = rate - f / df;
     if (Math.abs(next - rate) < 1e-8) {
-      return Math.abs(npv(next, flows, t0)) < 0.1 ? next : null;
+      if (Math.abs(npv(next, flows, t0)) >= 0.1) return null;
+      // Cap at 10× (1000% p.a.) — beyond this the number is meaningless to display
+      return Math.abs(next) > 10 ? null : next;
     }
     rate = Math.max(-0.9999, Math.min(1000, next));
   }

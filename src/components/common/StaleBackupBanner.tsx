@@ -4,9 +4,14 @@ import { useApp } from '../../context/AppContext';
 import { exportToJSON, downloadFile } from '../../utils/importExport';
 import { daysSinceISO, staleThresholdDays } from '../../utils/autoBackup';
 
+const MAX_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — reject tampered far-future dates
+
 function isSnoozed(snoozeUntil: string | undefined): boolean {
   if (!snoozeUntil) return false;
-  return Date.now() < new Date(snoozeUntil).getTime();
+  const until = new Date(snoozeUntil).getTime();
+  if (!Number.isFinite(until)) return false;
+  if (until > Date.now() + MAX_SNOOZE_MS) return false; // treat implausible future dates as not-snoozed
+  return Date.now() < until;
 }
 
 export const StaleBackupBanner: React.FC = () => {

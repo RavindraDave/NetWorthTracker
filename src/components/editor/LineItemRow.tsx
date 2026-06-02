@@ -270,7 +270,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
                   className={gainLoss.gain >= 0 ? 'gain-positive' : 'gain-negative'}
                   aria-label={gainLoss.gain >= 0 ? 'Unrealised gain' : 'Unrealised loss'}
                 >
-                  {gainLoss.gain >= 0 ? '+' : ''}<CurrencyDisplay amount={gainLoss.gain} currency={item.currency} />
+                  {gainLoss.gain >= 0 ? '↑ ' : '↓ '}<CurrencyDisplay amount={Math.abs(gainLoss.gain)} currency={item.currency} />
                   {' '}({gainLoss.gainPct >= 0 ? '+' : ''}{gainLoss.gainPct.toFixed(1)}%)
                 </span>
                 {xirr !== null && (

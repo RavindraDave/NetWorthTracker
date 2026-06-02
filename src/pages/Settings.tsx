@@ -425,7 +425,7 @@ export const Settings: React.FC = () => {
                   </h3>
                   <p className="text-muted text-sm">Import from any bank or broker CSV export. Map columns visually before importing.</p>
                 </div>
-                <input type="file" accept=".csv,.txt" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
+                <input type="file" accept=".csv" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
                 <button className="btn btn-outline" onClick={() => csvInputRef.current?.click()}>Upload CSV</button>
               </div>
 
