@@ -8,6 +8,7 @@ import { RouteSkeleton } from './components/common/RouteSkeleton';
 import { Dashboard } from './pages/Dashboard';
 import { useApp } from './context/AppContext';
 import { useAutoBackup } from './hooks/useAutoBackup';
+import { useSnapshotReminder } from './hooks/useSnapshotReminder';
 
 const SnapshotEditor = lazy(() => import('./pages/SnapshotEditor').then(m => ({ default: m.SnapshotEditor })));
 const Goals          = lazy(() => import('./pages/Goals').then(m => ({ default: m.Goals })));
@@ -26,6 +27,11 @@ const RouteWithBoundary: React.FC<{ element: React.ReactElement; name: string }>
 const AutoBackupManager: React.FC = () => {
   const { snapshots, goals, preferences, updatePreferences } = useApp();
   useAutoBackup({ snapshots, goals, preferences, updatePreferences });
+  return null;
+};
+
+const SnapshotReminderManager: React.FC = () => {
+  useSnapshotReminder();
   return null;
 };
 
@@ -50,6 +56,7 @@ function App() {
       <AppProvider>
         <ToastProvider>
           <AutoBackupManager />
+          <SnapshotReminderManager />
           <RouterProvider router={router} />
         </ToastProvider>
       </AppProvider>

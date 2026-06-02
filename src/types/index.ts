@@ -116,4 +116,5 @@ export interface UserPreferences {
   autoBackup?: AutoBackupConfig;
   staleBackupSnoozeUntil?: string;
   cloudSync?: CloudSyncConfig;
+  notificationReminders?: boolean;
 }

@@ -9,7 +9,9 @@ import { InstallPwaCard } from '../components/common/InstallPwaCard';
 import { CloudSyncCard } from '../components/settings/CloudSyncCard';
 import { AutoBackupRecord, AutoBackupConfig, BackupCadence } from '../types';
 import { isFsaSupported, pickBackupFolder, getSavedFolderHandle, clearBackupFolder } from '../utils/fsAccessBackup';
-import { Download, Upload, FileSpreadsheet, Settings as SettingsIcon, AlertTriangle, Sun, Moon, Monitor, Search, Archive, History, RefreshCw, Trash2, FolderOpen, FolderX } from 'lucide-react';
+import { Download, Upload, FileSpreadsheet, FileText, Settings as SettingsIcon, AlertTriangle, Sun, Moon, Monitor, Search, Archive, History, RefreshCw, Trash2, FolderOpen, FolderX } from 'lucide-react';
+import { CsvImportModal } from '../components/settings/CsvImportModal';
+import { NotificationPermissionCard } from '../components/settings/NotificationPermissionCard';
 import './Settings.css';
 
 export const Settings: React.FC = () => {
@@ -19,6 +21,8 @@ export const Settings: React.FC = () => {
   const { success, error, warning, confirm } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvImportFile, setCsvImportFile] = useState<File | null>(null);
 
   const [currencySearch, setCurrencySearch] = useState('');
   const [autoBackupHistory, setAutoBackupHistory] = useState<AutoBackupRecord[]>([]);
@@ -141,6 +145,13 @@ export const Settings: React.FC = () => {
       console.error(err);
     }
     if (excelInputRef.current) excelInputRef.current.value = '';
+  };
+
+  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvImportFile(file);
+    if (csvInputRef.current) csvInputRef.current.value = '';
   };
 
   const autoBackupCfg: AutoBackupConfig = preferences.autoBackup ?? { enabled: true, cadence: 'weekly', mode: 'download' };
@@ -361,6 +372,7 @@ export const Settings: React.FC = () => {
 
               <StorageStatusCard />
               <InstallPwaCard />
+              <NotificationPermissionCard />
 
               <div className="data-action-card">
                 <div className="data-action-card__info">
@@ -404,6 +416,17 @@ export const Settings: React.FC = () => {
                 </div>
                 <input type="file" accept=".xlsx" style={{ display: 'none' }} ref={excelInputRef} onChange={handleImportExcel} />
                 <button className="btn btn-outline" onClick={() => excelInputRef.current?.click()}>Upload XLSX</button>
+              </div>
+
+              <div className="data-action-card">
+                <div className="data-action-card__info">
+                  <h3 className="text-h3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <FileText size={18} className="text-blue" /> Import from CSV
+                  </h3>
+                  <p className="text-muted text-sm">Import from any bank or broker CSV export. Map columns visually before importing.</p>
+                </div>
+                <input type="file" accept=".csv,.txt" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
+                <button className="btn btn-outline" onClick={() => csvInputRef.current?.click()}>Upload CSV</button>
               </div>
 
               {/* Auto-Backup */}
@@ -548,6 +571,12 @@ export const Settings: React.FC = () => {
 
         </div>
       </div>
+      {csvImportFile && (
+        <CsvImportModal
+          file={csvImportFile}
+          onClose={() => setCsvImportFile(null)}
+        />
+      )}
     </div>
   );
 };
