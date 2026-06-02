@@ -107,6 +107,7 @@ export interface CloudSyncConfig {
   clientId?: string;       // stored when user enters it via Settings UI
   lastSyncISO?: string;
   lastError?: string;
+  encryptionEnabled?: boolean;
 }
 
 export interface UserPreferences {

@@ -3,6 +3,7 @@ import { db, initializePreferences, UserPreferencesRecord } from '../db/database
 import { Snapshot, Goal, UserPreferences, AutoBackupRecord, CategoryTemplate } from '../types';
 import { googleDriveProvider } from '../utils/cloudSync/google/drive';
 import { configureClientId } from '../utils/cloudSync/google/gis';
+import { encryptJSON, getPassphrase } from '../utils/cloudSync/encryption';
 
 function normalizeRates(snap: Snapshot): Snapshot {
   const rates: Record<string, number> = {};
@@ -238,11 +239,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const snaps = snapshotsRef.current;
     const gs = goalsRef.current;
     if (snaps.length === 0) return;
+
+    if (prefs.cloudSync.encryptionEnabled) {
+      const pass = getPassphrase();
+      if (!pass) {
+        const updated = { ...prefs.cloudSync, lastError: 'Encryption enabled — enter your passphrase in Settings to sync.' };
+        await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
+        setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+        return;
+      }
+    }
+
     const date = new Date().toISOString().split('T')[0];
     const filename = `wealthpulse-backup-${date}.json`;
-    const json = exportToJSON(snaps, gs, prefs);
+    const plainJson = exportToJSON(snaps, gs, prefs);
     try {
-      await googleDriveProvider.upload(json, filename);
+      const pass = prefs.cloudSync.encryptionEnabled ? getPassphrase() : null;
+      const payload = pass ? await encryptJSON(plainJson, pass) : plainJson;
+      await googleDriveProvider.upload(payload, filename);
       const updated = { ...prefs.cloudSync, lastSyncISO: new Date().toISOString(), lastError: undefined };
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);

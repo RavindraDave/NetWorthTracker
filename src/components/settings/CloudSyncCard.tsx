@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Cloud, CloudOff, RefreshCw, Download, LogOut, AlertCircle, ExternalLink, KeyRound, X, BookOpen } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, Download, LogOut, AlertCircle, ExternalLink, KeyRound, X, BookOpen, Lock, LockOpen, Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
 import { Modal } from '../common/Modal';
@@ -9,6 +9,7 @@ import { CloudBackupFile } from '../../utils/cloudSync/types';
 import { parseBackupJSON, exportToJSON, downloadFile } from '../../utils/importExport';
 import { formatBytes } from '../../utils/storagePersist';
 import { configureClientId, isClientIdConfigured } from '../../utils/cloudSync/google/gis';
+import { setPassphrase, getPassphrase, hasPassphrase, isEncryptedEnvelope, decryptJSON } from '../../utils/cloudSync/encryption';
 import type { CloudSyncConfig } from '../../types';
 
 const ENV_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
@@ -243,6 +244,116 @@ const ClientIdForm: React.FC<ClientIdFormProps> = ({ savedId, onSave, onClear, o
   );
 };
 
+// ── Passphrase modal ──────────────────────────────────────────────────────────
+
+interface PassphraseModalProps {
+  mode: 'setup' | 'unlock';
+  onSubmit: (passphrase: string) => void;
+  onClose: () => void;
+}
+
+const PassphraseModal: React.FC<PassphraseModalProps> = ({ mode, onSubmit, onClose }) => {
+  const [pass, setPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const isSetup = mode === 'setup';
+
+  const handleSubmit = () => {
+    if (pass.length < 8) { setErr('Passphrase must be at least 8 characters.'); return; }
+    if (isSetup && pass !== confirm) { setErr('Passphrases do not match.'); return; }
+    onSubmit(pass);
+  };
+
+  const inputStyle: React.CSSProperties = { flex: 1, fontSize: '0.85rem', fontFamily: 'monospace', letterSpacing: '0.05em' };
+
+  return (
+    <Modal onClose={onClose} aria-label={isSetup ? 'Set encryption passphrase' : 'Enter passphrase'}
+      contentStyle={{ maxWidth: 440 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Lock size={16} style={{ color: 'var(--accent-text)' }} />
+          {isSetup ? 'Set Encryption Passphrase' : 'Enter Passphrase'}
+        </h3>
+        <button onClick={onClose} className="btn-icon" aria-label="Close"><X size={16} /></button>
+      </div>
+
+      {isSetup ? (
+        <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: '1rem', lineHeight: 1.6 }}>
+          Your backups will be encrypted with AES-256-GCM before uploading to Google Drive.
+          This passphrase is stored in your browser session only — you will need to re-enter it each time you open the app.
+          <strong style={{ display: 'block', marginTop: '0.4rem', color: 'var(--rose)' }}>
+            If you forget this passphrase, your Drive backups cannot be recovered.
+          </strong>
+        </p>
+      ) : (
+        <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: '1rem' }}>
+          Enter your passphrase to decrypt this backup.
+        </p>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div>
+          <label style={{ fontSize: '0.78rem', color: 'var(--text-3)', display: 'block', marginBottom: '0.3rem' }}>
+            {isSetup ? 'Passphrase' : 'Passphrase'}
+          </label>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <input
+              type={show ? 'text' : 'password'}
+              className="line-item-input"
+              style={inputStyle}
+              value={pass}
+              onChange={e => { setPass(e.target.value); setErr(null); }}
+              onKeyDown={e => e.key === 'Enter' && !isSetup && handleSubmit()}
+              placeholder="Min. 8 characters"
+              autoComplete="new-password"
+              autoFocus
+            />
+            <button className="btn-icon" onClick={() => setShow(s => !s)} type="button"
+              aria-label={show ? 'Hide passphrase' : 'Show passphrase'} title={show ? 'Hide' : 'Show'}>
+              {show ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+        </div>
+
+        {isSetup && (
+          <div>
+            <label style={{ fontSize: '0.78rem', color: 'var(--text-3)', display: 'block', marginBottom: '0.3rem' }}>
+              Confirm passphrase
+            </label>
+            <input
+              type={show ? 'text' : 'password'}
+              className="line-item-input"
+              style={{ ...inputStyle, width: '100%' }}
+              value={confirm}
+              onChange={e => { setConfirm(e.target.value); setErr(null); }}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              placeholder="Repeat passphrase"
+              autoComplete="new-password"
+            />
+          </div>
+        )}
+
+        {err && (
+          <p style={{ fontSize: '0.8rem', color: 'var(--rose)', margin: 0 }}>{err}</p>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.25rem' }}>
+        <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+        <button
+          className="btn btn-primary"
+          onClick={handleSubmit}
+          disabled={pass.length === 0 || (isSetup && confirm.length === 0)}
+        >
+          {isSetup ? 'Enable encryption' : 'Decrypt'}
+        </button>
+      </div>
+    </Modal>
+  );
+};
+
 // ── Main card ─────────────────────────────────────────────────────────────────
 
 export const CloudSyncCard: React.FC = () => {
@@ -255,6 +366,11 @@ export const CloudSyncCard: React.FC = () => {
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [restoreFiles, setRestoreFiles] = useState<CloudBackupFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+
+  // Encryption state
+  const [passphraseModal, setPassphraseModal] = useState<'setup' | 'unlock' | null>(null);
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<CloudBackupFile | null>(null);
+  const [encPassphraseSet, setEncPassphraseSet] = useState(hasPassphrase);
 
   const cloudSync: CloudSyncConfig = preferences?.cloudSync ?? { provider: null, enabled: false };
   const isEnabled = cloudSync.enabled && cloudSync.provider === 'google';
@@ -343,7 +459,16 @@ export const CloudSyncCard: React.FC = () => {
     }
 
     try {
-      const json = await downloadBackup(file.id);
+      let json = await downloadBackup(file.id);
+      if (isEncryptedEnvelope(json)) {
+        const pass = getPassphrase();
+        if (!pass) {
+          setPendingRestoreFile(file);
+          setPassphraseModal('unlock');
+          return;
+        }
+        json = await decryptJSON(json, pass);
+      }
       const data = parseBackupJSON(json);
       await restoreBackup(data);
       setShowRestoreDialog(false);
@@ -351,6 +476,48 @@ export const CloudSyncCard: React.FC = () => {
     } catch (err) {
       error(err instanceof Error ? err.message : 'Restore failed.');
     }
+  };
+
+  const handlePassphraseSubmit = async (passphrase: string) => {
+    setPassphrase(passphrase);
+    setEncPassphraseSet(true);
+    const mode = passphraseModal;
+    setPassphraseModal(null);
+
+    if (mode === 'setup') {
+      await updatePreferences({ cloudSync: { ...cloudSync, encryptionEnabled: true } });
+      success('Encryption enabled. Your next sync will upload an encrypted backup.');
+    } else if (mode === 'unlock' && pendingRestoreFile) {
+      const file = pendingRestoreFile;
+      setPendingRestoreFile(null);
+      try {
+        const raw = await downloadBackup(file.id);
+        const json = await decryptJSON(raw, passphrase);
+        const data = parseBackupJSON(json);
+        await restoreBackup(data);
+        setShowRestoreDialog(false);
+        success('Backup restored successfully!');
+      } catch (err) {
+        error(err instanceof Error ? err.message : 'Restore failed — check your passphrase.');
+        setPassphrase(null);
+        setEncPassphraseSet(false);
+      }
+    }
+  };
+
+  const handleDisableEncryption = async () => {
+    const ok = await confirm(
+      'Disable encryption? Future syncs will upload unencrypted backups. Existing encrypted backups on Drive remain encrypted.',
+    );
+    if (!ok) return;
+    setPassphrase(null);
+    setEncPassphraseSet(false);
+    await updatePreferences({ cloudSync: { ...cloudSync, encryptionEnabled: false } });
+    success('Encryption disabled.');
+  };
+
+  const handleChangePassphrase = () => {
+    setPassphraseModal('setup');
   };
 
   return (
@@ -442,6 +609,54 @@ export const CloudSyncCard: React.FC = () => {
               Client ID configured by the app host.
             </p>
           )}
+
+          {/* ── Encryption section (only when Drive is connected) ── */}
+          {isEnabled && (
+            <div style={{ marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-subtle)' }}>
+              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                {cloudSync.encryptionEnabled
+                  ? <Lock size={12} style={{ color: 'var(--accent-green)' }} />
+                  : <LockOpen size={12} />}
+                Backup Encryption
+              </p>
+              {cloudSync.encryptionEnabled ? (
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                    AES-256 encryption enabled.{' '}
+                    {encPassphraseSet
+                      ? <span style={{ color: 'var(--accent-green)' }}>Passphrase active this session.</span>
+                      : <span style={{ color: 'var(--rose)' }}>Passphrase required — enter it to sync or restore.</span>}
+                  </span>
+                  {!encPassphraseSet && (
+                    <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                      onClick={() => setPassphraseModal('unlock')}>
+                      Enter passphrase
+                    </button>
+                  )}
+                  {encPassphraseSet && (
+                    <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                      onClick={handleChangePassphrase}>
+                      Change passphrase
+                    </button>
+                  )}
+                  <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                    onClick={handleDisableEncryption}>
+                    Disable
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0, flex: '1 1 200px' }}>
+                    Encrypt backups with AES-256-GCM before uploading. Requires a passphrase on each session.
+                  </p>
+                  <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', flexShrink: 0 }}
+                    onClick={() => setPassphraseModal('setup')}>
+                    Enable encryption
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Action buttons ── */}
@@ -478,6 +693,14 @@ export const CloudSyncCard: React.FC = () => {
           onRestore={handleRestore}
           onClose={() => setShowRestoreDialog(false)}
           loading={loadingFiles}
+        />
+      )}
+
+      {passphraseModal && (
+        <PassphraseModal
+          mode={passphraseModal}
+          onSubmit={handlePassphraseSubmit}
+          onClose={() => { setPassphraseModal(null); setPendingRestoreFile(null); }}
         />
       )}
     </>
