@@ -312,8 +312,8 @@ export const History: React.FC = () => {
                     <span style={{ color: 'var(--text-3)', fontSize: 11 }}>
                       Assets <CurrencyDisplay amount={breakdown.totalAssets} currency={baseCurrency} abbreviated /> · Liabilities <CurrencyDisplay amount={breakdown.totalLiabilities} currency={baseCurrency} abbreviated />
                     </span>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {yoyCounterpart && (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {yoyCounterpart ? (
                         <button
                           className="btn btn-outline"
                           style={{ fontSize: '0.78rem', padding: '4px 10px' }}
@@ -322,6 +322,10 @@ export const History: React.FC = () => {
                         >
                           <GitCompare size={12} /> vs last year
                         </button>
+                      ) : chronological.length < 13 && (
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
+                          Year-over-year available after 12 months
+                        </span>
                       )}
                       <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => printSnapshotReport(snap, baseCurrency)}>
                         <Printer size={12} /> Print

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '../../context/AppContext';
 import { buildAllocationData, buildCurrencyAllocationData } from '../../utils/calculations';
@@ -29,6 +29,12 @@ export const DonutChart: React.FC = () => {
 
   // Only show toggle when the snapshot contains items in ≥2 distinct currencies
   const showToggle = currencyData.length >= 2;
+
+  // Reset to category view if currencies drop below 2 (e.g. after deleting items)
+  useEffect(() => {
+    if (!showToggle && view === 'currency') setView('category');
+  }, [showToggle]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const data = view === 'currency' && showToggle ? currencyData : categoryData;
   const total = data.reduce((s, d) => s + d.value, 0);
 

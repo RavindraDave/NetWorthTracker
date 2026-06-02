@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
-const NOTIFIED_KEY = 'lastNotifiedMonth';
+const NOTIFIED_KEY = 'wealthpulse_lastNotifiedMonth';
 
 export function useSnapshotReminder() {
   const { snapshots, preferences } = useApp();

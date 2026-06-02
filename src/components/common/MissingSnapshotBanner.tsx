@@ -4,8 +4,8 @@ import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from './Toast';
 
-const SNOOZE_DAYS = 3;
-const SNOOZE_KEY = 'missingSnapshotSnoozeUntil';
+const SNOOZE_DAYS = 7;
+const SNOOZE_KEY = 'wealthpulse_missingSnapshotSnoozeUntil';
 
 function isSnoozed(): boolean {
   const val = localStorage.getItem(SNOOZE_KEY);
@@ -63,7 +63,7 @@ export const MissingSnapshotBanner: React.FC = () => {
     }}>
       <Calendar size={16} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-        No snapshot for <strong>{displayMonth}</strong> yet. Keep your net worth tracking up to date.
+        You haven't recorded your net worth for <strong>{displayMonth}</strong> yet.
       </span>
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
         <button
@@ -75,8 +75,8 @@ export const MissingSnapshotBanner: React.FC = () => {
         </button>
         <button
           className="btn-icon"
-          aria-label="Dismiss for 3 days"
-          title="Dismiss for 3 days"
+          aria-label="Dismiss for 7 days"
+          title="Dismiss for 7 days"
           onClick={handleSnooze}
         >
           <X size={14} />

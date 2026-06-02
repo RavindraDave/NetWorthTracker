@@ -156,10 +156,14 @@ export function buildAllocationData(
     .filter(c => c.type === 'asset')
     .reduce((sum, c) => sum + calcCategoryTotal(c, baseCurrency, exchangeRates), 0);
 
+  const totalLiabilities = categories
+    .filter(c => c.type === 'liability')
+    .reduce((sum, c) => sum + calcCategoryTotal(c, baseCurrency, exchangeRates), 0);
+
   for (const cat of categories) {
     const value = calcCategoryTotal(cat, baseCurrency, exchangeRates);
     if (value <= 0) continue;
-    const base = cat.type === 'asset' ? totalAssets : 1; // liabilities shown separately
+    const base = cat.type === 'asset' ? totalAssets : totalLiabilities;
     items.push({
       name: cat.name,
       value,

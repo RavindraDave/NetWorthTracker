@@ -28,8 +28,21 @@ const FIELD_HINTS: Record<CsvField, string> = {
   'Type':      'optional',
 };
 
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[\s_()\-.]/g, '');
+}
+
+/** Returns the first month >= `from` that has no existing snapshot. */
+function findNextEmptyMonth(existingMonths: Set<string>, from: string): string {
+  let cursor = from;
+  for (let i = 0; i < 24; i++) {
+    if (!existingMonths.has(cursor)) return cursor;
+    const [y, m] = cursor.split('-').map(Number);
+    cursor = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+  }
+  return cursor;
 }
 
 function autoDetect(headers: string[]): FieldMapping {
@@ -52,7 +65,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
   const navigate = useNavigate();
 
   const currentMonth = new Date().toISOString().slice(0, 7);
-  const [targetMonth, setTargetMonth] = useState(currentMonth);
+  const [targetMonth, setTargetMonth] = useState(() =>
+    findNextEmptyMonth(new Set(snapshots.map(s => s.month)), currentMonth)
+  );
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<FieldMapping>({});
   const [allRows, setAllRows] = useState<Record<string, string>[]>([]);
@@ -68,7 +83,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
         if (rows.length === 0) { setParseError('No data rows found in this file.'); return; }
-        const hdrs = Object.keys(rows[0]).filter(h => !h.startsWith('__EMPTY'));
+        const hdrs = Object.keys(rows[0]).filter(h => !h.startsWith('__EMPTY') && !DANGEROUS_KEYS.has(h.toLowerCase()));
         setHeaders(hdrs);
         setMapping(autoDetect(hdrs));
         setAllRows(rows);
@@ -99,7 +114,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
           ? (String(row[mapping['Category']] ?? '').trim() || 'Cash & Bank')
           : 'Cash & Bank';
         const amtStr  = String(row[mapping['Amount']!] ?? '0').replace(/[^\d.\-]/g, '');
-        const amount  = Math.abs(parseFloat(amtStr) || 0);
+        const rawAmt  = parseFloat(amtStr);
+        const amount  = Math.min(Math.abs(Number.isFinite(rawAmt) ? rawAmt : 0), 1e15);
         const rawCurr = mapping['Currency']
           ? String(row[mapping['Currency']] ?? baseCurrency).trim().toUpperCase()
           : baseCurrency;
@@ -184,7 +200,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
               style={{ maxWidth: 180 }}
             />
             {monthConflict && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--rose)' }}>Snapshot already exists for this month</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--rose)' }}>
+                A snapshot already exists for this month — choose a different month above
+              </span>
             )}
           </div>
 

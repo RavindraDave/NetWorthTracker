@@ -199,6 +199,26 @@
 
 .btn-icon.cost-active { color: #0ea58a; }
 
+/* Visible "Cost" label shown next to icon when cost basis is set */
+.cost-basis-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.cost-basis-label {
+  font-size: 0.65rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Stack cost-basis fields on very small screens */
+@media (max-width: 400px) {
+  .cost-basis-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 [data-theme="light"] .line-item-wrap { border-bottom-color: rgba(0,0,0,0.07); }
 [data-theme="light"] .line-item-input,
 [data-theme="light"] .line-item-select { background: rgba(0,0,0,0.04); }

@@ -139,12 +139,13 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
       ))
     : null;
 
-  // Unrealised gain/loss
+  // Unrealised gain/loss — not meaningful when amount is auto-calculated from a loan balance
   const gainLoss = useMemo(() => {
+    if (hasLoanConfig) return null;
     if (!item.purchasePrice || item.purchasePrice <= 0) return null;
     const gain = item.amount - item.purchasePrice;
     return { gain, gainPct: (gain / item.purchasePrice) * 100 };
-  }, [item.amount, item.purchasePrice]);
+  }, [item.amount, item.purchasePrice, hasLoanConfig]);
 
   // XIRR (two-cashflow: purchase → current value)
   const xirr = useMemo(() => {
@@ -207,13 +208,14 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
 
         <div className="line-item-actions">
           <button
-            className={`btn-icon${hasCostBasis ? ' cost-active' : ''}`}
+            className={`btn-icon cost-basis-btn${hasCostBasis ? ' cost-active' : ''}`}
             onClick={() => setCostOpen(o => !o)}
-            title={costOpen ? 'Hide cost basis' : 'Track cost basis for gain / XIRR'}
-            aria-label="Cost basis"
+            title={costOpen ? 'Hide cost basis' : 'Track purchase cost for unrealised gain & XIRR'}
+            aria-label="Toggle cost basis tracking"
             aria-expanded={costOpen}
           >
             <TrendingUp size={14} />
+            {hasCostBasis && <span className="cost-basis-label">Cost</span>}
           </button>
           <button
             className={`btn-icon${hasLoanConfig ? ' loan-active' : ''}`}
@@ -260,18 +262,31 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
             </div>
           </div>
           <div className="cost-basis-foot">
-            {gainLoss ? (
+            {hasLoanConfig ? (
+              <span className="loan-hint">Cost basis is not applicable to auto-calculated loan balances.</span>
+            ) : gainLoss ? (
               <>
-                <span className={gainLoss.gain >= 0 ? 'gain-positive' : 'gain-negative'}>
+                <span
+                  className={gainLoss.gain >= 0 ? 'gain-positive' : 'gain-negative'}
+                  aria-label={gainLoss.gain >= 0 ? 'Unrealised gain' : 'Unrealised loss'}
+                >
                   {gainLoss.gain >= 0 ? '+' : ''}<CurrencyDisplay amount={gainLoss.gain} currency={item.currency} />
                   {' '}({gainLoss.gainPct >= 0 ? '+' : ''}{gainLoss.gainPct.toFixed(1)}%)
                 </span>
                 {xirr !== null && (
-                  <span className={xirr >= 0 ? 'gain-positive' : 'gain-negative'}>
+                  <span
+                    className={xirr >= 0 ? 'gain-positive' : 'gain-negative'}
+                    title="XIRR: annualised return from purchase date to today, accounting for exact timing"
+                  >
                     XIRR&nbsp;{(xirr * 100).toFixed(1)}%
                   </span>
                 )}
+                {xirr === null && item.purchaseDate && (
+                  <span className="loan-hint" style={{ marginLeft: 4 }}>XIRR unavailable</span>
+                )}
               </>
+            ) : item.purchasePrice && item.purchasePrice > 0 && !item.purchaseDate ? (
+              <span className="loan-hint">Add a purchase date to see unrealised gain and XIRR.</span>
             ) : (
               <span className="loan-hint">Enter purchase price and date to track unrealised gain and XIRR.</span>
             )}

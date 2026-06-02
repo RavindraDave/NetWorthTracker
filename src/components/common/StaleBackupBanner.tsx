@@ -4,8 +4,6 @@ import { useApp } from '../../context/AppContext';
 import { exportToJSON, downloadFile } from '../../utils/importExport';
 import { daysSinceISO, staleThresholdDays } from '../../utils/autoBackup';
 
-const SNOOZE_DAYS = 7;
-
 function isSnoozed(snoozeUntil: string | undefined): boolean {
   if (!snoozeUntil) return false;
   return Date.now() < new Date(snoozeUntil).getTime();
@@ -29,7 +27,10 @@ export const StaleBackupBanner: React.FC = () => {
   };
 
   const handleSnooze = async () => {
-    const snoozeUntil = new Date(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    // Snooze duration matches the backup cadence so we don't nag before the next window
+    const cadence = preferences.autoBackup?.cadence;
+    const snoozeDays = cadence === 'daily' ? 1 : cadence === 'weekly' ? 3 : 7;
+    const snoozeUntil = new Date(Date.now() + snoozeDays * 24 * 60 * 60 * 1000).toISOString();
     await updatePreferences({ staleBackupSnoozeUntil: snoozeUntil });
   };
 
@@ -56,7 +57,7 @@ export const StaleBackupBanner: React.FC = () => {
         <button className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={handleBackupNow}>
           Back up now
         </button>
-        <button className="btn-icon" aria-label="Dismiss for 7 days" title="Dismiss for 7 days" onClick={handleSnooze}>
+        <button className="btn-icon" aria-label="Dismiss reminder" title="Dismiss reminder" onClick={handleSnooze}>
           <X size={14} />
         </button>
       </div>

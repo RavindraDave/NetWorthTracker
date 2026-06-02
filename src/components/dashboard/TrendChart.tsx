@@ -38,25 +38,53 @@ export const TrendChart: React.FC = () => {
     if (overallData.length < 2) return null;
     const first = overallData[0].netWorth;
     const last  = overallData[overallData.length - 1].netWorth;
-    if (first <= 0) return null;
-    return (Math.pow(last / first, 12 / (overallData.length - 1)) - 1) * 100;
+    if (first <= 0 || last / first < 0) return null;
+    const result = (Math.pow(last / first, 12 / (overallData.length - 1)) - 1) * 100;
+    return Number.isFinite(result) ? result : null;
   }, [overallData]);
 
   const catCagr = useMemo(() => {
     if (catData.length < 2) return null;
     const first = catData[0].value;
     const last  = catData[catData.length - 1].value;
-    if (first <= 0) return null;
-    return (Math.pow(last / first, 12 / (catData.length - 1)) - 1) * 100;
+    if (first <= 0 || last / first < 0) return null;
+    const result = (Math.pow(last / first, 12 / (catData.length - 1)) - 1) * 100;
+    return Number.isFinite(result) ? result : null;
   }, [catData]);
 
   const cagr = selectedCatId ? catCagr : overallCagr;
+
+  const catHasNoData = selectedCatId !== null && catData.length > 0 && catData.every(p => p.value === 0);
 
   if (data.length === 0 && !selectedCatId) {
     return (
       <div className="wp-card chart-trend">
         <div className="section-label">12-Month Trend</div>
         <div className="chart-empty">Add at least 2 monthly snapshots to see the trend</div>
+      </div>
+    );
+  }
+
+  if (catHasNoData) {
+    return (
+      <div className="wp-card chart-trend">
+        <div className="chart-head">
+          <div>
+            <div className="section-label">12-Month Trend</div>
+          </div>
+          <select
+            className="trend-cat-select"
+            value={selectedCatId ?? ''}
+            onChange={e => setSelectedCatId(e.target.value || null)}
+            aria-label="Filter by category"
+          >
+            <option value="">All</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="chart-empty">No data for this category in the last 12 months</div>
       </div>
     );
   }

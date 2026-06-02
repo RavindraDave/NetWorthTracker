@@ -31,7 +31,8 @@ export function calculateOutstandingBalance(
   if (elapsed >= tenureMonths) return 0;
 
   const remaining = tenureMonths - elapsed;
-  const r = annualRate / 12 / 100;
+  // Cap rate at 100% p.a. to prevent Math.pow overflow with runaway inputs
+  const r = Math.min(annualRate, 100) / 12 / 100;
 
   if (r === 0) {
     return principal * (remaining / tenureMonths);

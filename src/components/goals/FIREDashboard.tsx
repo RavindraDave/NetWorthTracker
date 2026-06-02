@@ -62,7 +62,9 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
     : null;
 
   const setField = (field: keyof ScenarioState) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setScenario(prev => ({ ...prev, [field]: parseFloat(e.target.value) || 0 }));
+    const v = parseFloat(e.target.value);
+    // Keep previous value when input is cleared/partial — prevents silent snap to 0
+    if (Number.isFinite(v)) setScenario(prev => ({ ...prev, [field]: v }));
   };
 
   const deltaYears = scenarioMetrics && metrics.yearsToFI !== null && scenarioMetrics.yearsToFI !== null
@@ -262,7 +264,7 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
               {deltaYears !== null && Math.abs(deltaYears) >= 0.05 && (
                 <span className={`fire-scenario-delta${deltaYears > 0 ? ' better' : ' worse'}`}>
                   {deltaYears > 0 ? `▲ saves ${deltaYears.toFixed(1)} yrs` : `▼ adds ${Math.abs(deltaYears).toFixed(1)} yrs`}
-                  {' '}vs goal
+                  {' '}vs saved goal
                 </span>
               )}
               {deltaYears === null && metrics.yearsToFI === null && scenarioMetrics.yearsToFI !== null && (
