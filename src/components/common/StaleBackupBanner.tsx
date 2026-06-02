@@ -2,19 +2,16 @@ import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { exportToJSON, downloadFile } from '../../utils/importExport';
+import { daysSinceISO, staleThresholdDays } from '../../utils/autoBackup';
 
-const STALE_DAYS = 30;
-const SNOOZE_DAYS = 7;
-
-function isStale(lastRunISO: string | undefined): boolean {
-  if (!lastRunISO) return true;
-  const diffMs = Date.now() - new Date(lastRunISO).getTime();
-  return diffMs > STALE_DAYS * 24 * 60 * 60 * 1000;
-}
+const MAX_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — reject tampered far-future dates
 
 function isSnoozed(snoozeUntil: string | undefined): boolean {
   if (!snoozeUntil) return false;
-  return Date.now() < new Date(snoozeUntil).getTime();
+  const until = new Date(snoozeUntil).getTime();
+  if (!Number.isFinite(until)) return false;
+  if (until > Date.now() + MAX_SNOOZE_MS) return false; // treat implausible future dates as not-snoozed
+  return Date.now() < until;
 }
 
 export const StaleBackupBanner: React.FC = () => {
@@ -23,7 +20,9 @@ export const StaleBackupBanner: React.FC = () => {
   if (!preferences) return null;
   if (snapshots.length === 0) return null;
   if (isSnoozed(preferences.staleBackupSnoozeUntil)) return null;
-  if (!isStale(preferences.autoBackup?.lastRunISO)) return null;
+
+  const daysSinceBackup = daysSinceISO(preferences.autoBackup?.lastRunISO);
+  if (daysSinceBackup <= staleThresholdDays(preferences.autoBackup?.cadence)) return null;
 
   const handleBackupNow = async () => {
     await manualBackup();
@@ -33,7 +32,10 @@ export const StaleBackupBanner: React.FC = () => {
   };
 
   const handleSnooze = async () => {
-    const snoozeUntil = new Date(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    // Snooze duration matches the backup cadence so we don't nag before the next window
+    const cadence = preferences.autoBackup?.cadence;
+    const snoozeDays = cadence === 'daily' ? 1 : cadence === 'weekly' ? 3 : 7;
+    const snoozeUntil = new Date(Date.now() + snoozeDays * 24 * 60 * 60 * 1000).toISOString();
     await updatePreferences({ staleBackupSnoozeUntil: snoozeUntil });
   };
 
@@ -52,7 +54,7 @@ export const StaleBackupBanner: React.FC = () => {
       <AlertTriangle size={16} style={{ color: 'var(--accent-yellow, #f59e0b)', flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
         Your last backup was {preferences.autoBackup?.lastRunISO
-          ? `${Math.floor((Date.now() - new Date(preferences.autoBackup.lastRunISO).getTime()) / (24 * 60 * 60 * 1000))} days ago`
+          ? `${daysSinceBackup} days ago`
           : 'never'
         }. Back up your data to keep it safe.
       </span>
@@ -60,7 +62,7 @@ export const StaleBackupBanner: React.FC = () => {
         <button className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={handleBackupNow}>
           Back up now
         </button>
-        <button className="btn-icon" aria-label="Dismiss for 7 days" title="Dismiss for 7 days" onClick={handleSnooze}>
+        <button className="btn-icon" aria-label="Dismiss reminder" title="Dismiss reminder" onClick={handleSnooze}>
           <X size={14} />
         </button>
       </div>

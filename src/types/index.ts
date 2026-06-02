@@ -29,6 +29,14 @@ export interface LineItem {
   notes?: string;
   excludeFromNetWorth?: boolean;
   excludeFromGoals?: boolean;
+  // Loan amortisation — when all four are set, outstanding balance is auto-computed
+  loanPrincipal?: number;       // Original principal in item.currency
+  annualInterestRate?: number;  // % e.g. 8.5
+  tenureMonths?: number;        // Total loan term in months
+  loanStartMonth?: string;      // "YYYY-MM" of first EMI
+  // Cost basis — for unrealised gain/loss and XIRR calculation
+  purchasePrice?: number;       // Original cost in item.currency
+  purchaseDate?: string;        // "YYYY-MM-DD"
 }
 
 export type GoalType = 'net_worth_target' | 'fire' | 'savings' | 'debt_freedom' | 'custom';
@@ -44,6 +52,7 @@ export interface Goal {
   type: GoalType;
   name: string;
   createdAt: string;
+  updatedAt?: string;
   targetAmount: number;
   targetDate?: string;
   annualExpenses?: number;
@@ -74,6 +83,10 @@ export interface CategoryTemplate {
   isBuiltIn?: boolean;
 }
 
+// CSV import column mapping (shared between CsvImportModal and saved profiles)
+export type CsvFieldName = 'Item Name' | 'Category' | 'Amount' | 'Currency' | 'Type';
+export type CsvFieldMapping = Partial<Record<CsvFieldName, string>>;
+
 export type BackupCadence = 'off' | 'daily' | 'weekly' | 'monthly';
 export type BackupMode = 'download' | 'fsa';
 
@@ -99,6 +112,8 @@ export interface CloudSyncConfig {
   clientId?: string;       // stored when user enters it via Settings UI
   lastSyncISO?: string;
   lastError?: string;
+  encryptionEnabled?: boolean;
+  syncMode?: 'merge' | 'override'; // default 'merge'
 }
 
 export interface UserPreferences {
@@ -111,4 +126,6 @@ export interface UserPreferences {
   autoBackup?: AutoBackupConfig;
   staleBackupSnoozeUntil?: string;
   cloudSync?: CloudSyncConfig;
+  notificationReminders?: boolean;
+  csvMappingProfiles?: Record<string, CsvFieldMapping>; // saved column mappings, keyed by user-given name
 }

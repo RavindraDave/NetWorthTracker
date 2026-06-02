@@ -156,10 +156,14 @@ export function buildAllocationData(
     .filter(c => c.type === 'asset')
     .reduce((sum, c) => sum + calcCategoryTotal(c, baseCurrency, exchangeRates), 0);
 
+  const totalLiabilities = categories
+    .filter(c => c.type === 'liability')
+    .reduce((sum, c) => sum + calcCategoryTotal(c, baseCurrency, exchangeRates), 0);
+
   for (const cat of categories) {
     const value = calcCategoryTotal(cat, baseCurrency, exchangeRates);
     if (value <= 0) continue;
-    const base = cat.type === 'asset' ? totalAssets : 1; // liabilities shown separately
+    const base = cat.type === 'asset' ? totalAssets : totalLiabilities;
     items.push({
       name: cat.name,
       value,
@@ -170,6 +174,70 @@ export function buildAllocationData(
   }
 
   return items.sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Portfolio allocation grouped by currency denomination (for multi-currency portfolios).
+ * Only counts asset line items not excluded from net worth.
+ */
+export function buildCurrencyAllocationData(
+  snapshot: Snapshot,
+  baseCurrency: string,
+): AllocationItem[] {
+  const { categories, exchangeRates } = snapshot;
+  const totals: Record<string, number> = {};
+
+  for (const cat of categories) {
+    if (cat.type !== 'asset') continue;
+    for (const item of cat.items) {
+      if (item.excludeFromNetWorth) continue;
+      const base = convertToBase(item.amount, item.currency, baseCurrency, exchangeRates);
+      totals[item.currency] = (totals[item.currency] ?? 0) + base;
+    }
+  }
+
+  const totalAssets = Object.values(totals).reduce((a, b) => a + b, 0);
+
+  return Object.entries(totals)
+    .filter(([, v]) => v > 0)
+    .sort(([, a], [, b]) => b - a)
+    .map(([currency, value]) => ({
+      name: currency,
+      value: Math.round(value),
+      percentage: totalAssets > 0 ? (value / totalAssets) * 100 : 0,
+      icon: '',
+      type: 'asset' as const,
+    }));
+}
+
+/**
+ * Build a 12-month value trend for a single category, matched first by ID then by name.
+ */
+export interface CategoryTrendPoint {
+  month: string;
+  value: number;
+}
+
+export function buildCategoryTrendData(
+  snapshots: Snapshot[],
+  baseCurrency: string,
+  categoryId: string,
+  categoryName: string,
+): CategoryTrendPoint[] {
+  return snapshots
+    .slice(-12)
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map(snap => {
+      const cat = snap.categories.find(c => c.id === categoryId)
+               ?? snap.categories.find(c => c.name === categoryName);
+      const value = cat
+        ? Math.round(calcCategoryTotal(cat, baseCurrency, snap.exchangeRates))
+        : 0;
+      const [year, month] = snap.month.split('-');
+      const date = new Date(Number(year), Number(month) - 1);
+      const label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      return { month: label, value };
+    });
 }
 
 /**

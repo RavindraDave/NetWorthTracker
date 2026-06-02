@@ -3,6 +3,7 @@ import { db, initializePreferences, UserPreferencesRecord } from '../db/database
 import { Snapshot, Goal, UserPreferences, AutoBackupRecord, CategoryTemplate } from '../types';
 import { googleDriveProvider } from '../utils/cloudSync/google/drive';
 import { configureClientId } from '../utils/cloudSync/google/gis';
+import { encryptJSON, getPassphrase } from '../utils/cloudSync/encryption';
 
 function normalizeRates(snap: Snapshot): Snapshot {
   const rates: Record<string, number> = {};
@@ -24,10 +25,18 @@ function rehydrateFlags(snaps: Snapshot[], templates: CategoryTemplate[]): Snaps
     }),
   }));
 }
-import { BackupData, exportToJSON } from '../utils/importExport';
+import { BackupData, exportToJSON, parseBackupJSON } from '../utils/importExport';
 import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
 import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { ViewMode } from '../utils/calculations';
+import { writeCanonicalFile, readCanonicalFile } from '../utils/cloudSync/google/drive';
+import { decryptJSON, isEncryptedEnvelope } from '../utils/cloudSync/encryption';
+import { mergeBackups, applyResolutions, SyncResult } from '../utils/cloudSync/syncEngine';
+import type { SyncMetaRecord } from '../db/database';
+
+export interface SyncConflictState {
+  result: SyncResult;
+}
 
 interface AppContextType {
   snapshots: Snapshot[];
@@ -50,6 +59,10 @@ interface AppContextType {
   deleteAutoBackup: (id: number) => Promise<void>;
   manualBackup: () => Promise<void>;
   syncToCloud: () => Promise<void>;
+  pullFromCloud: () => Promise<void>;
+  syncConflicts: SyncConflictState | null;
+  resolveConflicts: (resolutions: Map<string, 'local' | 'remote'>) => Promise<void>;
+  dismissSyncConflicts: () => void;
   isLoading: boolean;
 }
 
@@ -61,6 +74,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('overall');
   const [isLoading, setIsLoading] = useState(true);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflictState | null>(null);
 
   // Refs so backup callbacks always see latest state without stale closures
   const snapshotsRef = useRef<Snapshot[]>([]);
@@ -117,6 +131,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Pull from Drive once after initial load when sync is enabled
+  const hasPulledRef = useRef(false);
+  useEffect(() => {
+    if (isLoading) return;
+    if (hasPulledRef.current) return;
+    hasPulledRef.current = true;
+    const prefs = prefsRef.current;
+    if (prefs?.cloudSync?.enabled && prefs.cloudSync.provider === 'google') {
+      pullFromCloud().catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
   // Apply theme to <html> so CSS selectors can use [data-theme]
   useEffect(() => {
     if (!preferences) return;
@@ -134,6 +161,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const saveSnapshot = async (snapshot: Snapshot) => {
     const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
     if (duplicate) throw new Error(`duplicate_month:${snapshot.month}`);
+    // Always stamp updatedAt so the sync engine can detect changes regardless of
+    // which call site saved the snapshot (mirrors saveGoal).
+    snapshot = { ...snapshot, updatedAt: new Date().toISOString() };
     await db.snapshots.put(snapshot);
     setSnapshots(prev => {
       const idx = prev.findIndex(s => s.id === snapshot.id);
@@ -158,15 +188,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveGoal = async (goal: Goal) => {
-    await db.goals.put(goal);
+    const stamped = { ...goal, updatedAt: new Date().toISOString() };
+    await db.goals.put(stamped);
     setGoals(prev => {
-      const idx = prev.findIndex(g => g.id === goal.id);
+      const idx = prev.findIndex(g => g.id === stamped.id);
       let next: Goal[];
       if (idx >= 0) {
         next = [...prev];
-        next[idx] = goal;
+        next[idx] = stamped;
       } else {
-        next = [...prev, goal];
+        next = [...prev, stamped];
       }
       if (prefsRef.current) {
         recordAutoBackup('goal', snapshotsRef.current, next, prefsRef.current).catch(() => {});
@@ -201,11 +232,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const restoreBackup = async (data: BackupData) => {
     setIsLoading(true);
     try {
-      await db.transaction('rw', db.snapshots, db.goals, db.preferences, async () => {
+      await db.transaction('rw', db.snapshots, db.goals, db.preferences, db.syncMeta, async () => {
         await db.snapshots.clear();
         await db.goals.clear();
         await db.preferences.clear();
-        
+        // Invalidate the three-way-merge base: after a full replace the old base
+        // no longer describes this data, and a stale base can cause the next pull
+        // to drop or re-introduce records. Sync paths re-seed it via storeSyncMeta.
+        await db.syncMeta.clear();
+
         if (data.snapshots.length) await db.snapshots.bulkAdd(data.snapshots);
         if (data.goals.length) await db.goals.bulkAdd(data.goals);
         if (data.preferences) await db.preferences.put({ ...data.preferences, id: 1 });
@@ -232,17 +267,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await recordAutoBackup('manual', snapshots, goals, preferences);
   };
 
+  const storeSyncMeta = async (data: BackupData) => {
+    const record: SyncMetaRecord = {
+      id: 1,
+      updatedISO: new Date().toISOString(),
+      base: JSON.stringify(data),
+    };
+    await db.syncMeta.put(record);
+  };
+
+  const loadSyncMeta = async (): Promise<BackupData | null> => {
+    const record = await db.syncMeta.get(1);
+    if (!record) return null;
+    try { return JSON.parse(record.base) as BackupData; } catch { return null; }
+  };
+
+  const decryptPayload = async (payload: string): Promise<string> => {
+    if (!isEncryptedEnvelope(payload)) return payload;
+    const pass = getPassphrase();
+    if (!pass) throw new Error('Encrypted backup — enter your passphrase in Settings → Google Drive Sync.');
+    return decryptJSON(payload, pass);
+  };
+
   const syncToCloud = async () => {
-    const prefs = prefsRef.current;
+    // Read committed prefs from the DB, not prefsRef: callers may invoke this
+    // immediately after updatePreferences(), before the ref-syncing effect runs
+    // (e.g. enabling encryption then pushing). The DB is the source of truth.
+    const prefs = (await db.preferences.get(1)) ?? prefsRef.current ?? undefined;
     if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return;
     const snaps = snapshotsRef.current;
     const gs = goalsRef.current;
     if (snaps.length === 0) return;
-    const date = new Date().toISOString().split('T')[0];
-    const filename = `wealthpulse-backup-${date}.json`;
-    const json = exportToJSON(snaps, gs, prefs);
+
+    if (prefs.cloudSync.encryptionEnabled) {
+      const pass = getPassphrase();
+      if (!pass) {
+        const updated = { ...prefs.cloudSync, lastError: 'Encryption enabled — enter your passphrase in Settings to sync.' };
+        await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
+        setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+        return;
+      }
+    }
+
+    const plainJson = exportToJSON(snaps, gs, prefs);
+    const plainData = JSON.parse(plainJson) as BackupData;
     try {
-      await googleDriveProvider.upload(json, filename);
+      const pass = prefs.cloudSync.encryptionEnabled ? getPassphrase() : null;
+      const payload = pass ? await encryptJSON(plainJson, pass) : plainJson;
+
+      // Update the canonical sync file (create on first push)
+      await writeCanonicalFile(payload);
+
+      // Also keep a dated backup for history
+      const date = new Date().toISOString().split('T')[0];
+      await googleDriveProvider.upload(payload, `wealthpulse-backup-${date}.json`);
+
+      // Record the base state for future three-way merges
+      await storeSyncMeta(plainData);
+
       const updated = { ...prefs.cloudSync, lastSyncISO: new Date().toISOString(), lastError: undefined };
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);
@@ -252,6 +334,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);
     }
+  };
+
+  const pullFromCloud = async () => {
+    const prefs = prefsRef.current;
+    if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return;
+
+    try {
+      const rawPayload = await readCanonicalFile();
+      if (!rawPayload) return; // no canonical file yet — nothing to pull
+
+      const plainJson = await decryptPayload(rawPayload);
+      const remote = parseBackupJSON(plainJson);
+      const base = await loadSyncMeta();
+
+      const local: BackupData = {
+        version: 1,
+        exportDate: new Date().toISOString(),
+        snapshots: snapshotsRef.current,
+        goals: goalsRef.current,
+        preferences: prefs,
+      };
+
+      const syncMode = prefs.cloudSync.syncMode ?? 'merge';
+
+      if (syncMode === 'override') {
+        // Replace local data with remote, keep local preferences
+        await restoreBackup({ ...remote, preferences: local.preferences });
+        await storeSyncMeta(remote);
+        return;
+      }
+
+      // Merge mode
+      const result = mergeBackups(base, local, remote);
+
+      if (result.conflicts.length === 0) {
+        // Auto-merge — apply silently
+        await restoreBackup(result.merged);
+        await storeSyncMeta(result.merged);
+      } else {
+        // Surface conflicts for user resolution
+        setSyncConflicts({ result });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Pull from Drive failed';
+      const updated = { ...prefs.cloudSync, lastError: msg };
+      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
+      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+    }
+  };
+
+  const resolveConflicts = async (resolutions: Map<string, 'local' | 'remote'>) => {
+    if (!syncConflicts) return;
+    const finalData = applyResolutions(syncConflicts.result, resolutions);
+    await restoreBackup(finalData);
+    await storeSyncMeta(finalData);
+    setSyncConflicts(null);
+    // Push the resolved state back to Drive
+    debouncedCloudSync();
+  };
+
+  const dismissSyncConflicts = () => {
+    setSyncConflicts(null);
   };
 
   const debouncedCloudSync = () => {
@@ -324,6 +468,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteAutoBackup,
       manualBackup,
       syncToCloud,
+      pullFromCloud,
+      syncConflicts,
+      resolveConflicts,
+      dismissSyncConflicts,
       isLoading,
     }}>
       {children}

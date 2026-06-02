@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useBlocker } from 'react-router-dom';
+import { useParams, useNavigate, useBlocker, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { Snapshot, Category } from '../types';
@@ -9,17 +9,36 @@ import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
 import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
-import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer } from 'lucide-react';
+import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer, CheckCircle2, X } from 'lucide-react';
 import { exportSnapshotToCSV, downloadFile, exportSnapshotToExcel } from '../utils/importExport';
 import { printSnapshotReport } from '../utils/printReport';
 import './SnapshotEditor.css';
 
+interface ImportSummary {
+  itemCount: number;
+  categoryCount: number;
+  month: string;
+  fileName: string;
+}
+
 export const SnapshotEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { snapshots, saveSnapshot, preferences } = useApp();
   const { confirm, error: toastError } = useToast();
   const baseCurrency = preferences?.baseCurrency || 'INR';
+
+  // Post-import summary banner (BL-5) — read once from navigation state, then clear
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(
+    () => (location.state as { importSummary?: ImportSummary } | null)?.importSummary ?? null
+  );
+  useEffect(() => {
+    if (location.state && (location.state as { importSummary?: ImportSummary }).importSummary) {
+      // Clear router state so the banner doesn't reappear on refresh or back-navigation
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -272,6 +291,27 @@ export const SnapshotEditor: React.FC = () => {
         </div>
       </div>
 
+      {/* Post-import summary banner (BL-5) */}
+      {importSummary && (
+        <div role="status" style={{
+          display: 'flex', alignItems: 'center', gap: '0.6rem',
+          padding: '0.65rem 0.9rem', marginBottom: '1rem',
+          borderRadius: 'var(--radius-md)',
+          background: 'color-mix(in srgb, var(--accent-green, #34d399) 12%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--accent-green, #34d399) 35%, transparent)',
+        }}>
+          <CheckCircle2 size={16} style={{ color: 'var(--accent-green, #34d399)', flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+            Imported <strong>{importSummary.itemCount}</strong> item{importSummary.itemCount === 1 ? '' : 's'} across{' '}
+            <strong>{importSummary.categoryCount}</strong> categor{importSummary.categoryCount === 1 ? 'y' : 'ies'} from{' '}
+            <span style={{ wordBreak: 'break-all' }}>{importSummary.fileName}</span>. Review and save below.
+          </span>
+          <button className="btn-icon" aria-label="Dismiss import summary" onClick={() => setImportSummary(null)}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Collapsible Note Area */}
       <div className={`note-area${noteOpen ? ' note-area--open' : ''}`}>
         <button
@@ -364,7 +404,7 @@ export const SnapshotEditor: React.FC = () => {
             </span>
           </div>
           {assets.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
+            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} snapshotMonth={snapshot.month} onChange={handleCategoryChange} />
           ))}
         </div>
 
@@ -376,7 +416,7 @@ export const SnapshotEditor: React.FC = () => {
             </span>
           </div>
           {liabilities.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} onChange={handleCategoryChange} />
+            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} snapshotMonth={snapshot.month} onChange={handleCategoryChange} />
           ))}
         </div>
       </div>

@@ -8,6 +8,8 @@ import { RouteSkeleton } from './components/common/RouteSkeleton';
 import { Dashboard } from './pages/Dashboard';
 import { useApp } from './context/AppContext';
 import { useAutoBackup } from './hooks/useAutoBackup';
+import { useSnapshotReminder } from './hooks/useSnapshotReminder';
+import { ConflictResolutionModal } from './components/common/ConflictResolutionModal';
 
 const SnapshotEditor = lazy(() => import('./pages/SnapshotEditor').then(m => ({ default: m.SnapshotEditor })));
 const Goals          = lazy(() => import('./pages/Goals').then(m => ({ default: m.Goals })));
@@ -27,6 +29,23 @@ const AutoBackupManager: React.FC = () => {
   const { snapshots, goals, preferences, updatePreferences } = useApp();
   useAutoBackup({ snapshots, goals, preferences, updatePreferences });
   return null;
+};
+
+const SnapshotReminderManager: React.FC = () => {
+  useSnapshotReminder();
+  return null;
+};
+
+const SyncConflictManager: React.FC = () => {
+  const { syncConflicts, resolveConflicts, dismissSyncConflicts } = useApp();
+  if (!syncConflicts) return null;
+  return (
+    <ConflictResolutionModal
+      conflicts={syncConflicts.result.conflicts}
+      onResolve={resolveConflicts}
+      onDismiss={dismissSyncConflicts}
+    />
+  );
 };
 
 const router = createBrowserRouter([
@@ -50,6 +69,8 @@ function App() {
       <AppProvider>
         <ToastProvider>
           <AutoBackupManager />
+          <SnapshotReminderManager />
+          <SyncConflictManager />
           <RouterProvider router={router} />
         </ToastProvider>
       </AppProvider>

@@ -8,6 +8,7 @@ import type { CloudProvider } from '../types';
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const MAX_BACKUPS = 30;
+const CANONICAL_FILENAME = 'wealthpulse-sync.json';
 
 async function authedFetch(url: string, options: RequestInit, retry = true): Promise<Response> {
   const token = await getToken();
@@ -73,6 +74,62 @@ async function pruneOldBackups(): Promise<void> {
     const toDelete = files.slice(MAX_BACKUPS);
     await Promise.all(toDelete.map(f => deleteBackup(f.id)));
   }
+}
+
+// ── Canonical sync file ───────────────────────────────────────────────────────
+// wealthpulse-sync.json: a single file updated in place on every sync.
+// This provides a stable "latest state" for two-way sync / merge.
+
+export async function findCanonicalFile(): Promise<string | null> {
+  const params = new URLSearchParams({
+    spaces: 'appDataFolder',
+    q: `name='${CANONICAL_FILENAME}'`,
+    fields: 'files(id)',
+    pageSize: '1',
+  });
+  const res = await authedFetch(`${DRIVE_API}/files?${params}`, { method: 'GET' });
+  if (!res.ok) throw new Error(`Drive list failed: ${res.status}`);
+  const json = await res.json() as { files: Array<{ id: string }> };
+  return json.files?.[0]?.id ?? null;
+}
+
+async function createCanonicalFile(payload: string): Promise<string> {
+  const metadata = JSON.stringify({ name: CANONICAL_FILENAME, parents: ['appDataFolder'] });
+  const body = new FormData();
+  body.append('metadata', new Blob([metadata], { type: 'application/json' }));
+  body.append('file', new Blob([payload], { type: 'application/json' }));
+  const res = await authedFetch(
+    `${DRIVE_UPLOAD}/files?uploadType=multipart&fields=id`,
+    { method: 'POST', body },
+  );
+  if (!res.ok) throw new Error(`Drive create sync file failed: ${res.status}`);
+  const f = await res.json() as { id: string };
+  return f.id;
+}
+
+async function updateCanonicalFile(fileId: string, payload: string): Promise<void> {
+  const res = await authedFetch(
+    `${DRIVE_UPLOAD}/files/${encodeURIComponent(fileId)}?uploadType=media`,
+    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload },
+  );
+  if (!res.ok) throw new Error(`Drive update sync file failed: ${res.status}`);
+}
+
+/** Write (create or update) the canonical sync file; returns the file id. */
+export async function writeCanonicalFile(payload: string): Promise<string> {
+  const existing = await findCanonicalFile();
+  if (existing) {
+    await updateCanonicalFile(existing, payload);
+    return existing;
+  }
+  return createCanonicalFile(payload);
+}
+
+/** Download the canonical sync file content, or null if it doesn't exist. */
+export async function readCanonicalFile(): Promise<string | null> {
+  const fileId = await findCanonicalFile();
+  if (!fileId) return null;
+  return downloadBackup(fileId);
 }
 
 // CloudProvider implementation for Google Drive

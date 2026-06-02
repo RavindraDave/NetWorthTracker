@@ -40,7 +40,9 @@ export function useAutoBackup({ snapshots, goals, preferences, updatePreferences
       const cadenceMs = CADENCE_MS[cfg.cadence];
       if (!cadenceMs) return;
 
-      const lastRun = cfg.lastRunISO ? new Date(cfg.lastRunISO).getTime() : 0;
+      const lastRunTs = cfg.lastRunISO ? new Date(cfg.lastRunISO).getTime() : 0;
+      // Guard against a corrupted ISO string producing NaN, which would trigger a backup every tick
+      const lastRun = Number.isFinite(lastRunTs) ? lastRunTs : 0;
       if (Date.now() - lastRun < cadenceMs) return;
 
       const snaps = snapshotsRef.current;
