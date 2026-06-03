@@ -222,6 +222,94 @@
 [data-theme="light"] .fire-scenario-input { background: rgba(0,0,0,0.04); }
 [data-theme="light"] .fire-scenario-panel { background: color-mix(in oklch, var(--accent) 4%, white); }
 
+/* ── After-tax stat sub-line ─────────────────────────────── */
+.fire-stat-sub--tax {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.fire-tax-drag {
+  color: var(--text-3);
+  margin-left: 1px;
+}
+
+/* ── Tax breakdown panel ─────────────────────────────────── */
+.fire-tax-panel {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklch, var(--accent) 25%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--accent) 4%, transparent);
+}
+
+.fire-tax-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.fire-tax-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  color: var(--text-1);
+  background: var(--bg-card-solid);
+  border-bottom: 1px solid var(--border);
+}
+
+.fire-tax-row:last-child { border-bottom: none; }
+
+.fire-tax-row--sub {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  padding: 5px 12px 5px 20px;
+  background: color-mix(in oklch, var(--bg-card-solid) 80%, transparent);
+}
+
+.fire-tax-row--total {
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+  background: color-mix(in oklch, var(--accent) 6%, var(--bg-card-solid));
+}
+
+.fire-tax-row--monthly {
+  background: color-mix(in oklch, var(--accent) 8%, var(--bg-card-solid));
+  font-weight: 700;
+}
+
+.fire-tax-amount {
+  font-family: var(--font-numeric);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.fire-tax-amount--net {
+  color: var(--accent-text);
+  font-size: 0.88rem;
+}
+
+.fire-tax-note {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+[data-theme="light"] .fire-tax-panel { background: color-mix(in oklch, var(--accent) 3%, white); }
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 640px) {
   .fire-dash-stats {

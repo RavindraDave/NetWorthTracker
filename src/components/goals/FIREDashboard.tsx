@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Goal, Snapshot } from '../../types';
 import { calcFIREMetrics } from '../../utils/fireCalculator';
+import { calcWithdrawalTax } from '../../utils/taxCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { InfoTooltip } from '../common/InfoTooltip';
 import { HELP } from '../common/dashboardHelp';
-import { Target, TrendingUp, Clock, Zap, Sparkles, X } from 'lucide-react';
+import { Target, TrendingUp, Clock, Zap, Sparkles, X, ShieldCheck } from 'lucide-react';
 import './FIREDashboard.css';
 
 interface FIREDashboardProps {
@@ -38,7 +39,12 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
     excludedNames.length ? ` Excluded here: ${excludedNames.join(', ')}.` : ''
   }`;
 
+  const taxBreakdown = goal.taxParams
+    ? calcWithdrawalTax(metrics.monthlyPassiveIncome * 12, goal.taxParams)
+    : null;
+
   const [scenarioOpen, setScenarioOpen] = useState(false);
+  const [taxOpen, setTaxOpen] = useState(false);
   const [scenario, setScenario] = useState<ScenarioState>({
     annualExpenses:    goal.annualExpenses    ?? 0,
     expectedReturn:    goal.expectedReturn    ?? 7,
@@ -46,7 +52,7 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
     annualSavingsGrowth: goal.annualSavingsGrowth ?? 0,
   });
 
-  // Reset scenario when goal changes
+  // Reset panels when goal changes
   useEffect(() => {
     setScenario({
       annualExpenses:    goal.annualExpenses    ?? 0,
@@ -55,6 +61,7 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
       annualSavingsGrowth: goal.annualSavingsGrowth ?? 0,
     });
     setScenarioOpen(false);
+    setTaxOpen(false);
   }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scenarioMetrics = scenarioOpen
@@ -170,17 +177,36 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
             <div className="fire-stat-value">
               <CurrencyDisplay amount={metrics.monthlyPassiveIncome} currency={baseCurrency} abbreviated />
             </div>
-            <div className="fire-stat-sub">Passive income / mo</div>
+            {taxBreakdown ? (
+              <div className="fire-stat-sub fire-stat-sub--tax">
+                <ShieldCheck size={10} style={{ flexShrink: 0 }} />
+                <CurrencyDisplay amount={taxBreakdown.monthlyNet} currency={baseCurrency} abbreviated /> net
+                <span className="fire-tax-drag">({taxBreakdown.effectiveTaxRate.toFixed(1)}% tax)</span>
+              </div>
+            ) : (
+              <div className="fire-stat-sub">Passive income / mo</div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* What if? toggle */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+      {/* Toolbar: What if? + Tax */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: 10 }}>
+        {taxBreakdown && (
+          <button
+            className={`btn btn-outline${taxOpen ? ' active' : ''}`}
+            style={{ fontSize: '0.78rem', padding: '0.3rem 0.75rem', display: 'flex', alignItems: 'center', gap: 4 }}
+            onClick={() => { setTaxOpen(o => !o); if (scenarioOpen) setScenarioOpen(false); }}
+            aria-expanded={taxOpen}
+          >
+            <ShieldCheck size={12} />
+            {taxOpen ? 'Close tax' : 'Tax impact'}
+          </button>
+        )}
         <button
           className="btn btn-outline"
           style={{ fontSize: '0.78rem', padding: '0.3rem 0.75rem', display: 'flex', alignItems: 'center', gap: 4 }}
-          onClick={() => setScenarioOpen(o => !o)}
+          onClick={() => { setScenarioOpen(o => !o); if (taxOpen) setTaxOpen(false); }}
           aria-expanded={scenarioOpen}
         >
           <Sparkles size={12} />
@@ -275,6 +301,77 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
               </span>
             </div>
           )}
+        </div>
+      )}
+      {/* Tax breakdown panel */}
+      {taxOpen && taxBreakdown && goal.taxParams && (
+        <div className="fire-tax-panel">
+          <div className="fire-scenario-head">
+            <span className="fire-scenario-title" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <ShieldCheck size={12} />
+              Tax impact — annual {metrics.safeWithdrawalRate.toFixed(1)}% withdrawal
+            </span>
+            <button className="btn-icon" onClick={() => setTaxOpen(false)} aria-label="Close tax panel">
+              <X size={14} />
+            </button>
+          </div>
+
+          <div className="fire-tax-breakdown">
+            <div className="fire-tax-row">
+              <span>Annual gross withdrawal</span>
+              <span className="fire-tax-amount">
+                <CurrencyDisplay amount={taxBreakdown.annualGross} currency={baseCurrency} abbreviated />
+              </span>
+            </div>
+            <div className="fire-tax-row fire-tax-row--sub">
+              <span>
+                Equity LTCG ({goal.taxParams.ltcgPct}% of {goal.taxParams.equityPct}%)
+                &ensp;→&ensp;{goal.taxParams.ltcgRate}% above ₹{(goal.taxParams.ltcgExemption / 100_000).toFixed(2)}L
+              </span>
+              <span className="fire-tax-amount">
+                –&thinsp;<CurrencyDisplay amount={taxBreakdown.ltcgTax} currency={baseCurrency} abbreviated />
+              </span>
+            </div>
+            <div className="fire-tax-row fire-tax-row--sub">
+              <span>
+                Equity STCG ({100 - goal.taxParams.ltcgPct}% of {goal.taxParams.equityPct}%)
+                &ensp;→&ensp;{goal.taxParams.stcgRate}%
+              </span>
+              <span className="fire-tax-amount">
+                –&thinsp;<CurrencyDisplay amount={taxBreakdown.stcgTax} currency={baseCurrency} abbreviated />
+              </span>
+            </div>
+            <div className="fire-tax-row fire-tax-row--sub">
+              <span>Debt / other ({100 - goal.taxParams.equityPct}%) → {goal.taxParams.debtRate}%</span>
+              <span className="fire-tax-amount">
+                –&thinsp;<CurrencyDisplay amount={taxBreakdown.debtTax} currency={baseCurrency} abbreviated />
+              </span>
+            </div>
+            <div className="fire-tax-row fire-tax-row--sub">
+              <span>Health + education cess ({goal.taxParams.cess}%)</span>
+              <span className="fire-tax-amount">
+                –&thinsp;<CurrencyDisplay amount={taxBreakdown.cessAmount} currency={baseCurrency} abbreviated />
+              </span>
+            </div>
+            <div className="fire-tax-row fire-tax-row--total">
+              <span>Net annual income ({taxBreakdown.effectiveTaxRate.toFixed(1)}% effective tax)</span>
+              <span className="fire-tax-amount fire-tax-amount--net">
+                <CurrencyDisplay amount={taxBreakdown.annualNet} currency={baseCurrency} abbreviated />
+              </span>
+            </div>
+            <div className="fire-tax-row fire-tax-row--monthly">
+              <span>Net monthly income</span>
+              <span className="fire-tax-amount fire-tax-amount--net">
+                <CurrencyDisplay amount={taxBreakdown.monthlyNet} currency={baseCurrency} abbreviated /> / mo
+              </span>
+            </div>
+          </div>
+
+          <p className="fire-tax-note">
+            Conservative estimate: full withdrawal treated as capital gains. Assumes {goal.taxParams.equityPct}% equity
+            ({goal.taxParams.ltcgPct}% LTCG / {100 - goal.taxParams.ltcgPct}% STCG),&nbsp;
+            {100 - goal.taxParams.equityPct}% debt. Edit tax settings in Goal to adjust rates.
+          </p>
         </div>
       )}
     </div>
