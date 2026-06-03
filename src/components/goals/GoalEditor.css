@@ -167,3 +167,34 @@
 
 [data-theme="light"] .exclusion-chip { background: rgba(0,0,0,0.04); }
 [data-theme="light"] .exclusion-chip--active { background: rgba(239, 68, 68, 0.08); }
+
+/* ── E3 tax settings ─────────────────────────────────────── */
+.fire-tax-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-1);
+  cursor: pointer;
+  padding: 0 1rem 0.5rem;
+}
+
+.fire-tax-toggle-label input[type="checkbox"] { accent-color: var(--accent); }
+
+.fire-tax-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem 0.75rem;
+  padding: 0 1rem 0.5rem;
+}
+
+.form-label-sm {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 480px) {
+  .fire-tax-grid { grid-template-columns: repeat(2, 1fr); }
+}

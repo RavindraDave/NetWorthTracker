@@ -47,6 +47,17 @@ export interface Milestone {
   targetAmount: number;
 }
 
+// Tax parameters for FIRE withdrawal planning (E3 — India Budget 2024 defaults)
+export interface TaxParams {
+  ltcgRate: number;       // % e.g. 12.5 (equity LTCG)
+  stcgRate: number;       // % e.g. 20 (equity STCG)
+  ltcgExemption: number;  // annual exemption in base currency, e.g. 125000 (₹1.25L)
+  equityPct: number;      // % of withdrawal assumed equity, e.g. 80
+  ltcgPct: number;        // % of equity gains assumed long-term (>12 months), e.g. 70
+  debtRate: number;       // % on debt/other gains (income slab rate), e.g. 30
+  cess: number;           // % health+education cess on base tax, e.g. 4
+}
+
 export interface Goal {
   id: string;
   type: GoalType;
@@ -65,6 +76,8 @@ export interface Goal {
   annualSavingsGrowth?: number; // % increase in monthly savings per year, default 0
   // Category exclusions — asset category IDs to exclude from this goal's net worth calculation
   excludedCategoryIds?: string[];
+  // E3 — tax-aware withdrawal planning; absent means tax section is hidden
+  taxParams?: TaxParams;
 }
 
 export interface FlattenedItem extends LineItem {
