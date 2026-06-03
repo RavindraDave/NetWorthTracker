@@ -6,6 +6,7 @@ import { useToast } from '../common/Toast';
 import { X, Save, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Category, CsvFieldName, CsvFieldMapping } from '../../types';
+import { parseAmount } from '../../utils/numberFormat';
 
 type CsvField = CsvFieldName;
 type FieldMapping = CsvFieldMapping;
@@ -152,9 +153,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
         const catName  = mapping['Category']
           ? (String(row[mapping['Category']] ?? '').trim() || 'Cash & Bank')
           : 'Cash & Bank';
-        const amtStr  = String(row[mapping['Amount']!] ?? '0').replace(/[^\d.\-]/g, '');
-        const rawAmt  = parseFloat(amtStr);
-        const amount  = Math.min(Math.abs(Number.isFinite(rawAmt) ? rawAmt : 0), 1e15);
+        const amount  = Math.min(Math.abs(parseAmount(String(row[mapping['Amount']!] ?? '0'))), 1e15);
         const rawCurr = mapping['Currency']
           ? String(row[mapping['Currency']] ?? baseCurrency).trim().toUpperCase()
           : baseCurrency;
