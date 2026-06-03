@@ -125,6 +125,8 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
     }
   };
 
+  const zeroRateCurrencies = displayCurrencies.filter(c => !rates[c] || rates[c] <= 0);
+
   if (displayCurrencies.length === 0) return null;
 
   return (
@@ -167,6 +169,13 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         </button>
       </div>
 
+      {zeroRateCurrencies.length > 0 && !fetchMessage && (
+        <div className="exchange-rate-bar__banner error">
+          <AlertTriangle size={13} />
+          <strong>{zeroRateCurrencies.join(', ')}</strong> {zeroRateCurrencies.length === 1 ? 'has' : 'have'} no exchange rate set — balances will be treated as {baseCurrency} (1:1). Enter rates manually or click <strong>Live Rates</strong>.
+        </div>
+      )}
+
       {fetchMessage && (
         <div className={`exchange-rate-bar__banner ${fetchState}`}>
           {fetchState === 'success' ? (
@@ -177,7 +186,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         </div>
       )}
 
-      {isStale && !fetchMessage && (
+      {isStale && !fetchMessage && zeroRateCurrencies.length === 0 && (
         <div className="exchange-rate-bar__banner stale-warning">
           <AlertTriangle size={13} />
           Rates may be outdated. Click <strong>Live Rates</strong> to auto-refresh from the market.
