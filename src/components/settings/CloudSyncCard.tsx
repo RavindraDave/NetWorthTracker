@@ -261,8 +261,9 @@ const PassphraseModal: React.FC<PassphraseModalProps> = ({ mode, onSubmit, onClo
   const isSetup = mode === 'setup';
 
   const handleSubmit = () => {
-    if (pass.length < 8) { setErr('Passphrase must be at least 8 characters.'); return; }
+    if (isSetup && pass.length < 12) { setErr('Passphrase must be at least 12 characters.'); return; }
     if (isSetup && pass !== confirm) { setErr('Passphrases do not match.'); return; }
+    if (!isSetup && pass.length === 0) { setErr('Enter your passphrase.'); return; }
     onSubmit(pass);
   };
 
@@ -306,7 +307,7 @@ const PassphraseModal: React.FC<PassphraseModalProps> = ({ mode, onSubmit, onClo
               value={pass}
               onChange={e => { setPass(e.target.value); setErr(null); }}
               onKeyDown={e => e.key === 'Enter' && !isSetup && handleSubmit()}
-              placeholder="Min. 8 characters"
+              placeholder={isSetup ? 'Min. 12 characters' : 'Passphrase'}
               autoComplete="new-password"
               autoFocus
             />

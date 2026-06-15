@@ -85,14 +85,26 @@ export function downloadFile(content: string, filename: string, mimeType: string
 }
 
 /**
+ * Make a string safe to embed in a CSV cell.
+ * 1. Neutralises spreadsheet formula injection: a value beginning with =, +, -, @,
+ *    or a control char is executed as a formula when the file is opened in Excel /
+ *    Google Sheets. Prefix such values with a single quote so they render literally.
+ * 2. Escapes embedded double-quotes for RFC-4180 quoting.
+ */
+export function csvSafeCell(value: string): string {
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return guarded.replace(/"/g, '""');
+}
+
+/**
  * Quick CSV export for a snapshot's line items.
  */
 export function exportSnapshotToCSV(snapshot: Snapshot) {
   let csv = 'Category,Type,Item Name,Currency,Amount,Excluded,GoalExcluded\n';
   snapshot.categories.forEach(cat => {
     cat.items.forEach(item => {
-      const safeCatName  = cat.name.replace(/"/g, '""');
-      const safeItemName = item.name.replace(/"/g, '""');
+      const safeCatName  = csvSafeCell(cat.name);
+      const safeItemName = csvSafeCell(item.name);
       csv += `"${safeCatName}","${cat.type}","${safeItemName}",${item.currency},${item.amount},${item.excludeFromNetWorth ? 'Yes' : 'No'},${item.excludeFromGoals ? 'Yes' : 'No'}\n`;
     });
   });

@@ -79,57 +79,101 @@ async function pruneOldBackups(): Promise<void> {
 // ── Canonical sync file ───────────────────────────────────────────────────────
 // wealthpulse-sync.json: a single file updated in place on every sync.
 // This provides a stable "latest state" for two-way sync / merge.
+//
+// Optimistic concurrency: Drive returns a monotonic `version` per file. We capture
+// it on read and refuse to overwrite if the remote has advanced past the version the
+// caller last reconciled against — preventing a second device from silently
+// clobbering a write it never saw.
 
-export async function findCanonicalFile(): Promise<string | null> {
+export interface CanonicalMeta {
+  id: string;
+  version?: number;
+}
+
+/** Thrown by writeCanonicalFile when the remote file advanced past the expected version. */
+export class CanonicalConflictError extends Error {
+  constructor(public currentVersion?: number) {
+    super('Canonical sync file changed on the server since the last pull.');
+    this.name = 'CanonicalConflictError';
+  }
+}
+
+function parseVersion(v?: string): number | undefined {
+  return v ? parseInt(v, 10) : undefined;
+}
+
+export async function findCanonicalFile(): Promise<CanonicalMeta | null> {
   const params = new URLSearchParams({
     spaces: 'appDataFolder',
     q: `name='${CANONICAL_FILENAME}'`,
-    fields: 'files(id)',
+    fields: 'files(id,version)',
     pageSize: '1',
   });
   const res = await authedFetch(`${DRIVE_API}/files?${params}`, { method: 'GET' });
   if (!res.ok) throw new Error(`Drive list failed: ${res.status}`);
-  const json = await res.json() as { files: Array<{ id: string }> };
-  return json.files?.[0]?.id ?? null;
+  const json = await res.json() as { files: Array<{ id: string; version?: string }> };
+  const f = json.files?.[0];
+  return f ? { id: f.id, version: parseVersion(f.version) } : null;
 }
 
-async function createCanonicalFile(payload: string): Promise<string> {
+async function createCanonicalFile(payload: string): Promise<CanonicalMeta> {
   const metadata = JSON.stringify({ name: CANONICAL_FILENAME, parents: ['appDataFolder'] });
   const body = new FormData();
   body.append('metadata', new Blob([metadata], { type: 'application/json' }));
   body.append('file', new Blob([payload], { type: 'application/json' }));
   const res = await authedFetch(
-    `${DRIVE_UPLOAD}/files?uploadType=multipart&fields=id`,
+    `${DRIVE_UPLOAD}/files?uploadType=multipart&fields=id,version`,
     { method: 'POST', body },
   );
   if (!res.ok) throw new Error(`Drive create sync file failed: ${res.status}`);
-  const f = await res.json() as { id: string };
-  return f.id;
+  const f = await res.json() as { id: string; version?: string };
+  return { id: f.id, version: parseVersion(f.version) };
 }
 
-async function updateCanonicalFile(fileId: string, payload: string): Promise<void> {
+async function updateCanonicalFile(fileId: string, payload: string): Promise<number | undefined> {
   const res = await authedFetch(
-    `${DRIVE_UPLOAD}/files/${encodeURIComponent(fileId)}?uploadType=media`,
+    `${DRIVE_UPLOAD}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=version`,
     { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload },
   );
   if (!res.ok) throw new Error(`Drive update sync file failed: ${res.status}`);
+  const f = await res.json() as { version?: string };
+  return parseVersion(f.version);
 }
 
-/** Write (create or update) the canonical sync file; returns the file id. */
-export async function writeCanonicalFile(payload: string): Promise<string> {
+/**
+ * Write (create or update) the canonical sync file; returns the new file metadata.
+ * When `expectedVersion` is supplied and the remote has advanced beyond it, throws
+ * CanonicalConflictError instead of overwriting.
+ */
+export async function writeCanonicalFile(payload: string, expectedVersion?: number): Promise<CanonicalMeta> {
   const existing = await findCanonicalFile();
   if (existing) {
-    await updateCanonicalFile(existing, payload);
-    return existing;
+    if (
+      expectedVersion !== undefined &&
+      existing.version !== undefined &&
+      existing.version > expectedVersion
+    ) {
+      throw new CanonicalConflictError(existing.version);
+    }
+    const version = await updateCanonicalFile(existing.id, payload);
+    return { id: existing.id, version };
   }
   return createCanonicalFile(payload);
 }
 
 /** Download the canonical sync file content, or null if it doesn't exist. */
 export async function readCanonicalFile(): Promise<string | null> {
-  const fileId = await findCanonicalFile();
-  if (!fileId) return null;
-  return downloadBackup(fileId);
+  const meta = await findCanonicalFile();
+  if (!meta) return null;
+  return downloadBackup(meta.id);
+}
+
+/** Download the canonical sync file content along with its Drive version, or null. */
+export async function readCanonicalFileWithMeta(): Promise<{ content: string; version?: number } | null> {
+  const meta = await findCanonicalFile();
+  if (!meta) return null;
+  const content = await downloadBackup(meta.id);
+  return { content, version: meta.version };
 }
 
 // CloudProvider implementation for Google Drive
