@@ -77,7 +77,7 @@ export const NetWorthHero: React.FC = () => {
         </div>
         <div className="hero-num">
           <span className="hero-curr">{baseCurrency === 'INR' ? '₹' : baseCurrency === 'USD' ? '$' : ''}</span>
-          <span>{animatedNW.toLocaleString()}</span>
+          <span>{animatedNW.toLocaleString('en-IN')}</span>
         </div>
         <div className="hero-meta">
           <span className={`hero-pill${isPositive ? '' : ' neg'}`}>

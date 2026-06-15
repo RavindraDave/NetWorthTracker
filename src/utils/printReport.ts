@@ -10,7 +10,7 @@ function fmtCurrency(amount: number, currency: string): string {
     GBP: '£',
   };
   const prefix = symbols[currency] ?? `${currency} `;
-  return `${prefix}${Math.round(amount).toLocaleString()}`;
+  return `${prefix}${Math.round(amount).toLocaleString('en-IN')}`;
 }
 
 /** Convert YYYY-MM to a human-readable label like "May 2026". */
@@ -58,7 +58,7 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string): v
         <tr>
           <td style="padding:5px 8px;color:#374151;">${escHtml(item.name)}</td>
           <td style="padding:5px 8px;color:#6b7280;text-align:center;">${escHtml(item.currency)}</td>
-          <td style="padding:5px 8px;color:#374151;text-align:right;">${item.amount.toLocaleString()}</td>
+          <td style="padding:5px 8px;color:#374151;text-align:right;">${item.amount.toLocaleString('en-IN')}</td>
           <td style="padding:5px 8px;color:#374151;text-align:right;">${fmtCurrency(baseVal, baseCurrency)}</td>
         </tr>`;
       }).join('');
