@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { exportToJSON, downloadFile } from '../../utils/importExport';
 import { daysSinceISO, staleThresholdDays } from '../../utils/autoBackup';
 
-const MAX_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — reject tampered far-future dates
+const MAX_SNOOZE_MS = 40 * 24 * 60 * 60 * 1000; // beyond the longest stale threshold (35 days) — reject tampered far-future dates
 
 function isSnoozed(snoozeUntil: string | undefined): boolean {
   if (!snoozeUntil) return false;
@@ -32,9 +32,8 @@ export const StaleBackupBanner: React.FC = () => {
   };
 
   const handleSnooze = async () => {
-    // Snooze duration matches the backup cadence so we don't nag before the next window
-    const cadence = preferences.autoBackup?.cadence;
-    const snoozeDays = cadence === 'daily' ? 1 : cadence === 'weekly' ? 3 : 7;
+    // Snooze for the same duration as the staleness threshold so we don't re-nag before it's actually stale again
+    const snoozeDays = staleThresholdDays(preferences.autoBackup?.cadence);
     const snoozeUntil = new Date(Date.now() + snoozeDays * 24 * 60 * 60 * 1000).toISOString();
     await updatePreferences({ staleBackupSnoozeUntil: snoozeUntil });
   };
