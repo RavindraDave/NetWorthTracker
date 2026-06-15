@@ -123,6 +123,16 @@ async function fetchProfile(accessToken: string): Promise<UserProfile> {
   }
 }
 
+// Maps GIS error_callback `type` codes to user-friendly messages.
+const GIS_ERROR_MESSAGES: Record<string, string> = {
+  popup_closed: 'Sign-in window was closed before completing. Please try again and keep the window open until it finishes.',
+  popup_failed_to_open: 'Sign-in popup was blocked. Please allow popups for this site and try again.',
+};
+
+function describeGisError(type: string): string {
+  return GIS_ERROR_MESSAGES[type] ?? `Google sign-in failed (${type}). Please try again.`;
+}
+
 export async function signIn(): Promise<{ accessToken: string; expiresAt: number; email: string; name: string; picture: string }> {
   const clientId = resolveClientId();
   if (!clientId) {
@@ -152,7 +162,7 @@ export async function signIn(): Promise<{ accessToken: string; expiresAt: number
         saveToken(record);
         resolve(record);
       },
-      error_callback: (err) => reject(new Error(err.type)),
+      error_callback: (err) => reject(new Error(describeGisError(err.type))),
     });
     // prompt: '' = use consent already granted; no popup if token is still valid server-side.
     client.requestAccessToken({ prompt: '' });
