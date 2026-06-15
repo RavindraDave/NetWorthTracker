@@ -1,0 +1,17 @@
+.add-item-row {
+  opacity: 0.55;
+  transition: opacity var(--transition-fast);
+}
+
+.add-item-row:focus-within,
+.add-item-row:hover {
+  opacity: 1;
+}
+
+.add-item-row .name-input {
+  border-style: dashed;
+}
+
+.add-item-row .name-input:focus {
+  border-style: solid;
+}

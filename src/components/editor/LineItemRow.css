@@ -7,11 +7,29 @@
 
 .line-item-row {
   display: grid;
-  grid-template-columns: 1fr 64px 110px 90px auto auto;
+  grid-template-columns: 1fr 64px 110px 90px 32px;
+  grid-template-areas:
+    "name currency amount base delete"
+    "chips chips chips toggles toggles";
   gap: 6px;
+  row-gap: 4px;
   align-items: center;
   padding: 8px 0;
   transition: opacity var(--transition-fast);
+}
+
+.line-item-row .name-input       { grid-area: name; }
+.line-item-row .line-item-select { grid-area: currency; }
+.line-item-row .amount-input     { grid-area: amount; }
+.line-item-row .line-item-base   { grid-area: base; }
+.line-item-row .line-item-delete { grid-area: delete; justify-self: end; }
+.line-item-row .incl-chips       { grid-area: chips; justify-self: start; }
+.line-item-row .line-item-toggles {
+  grid-area: toggles;
+  justify-self: end;
+  display: flex;
+  gap: 2px;
+  align-items: center;
 }
 
 .li-excluded {
@@ -89,12 +107,6 @@
 .btn-icon.danger:hover {
   color: var(--rose);
   background: var(--rose-soft);
-}
-
-.line-item-actions {
-  display: flex;
-  gap: 2px;
-  align-items: center;
 }
 
 /* Calculator toggle — highlighted when loan is active */
@@ -232,39 +244,23 @@
 [data-theme="light"] .cost-basis-config { border-top-color: rgba(0,0,0,0.08); }
 
 @media (max-width: 900px) {
-  .line-item-row {
-    grid-template-columns: 1fr 64px minmax(80px,1fr) auto auto;
-  }
-  .line-item-base { display: none; }
   .loan-config-fields { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 640px) {
   .line-item-row {
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: 56px 1fr auto;
     grid-template-areas:
-      "name name"
-      "currency amount"
-      "base base"
-      "chips actions";
+      "name name name"
+      "currency amount delete"
+      "base base base"
+      "chips chips toggles";
     row-gap: 6px;
     padding: 10px 0;
   }
-  .line-item-row .name-input    { grid-area: name; }
-  .line-item-row .line-item-select { grid-area: currency; }
-  .line-item-row .amount-input  { grid-area: amount; }
   .line-item-row .line-item-base {
-    grid-area: base;
     display: block;
     text-align: left;
-  }
-  .line-item-row .incl-chips {
-    grid-area: chips;
-    justify-self: start;
-  }
-  .line-item-row .line-item-actions {
-    grid-area: actions;
-    justify-self: end;
   }
   .loan-config-fields { grid-template-columns: repeat(2, 1fr); }
 }

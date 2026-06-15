@@ -200,13 +200,22 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
           )}
         </div>
 
+        <button
+          className="btn-icon danger line-item-delete"
+          onClick={() => onRemove(item.id)}
+          title="Remove item"
+          aria-label="Remove item"
+        >
+          <Trash2 size={14} />
+        </button>
+
         <InclusionChips
           value={inclusionVal}
           onChange={next => onChange(applyExclusionState(item, inclusionToExclusionState(next)))}
           size="sm"
         />
 
-        <div className="line-item-actions">
+        <div className="line-item-toggles">
           <button
             className={`btn-icon cost-basis-btn${hasCostBasis ? ' cost-active' : ''}`}
             onClick={() => setCostOpen(o => !o)}
@@ -226,14 +235,6 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
           >
             <Calculator size={14} />
             {hasLoanConfig && <span className="cost-basis-label">Loan</span>}
-          </button>
-          <button
-            className="btn-icon danger"
-            onClick={() => onRemove(item.id)}
-            title="Remove item"
-            aria-label="Remove item"
-          >
-            <Trash2 size={14} />
           </button>
         </div>
       </div>
