@@ -10,6 +10,7 @@ import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
 import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer, CheckCircle2, X } from 'lucide-react';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 import { exportSnapshotToCSV, downloadFile, exportSnapshotToExcel } from '../utils/importExport';
 import { printSnapshotReport } from '../utils/printReport';
 import './SnapshotEditor.css';
@@ -46,6 +47,7 @@ export const SnapshotEditor: React.FC = () => {
     () => localStorage.getItem('wp_chips_intro_seen') === '1'
   );
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const isDirtyRef = useRef(false);
   const prevIdRef = useRef<string | null>(null);
@@ -143,7 +145,7 @@ export const SnapshotEditor: React.FC = () => {
 
   const handlePrint = () => {
     if (!snapshot) return;
-    printSnapshotReport(snapshot, baseCurrency);
+    printSnapshotReport(snapshot, baseCurrency, preferences?.numberFormat);
   };
 
   // Close export dropdown on outside click
@@ -191,6 +193,7 @@ export const SnapshotEditor: React.FC = () => {
       if (!ok) return;
     }
     isDirtyRef.current = false;
+    setIsSaving(true);
     try {
       await saveSnapshot({ ...snapshot, updatedAt: new Date().toISOString() });
       navigate('/');
@@ -202,6 +205,8 @@ export const SnapshotEditor: React.FC = () => {
         toastError('Failed to save snapshot. Please try again.');
         isDirtyRef.current = true;
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -247,7 +252,13 @@ export const SnapshotEditor: React.FC = () => {
               aria-label="Snapshot month"
             />
           </div>
-          <span className="editor-id-hint">ID {snapshot.id.slice(0, 8)}…</span>
+          <InfoTooltip body={
+            <div className="chip-legend">
+              <div className="chip-legend-row"><span className="chips-intro-glyph incl-accent">Σ✓</span> Counted in net worth &amp; goals</div>
+              <div className="chip-legend-row"><span className="chips-intro-glyph incl-amber">Σ</span> Net worth only — excluded from goals</div>
+              <div className="chip-legend-row"><span className="chips-intro-glyph incl-rose">⊘</span> Excluded from everything</div>
+            </div>
+          } />
         </div>
 
         <div className="editor-header-right">
@@ -284,9 +295,9 @@ export const SnapshotEditor: React.FC = () => {
               </div>
             )}
           </div>
-          <button className="btn btn-primary" onClick={handleSave}>
-            <Save size={15} />
-            <span>Save Snapshot</span>
+          <button className="btn btn-primary" onClick={handleSave} disabled={isSaving} aria-busy={isSaving}>
+            {isSaving ? <Save size={15} className="spinning" /> : <Save size={15} />}
+            <span>{isSaving ? 'Saving…' : 'Save Snapshot'}</span>
           </button>
         </div>
       </div>

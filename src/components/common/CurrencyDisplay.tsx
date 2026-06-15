@@ -1,5 +1,6 @@
-import React from 'react';
-import { formatCurrency } from '../../utils/currencies';
+import React, { useContext } from 'react';
+import { formatCurrency, resolveNumberLocale } from '../../utils/currencies';
+import { AppContext } from '../../context/AppContext';
 
 interface CurrencyDisplayProps {
   amount: number;
@@ -19,9 +20,12 @@ export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
   showSign = false,
   abbreviated = false,
 }) => {
+  const ctx = useContext(AppContext);
+  const locale = resolveNumberLocale(ctx?.preferences?.baseCurrency ?? 'INR', ctx?.preferences?.numberFormat);
   const formatted = formatCurrency(amount, currency, {
     compact: abbreviated || precision === 'compact',
     showSign,
+    locale,
   });
 
   return <span className={className}>{formatted}</span>;

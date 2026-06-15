@@ -31,7 +31,15 @@ function toBase64(buf: Uint8Array): string {
 }
 
 function fromBase64(s: string): ArrayBuffer {
-  const binary = atob(s);
+  if (!/^[A-Za-z0-9+/]*=*$/.test(s) || s.length % 4 !== 0) {
+    throw new Error('Invalid encrypted backup format.');
+  }
+  let binary: string;
+  try {
+    binary = atob(s);
+  } catch {
+    throw new Error('Invalid encrypted backup format.');
+  }
   const buf = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
   return buf.buffer;

@@ -4,7 +4,7 @@ import { Info } from 'lucide-react';
 import './InfoTooltip.css';
 
 interface InfoTooltipProps {
-  body: string;
+  body: React.ReactNode;
 }
 
 const TOOLTIP_HEIGHT_ESTIMATE = 90; // px — used only to decide flip direction

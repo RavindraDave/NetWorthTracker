@@ -63,6 +63,14 @@ export const Settings: React.FC = () => {
     c.name.toLowerCase().includes(currencySearch.toLowerCase())
   );
 
+  const setAllVisibleCurrencies = (enable: boolean) => {
+    const visibleCodes = filteredCurrencies.map(c => c.code);
+    const next = enable
+      ? Array.from(new Set([...preferences.enabledCurrencies, ...visibleCodes]))
+      : preferences.enabledCurrencies.filter(c => c === preferences.baseCurrency || !visibleCodes.includes(c));
+    updatePreferences({ enabledCurrencies: next });
+  };
+
   const handleExport = () => {
     const jsonStr = exportToJSON(snapshots, goals, preferences);
     downloadFile(jsonStr, `wealthpulse-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
@@ -284,6 +292,23 @@ export const Settings: React.FC = () => {
 
               <div className="settings-row">
                 <div>
+                  <label className="settings-label" htmlFor="number-format">Number Format</label>
+                  <p className="settings-hint">How large numbers are grouped, e.g. {preferences.numberFormat === 'lakh' ? '12,34,567' : preferences.numberFormat === 'international' ? '1,234,567' : `auto (based on ${preferences.baseCurrency})`}.</p>
+                </div>
+                <select
+                  id="number-format"
+                  className="settings-input"
+                  value={preferences.numberFormat ?? 'auto'}
+                  onChange={e => updatePreferences({ numberFormat: e.target.value as 'auto' | 'lakh' | 'international' })}
+                >
+                  <option value="auto">Auto (based on currency)</option>
+                  <option value="lakh">Lakh/Crore — India (12,34,567)</option>
+                  <option value="international">International (1,234,567)</option>
+                </select>
+              </div>
+
+              <div className="settings-row">
+                <div>
                   <label className="settings-label">Theme</label>
                   <p className="settings-hint">Choose how the app looks. System follows your OS setting.</p>
                 </div>
@@ -335,6 +360,14 @@ export const Settings: React.FC = () => {
                   onChange={e => setCurrencySearch(e.target.value)}
                   style={{ maxWidth: '100%' }}
                 />
+              </div>
+              <div className="currency-bulk-actions">
+                <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }} onClick={() => setAllVisibleCurrencies(true)}>
+                  Enable {currencySearch ? 'shown' : 'all'}
+                </button>
+                <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }} onClick={() => setAllVisibleCurrencies(false)}>
+                  Disable {currencySearch ? 'shown' : 'all'}
+                </button>
               </div>
               <div className="currency-grid">
                 {filteredCurrencies.map(c => {

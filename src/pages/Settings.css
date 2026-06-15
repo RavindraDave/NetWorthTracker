@@ -159,6 +159,12 @@
   max-width: 260px !important;
 }
 
+.currency-bulk-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .currency-grid {
   display: flex;
   flex-wrap: wrap;

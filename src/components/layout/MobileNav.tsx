@@ -46,7 +46,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onNewSnapshot }) => {
         aria-label="New Snapshot"
       >
         <TabIcon d={EDITOR_SVG} />
-        <span className="mob-tab-label">Edit</span>
+        <span className="mob-tab-label">New</span>
       </button>
     </nav>
   );

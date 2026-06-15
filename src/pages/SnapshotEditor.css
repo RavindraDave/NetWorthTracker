@@ -41,12 +41,6 @@
   border-color: var(--accent-text);
 }
 
-.editor-id-hint {
-  font-size: 11px;
-  color: var(--text-3);
-  font-family: var(--font-numeric);
-}
-
 .editor-header-right {
   display: flex;
   align-items: center;
@@ -253,6 +247,19 @@
 .incl-amber  { background: var(--amber-soft);  color: var(--amber); }
 .incl-rose   { background: var(--rose-soft);   color: var(--rose); }
 
+/* Inclusion-chip legend (persistent reference via InfoTooltip) */
+.chip-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chip-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .chips-intro-dismiss {
   align-self: flex-end;
   font-size: 0.8rem;
@@ -356,12 +363,11 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .live-preview { align-items: flex-start; }
+  /* Sticky summary bar at the bottom covers this on mobile */
+  .live-preview { display: none; }
 
   .editor-summary {
     flex-wrap: wrap;
-    position: static;
-    bottom: unset;
   }
   .summ-block { padding: 10px 14px; }
   .summ-sep { display: none; }
@@ -369,4 +375,5 @@
 
 @media (max-width: 480px) {
   .summ-block { flex: 1 1 40%; }
+  .editor-page { padding-bottom: 160px; }
 }

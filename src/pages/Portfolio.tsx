@@ -1,4 +1,4 @@
-import React, { useMemo, useTransition } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { calcNetWorth, convertToBase } from '../utils/calculations';
@@ -6,6 +6,7 @@ import { FlattenedItem } from '../types';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { Badge } from '../components/common/Badge';
 import { DonutChart } from '../components/dashboard/DonutChart';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 import { LayoutGrid } from 'lucide-react';
 import './Portfolio.css';
 
@@ -13,7 +14,6 @@ export const Portfolio: React.FC = () => {
   const { currentSnapshot, preferences } = useApp();
   const navigate = useNavigate();
   const baseCurrency = preferences?.baseCurrency || 'INR';
-  const [isPending] = useTransition();
 
   const { assets, liabilities, breakdown } = useMemo(() => {
     if (!currentSnapshot) return { assets: [], liabilities: [], breakdown: null };
@@ -61,9 +61,7 @@ export const Portfolio: React.FC = () => {
         <div className="section-sub">Detailed view of your current holdings.</div>
       </div>
 
-      <div style={{ opacity: isPending ? 0.6 : 1, transition: 'opacity 150ms' }}>
-        <DonutChart />
-      </div>
+      <DonutChart />
 
       <div className="portfolio-table-section wp-card">
         <div className="portfolio-table-header">
@@ -77,8 +75,8 @@ export const Portfolio: React.FC = () => {
               <tr>
                 <th>Asset Name</th>
                 <th>Category</th>
-                <th className="text-right">Local Amount</th>
-                <th className="text-right">Value ({baseCurrency})</th>
+                <th className="text-right">Original Amount</th>
+                <th className="text-right">Value in {baseCurrency}</th>
                 <th className="text-right">% of Assets</th>
               </tr>
             </thead>
@@ -92,8 +90,18 @@ export const Portfolio: React.FC = () => {
                     <td>
                       <div className="asset-name-col">
                         <span>{asset.name || 'Unnamed Asset'}</span>
-                        {asset.excludeFromNetWorth && <Badge variant="negative" style={{ fontSize: '0.6rem' }}>Excluded</Badge>}
-                        {asset.excludeFromGoals && !asset.excludeFromNetWorth && <Badge variant="default" style={{ fontSize: '0.6rem' }}>Goal-excluded</Badge>}
+                        {asset.excludeFromNetWorth && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                            <Badge variant="negative" style={{ fontSize: '0.6rem' }}>Excluded</Badge>
+                            <InfoTooltip body="Not counted in net worth or FIRE/goal progress." />
+                          </span>
+                        )}
+                        {asset.excludeFromGoals && !asset.excludeFromNetWorth && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                            <Badge variant="default" style={{ fontSize: '0.6rem' }}>Goal-excluded</Badge>
+                            <InfoTooltip body="Counted in net worth, but excluded from FIRE and goal progress." />
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td><Badge variant="default">{asset.categoryName}</Badge></td>
@@ -126,8 +134,8 @@ export const Portfolio: React.FC = () => {
                 <tr>
                   <th>Liability Name</th>
                   <th>Category</th>
-                  <th className="text-right">Local Amount</th>
-                  <th className="text-right">Value ({baseCurrency})</th>
+                  <th className="text-right">Original Amount</th>
+                  <th className="text-right">Value in {baseCurrency}</th>
                   <th className="text-right">% of Liabilities</th>
                 </tr>
               </thead>
@@ -141,8 +149,18 @@ export const Portfolio: React.FC = () => {
                       <td>
                         <div className="asset-name-col">
                           <span>{liability.name || 'Unnamed Liability'}</span>
-                          {liability.excludeFromNetWorth && <Badge variant="negative" style={{ fontSize: '0.6rem' }}>Excluded</Badge>}
-                          {liability.excludeFromGoals && !liability.excludeFromNetWorth && <Badge variant="default" style={{ fontSize: '0.6rem' }}>Goal-excluded</Badge>}
+                          {liability.excludeFromNetWorth && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                              <Badge variant="negative" style={{ fontSize: '0.6rem' }}>Excluded</Badge>
+                              <InfoTooltip body="Not counted in net worth or FIRE/goal progress." />
+                            </span>
+                          )}
+                          {liability.excludeFromGoals && !liability.excludeFromNetWorth && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                              <Badge variant="default" style={{ fontSize: '0.6rem' }}>Goal-excluded</Badge>
+                              <InfoTooltip body="Counted in net worth, but excluded from FIRE and goal progress." />
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td><Badge variant="default">{liability.categoryName}</Badge></td>

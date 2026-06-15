@@ -11,6 +11,7 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
 import { MissingSnapshotBanner } from '../components/common/MissingSnapshotBanner';
+import { MissingRateBanner } from '../components/common/MissingRateBanner';
 import { DriveRestoreButton } from '../components/common/DriveRestoreButton';
 import { Rocket, Target, Printer } from 'lucide-react';
 import { printSnapshotReport } from '../utils/printReport';
@@ -41,6 +42,7 @@ export const Dashboard: React.FC = () => {
     <div className="wp-page">
       <StaleBackupBanner />
       <MissingSnapshotBanner />
+      <MissingRateBanner />
       {!currentSnapshot ? (
         <div className="wp-card empty-state">
           <Rocket size={52} className="empty-state__icon" style={{ color: 'var(--accent)', opacity: 0.7 }} />
@@ -61,7 +63,7 @@ export const Dashboard: React.FC = () => {
             <button
               className="btn btn-outline"
               style={{ fontSize: '0.8rem' }}
-              onClick={() => printSnapshotReport(currentSnapshot!, baseCurrency)}
+              onClick={() => printSnapshotReport(currentSnapshot!, baseCurrency, preferences?.numberFormat)}
               title="Print or save as PDF"
             >
               <Printer size={14} /> Print Report

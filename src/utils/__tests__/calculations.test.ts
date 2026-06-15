@@ -7,8 +7,9 @@ import {
   buildTrendData,
   buildAllocationData,
   calcMonthChange,
+  getMissingRateCurrencies,
 } from '../calculations';
-import { Snapshot, Category } from '../../types';
+import { Snapshot, Category, LineItem } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -466,5 +467,80 @@ describe('cloneLatestSnapshot month math', () => {
 
   it('handles single-digit months with padding', () => {
     expect(nextMonth('2025-03')).toBe('2025-04');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getMissingRateCurrencies
+// ---------------------------------------------------------------------------
+
+function makeItem(overrides: Partial<LineItem> & { id: string; name: string; amount: number; currency: string }): LineItem {
+  return {
+    excludeFromNetWorth: false,
+    excludeFromGoals: false,
+    ...overrides,
+  };
+}
+
+describe('getMissingRateCurrencies', () => {
+  it('returns empty array when all currencies have valid rates', () => {
+    const snap = makeSnapshot({
+      exchangeRates: { USD: 83 },
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'USD' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'INR')).toEqual([]);
+  });
+
+  it('returns empty array for items already in base currency', () => {
+    const snap = makeSnapshot({
+      exchangeRates: {},
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'INR' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'INR')).toEqual([]);
+  });
+
+  it('flags currencies with no exchange rate', () => {
+    const snap = makeSnapshot({
+      exchangeRates: {},
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'EUR' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'INR')).toEqual(['EUR']);
+  });
+
+  it('flags currencies with a zero rate', () => {
+    const snap = makeSnapshot({
+      exchangeRates: { EUR: 0 },
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'EUR' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'INR')).toEqual(['EUR']);
+  });
+
+  it('ignores items excluded from net worth', () => {
+    const snap = makeSnapshot({
+      exchangeRates: {},
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'EUR', excludeFromNetWorth: true })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'INR')).toEqual([]);
+  });
+
+  it('deduplicates repeated missing currencies across categories', () => {
+    const snap = makeSnapshot({
+      exchangeRates: {},
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'EUR' })] }),
+        makeCategory({ id: 'c2', type: 'asset', items: [makeItem({ id: 'i2', name: 'B', amount: 200, currency: 'EUR' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'INR')).toEqual(['EUR']);
   });
 });

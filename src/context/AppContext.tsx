@@ -70,7 +70,7 @@ interface AppContextType {
   isLoading: boolean;
 }
 
-const AppContext = createContext<AppContextType | null>(null);
+export const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -142,7 +142,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (hasPulledRef.current) return;
     hasPulledRef.current = true;
     const prefs = prefsRef.current;
-    if (prefs?.cloudSync?.enabled && prefs.cloudSync.provider === 'google') {
+    // Only attempt a silent pull if we already hold a valid session token.
+    // Otherwise getToken() would fall back to an interactive OAuth prompt,
+    // which on mobile surfaces as an unexpected redirect/popup on launch.
+    if (prefs?.cloudSync?.enabled && prefs.cloudSync.provider === 'google' && googleDriveProvider.isSignedIn()) {
       pullFromCloud().catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -322,6 +325,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const snaps = snapshotsRef.current;
     const gs = goalsRef.current;
     if (snaps.length === 0) return;
+
+    // Don't trigger an interactive re-auth from a background auto-sync —
+    // surface a reconnect prompt instead so the user isn't unexpectedly
+    // sent through the Google sign-in flow.
+    if (!googleDriveProvider.isSignedIn()) {
+      const updated = { ...prefs.cloudSync, lastError: 'Google Drive session expired. Reconnect in Settings → Cloud Sync.' };
+      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
+      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+      return;
+    }
 
     if (prefs.cloudSync.encryptionEnabled) {
       const pass = getPassphrase();

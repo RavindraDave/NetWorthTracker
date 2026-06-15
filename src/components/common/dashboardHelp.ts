@@ -11,4 +11,6 @@ export const HELP = {
     "Investable categories are counted in FIRE and goal progress. Typically: everything that can compound — investments, retirement, real estate, business, precious metals.",
   goalExclusion:
     "Use 'Net worth only' for funds you want counted in your overall total but excluded from FIRE and goal progress — e.g. a kids' education fund or a house-deposit pot.",
+  safeWithdrawalRate:
+    "Safe Withdrawal Rate (SWR): the percentage of your investable net worth you could withdraw each year in retirement without running out of money. This is the 'monthly passive income' your portfolio could sustainably generate today.",
 };

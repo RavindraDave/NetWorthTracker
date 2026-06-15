@@ -102,6 +102,22 @@ export const getCurrencySymbol = (code: string): string => {
 
 import { formatCompactNumber } from './numberFormat';
 
+export type NumberFormatPreference = 'auto' | 'lakh' | 'international';
+
+/** Currencies whose home regions conventionally group digits as lakh/crore (e.g. 12,34,567). */
+const LAKH_GROUPING_CURRENCIES = new Set(['INR', 'NPR', 'PKR', 'BDT', 'LKR']);
+
+/**
+ * Resolve the digit-grouping locale to use for displayed amounts.
+ * 'lakh'/'international' pin the choice explicitly; 'auto' (or unset)
+ * derives it from the base currency.
+ */
+export const resolveNumberLocale = (baseCurrency: string, preference?: NumberFormatPreference): string => {
+  if (preference === 'lakh') return 'en-IN';
+  if (preference === 'international') return 'en-US';
+  return LAKH_GROUPING_CURRENCIES.has(baseCurrency) ? 'en-IN' : 'en-US';
+};
+
 export interface FormatCurrencyOptions {
   compact?: boolean;
   precision?: number;
