@@ -32,6 +32,27 @@ export function calcCategoryTotal(
     .reduce((sum, item) => sum + convertToBase(item.amount, item.currency, baseCurrency, exchangeRates), 0);
 }
 
+/**
+ * Returns currencies used by included line items that have no valid
+ * exchange rate to baseCurrency, meaning their values are silently
+ * falling back to a 1:1 conversion in calcNetWorth.
+ */
+export function getMissingRateCurrencies(snapshot: Snapshot, baseCurrency: string): string[] {
+  const { categories, exchangeRates } = snapshot;
+  const missing = new Set<string>();
+
+  for (const cat of categories) {
+    for (const item of cat.items) {
+      if (item.excludeFromNetWorth) continue;
+      if (item.currency === baseCurrency) continue;
+      const rate = exchangeRates[item.currency];
+      if (!rate || rate <= 0) missing.add(item.currency);
+    }
+  }
+
+  return Array.from(missing);
+}
+
 export type ViewMode = 'overall' | 'liquid' | 'investable';
 
 /**
