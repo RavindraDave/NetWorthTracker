@@ -6,6 +6,7 @@ import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { ScopeToggle } from './ScopeToggle';
 import { InfoTooltip } from '../common/InfoTooltip';
 import { HELP } from '../common/dashboardHelp';
+import { resolveNumberLocale } from '../../utils/currencies';
 import './NetWorthHero.css';
 
 function useCountUp(target: number, duration = 1200) {
@@ -48,6 +49,7 @@ export const NetWorthHero: React.FC = () => {
   );
 
   const animatedNW = useCountUp(breakdown.netWorth);
+  const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
   const isPositive = change >= 0;
 
   const month = currentSnapshot?.month
@@ -77,7 +79,7 @@ export const NetWorthHero: React.FC = () => {
         </div>
         <div className="hero-num">
           <span className="hero-curr">{baseCurrency === 'INR' ? '₹' : baseCurrency === 'USD' ? '$' : ''}</span>
-          <span>{animatedNW.toLocaleString('en-IN')}</span>
+          <span>{animatedNW.toLocaleString(numberLocale)}</span>
         </div>
         <div className="hero-meta">
           <span className={`hero-pill${isPositive ? '' : ' neg'}`}>

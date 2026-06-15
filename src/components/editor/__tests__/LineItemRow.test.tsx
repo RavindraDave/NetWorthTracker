@@ -12,14 +12,18 @@ vi.mock('../../common/CurrencyDisplay', () => ({
   ),
 }));
 
-vi.mock('../../../context/AppContext', () => ({
-  useApp: () => ({
-    preferences: {
-      baseCurrency: 'INR',
-      enabledCurrencies: ['INR', 'USD', 'EUR'],
-    },
-  }),
-}));
+vi.mock('../../../context/AppContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../context/AppContext')>();
+  return {
+    ...actual,
+    useApp: () => ({
+      preferences: {
+        baseCurrency: 'INR',
+        enabledCurrencies: ['INR', 'USD', 'EUR'],
+      },
+    }),
+  };
+});
 
 function makeItem(overrides: Partial<LineItem> = {}): LineItem {
   return {

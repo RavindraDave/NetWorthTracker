@@ -61,7 +61,7 @@ export const Dashboard: React.FC = () => {
             <button
               className="btn btn-outline"
               style={{ fontSize: '0.8rem' }}
-              onClick={() => printSnapshotReport(currentSnapshot!, baseCurrency)}
+              onClick={() => printSnapshotReport(currentSnapshot!, baseCurrency, preferences?.numberFormat)}
               title="Print or save as PDF"
             >
               <Printer size={14} /> Print Report

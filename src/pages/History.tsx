@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { SnapshotCompare } from '../components/history/SnapshotCompare';
 import { calcNetWorth } from '../utils/calculations';
+import { resolveNumberLocale } from '../utils/currencies';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -24,6 +25,7 @@ export const History: React.FC = () => {
   const { confirm } = useToast();
   const navigate = useNavigate();
   const baseCurrency = preferences?.baseCurrency || 'INR';
+  const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterFrom, setFilterFrom] = useState('');
@@ -151,7 +153,7 @@ export const History: React.FC = () => {
             <YAxis hide />
             <Tooltip
               contentStyle={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-              formatter={(val: number) => [new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val), 'Net Worth']}
+              formatter={(val: number) => [new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }).format(val), 'Net Worth']}
             />
             {fireTarget !== null && (
               <ReferenceLine
@@ -252,7 +254,7 @@ export const History: React.FC = () => {
                     className="btn-icon"
                     aria-label={`Print report for ${monthLabel}`}
                     title="Print / Save PDF"
-                    onClick={e => { e.stopPropagation(); printSnapshotReport(snap, baseCurrency); }}
+                    onClick={e => { e.stopPropagation(); printSnapshotReport(snap, baseCurrency, preferences?.numberFormat); }}
                   >
                     <Printer size={14} />
                   </button>
@@ -327,7 +329,7 @@ export const History: React.FC = () => {
                           Year-over-year comparison unlocks once you have 12 months of history
                         </span>
                       )}
-                      <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => printSnapshotReport(snap, baseCurrency)}>
+                      <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => printSnapshotReport(snap, baseCurrency, preferences?.numberFormat)}>
                         <Printer size={12} /> Print
                       </button>
                       <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => navigate(`/editor/${snap.id}`)}>

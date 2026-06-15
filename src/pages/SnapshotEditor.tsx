@@ -144,7 +144,7 @@ export const SnapshotEditor: React.FC = () => {
 
   const handlePrint = () => {
     if (!snapshot) return;
-    printSnapshotReport(snapshot, baseCurrency);
+    printSnapshotReport(snapshot, baseCurrency, preferences?.numberFormat);
   };
 
   // Close export dropdown on outside click

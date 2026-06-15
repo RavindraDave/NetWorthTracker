@@ -141,4 +141,6 @@ export interface UserPreferences {
   cloudSync?: CloudSyncConfig;
   notificationReminders?: boolean;
   csvMappingProfiles?: Record<string, CsvFieldMapping>; // saved column mappings, keyed by user-given name
+  /** Digit-grouping style for all displayed amounts. 'auto' derives it from baseCurrency. */
+  numberFormat?: 'auto' | 'lakh' | 'international';
 }

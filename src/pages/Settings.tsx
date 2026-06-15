@@ -292,6 +292,23 @@ export const Settings: React.FC = () => {
 
               <div className="settings-row">
                 <div>
+                  <label className="settings-label" htmlFor="number-format">Number Format</label>
+                  <p className="settings-hint">How large numbers are grouped, e.g. {preferences.numberFormat === 'lakh' ? '12,34,567' : preferences.numberFormat === 'international' ? '1,234,567' : `auto (based on ${preferences.baseCurrency})`}.</p>
+                </div>
+                <select
+                  id="number-format"
+                  className="settings-input"
+                  value={preferences.numberFormat ?? 'auto'}
+                  onChange={e => updatePreferences({ numberFormat: e.target.value as 'auto' | 'lakh' | 'international' })}
+                >
+                  <option value="auto">Auto (based on currency)</option>
+                  <option value="lakh">Lakh/Crore — India (12,34,567)</option>
+                  <option value="international">International (1,234,567)</option>
+                </select>
+              </div>
+
+              <div className="settings-row">
+                <div>
                   <label className="settings-label">Theme</label>
                   <p className="settings-hint">Choose how the app looks. System follows your OS setting.</p>
                 </div>

@@ -70,7 +70,7 @@ interface AppContextType {
   isLoading: boolean;
 }
 
-const AppContext = createContext<AppContextType | null>(null);
+export const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
