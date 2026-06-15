@@ -29,14 +29,18 @@ import { BackupData, exportToJSON, parseBackupJSON } from '../utils/importExport
 import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
 import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { ViewMode } from '../utils/calculations';
-import { writeCanonicalFile, readCanonicalFile } from '../utils/cloudSync/google/drive';
+import { writeCanonicalFile, readCanonicalFileWithMeta, CanonicalConflictError } from '../utils/cloudSync/google/drive';
 import { decryptJSON, isEncryptedEnvelope } from '../utils/cloudSync/encryption';
 import { mergeBackups, applyResolutions, SyncResult } from '../utils/cloudSync/syncEngine';
 import type { SyncMetaRecord } from '../db/database';
 
 export interface SyncConflictState {
   result: SyncResult;
+  // Drive version of the remote file these conflicts were computed against.
+  remoteVersion?: number;
 }
+
+export type PullOutcome = 'merged' | 'conflicts' | 'noop' | 'error';
 
 interface AppContextType {
   snapshots: Snapshot[];
@@ -59,7 +63,7 @@ interface AppContextType {
   deleteAutoBackup: (id: number) => Promise<void>;
   manualBackup: () => Promise<void>;
   syncToCloud: () => Promise<void>;
-  pullFromCloud: () => Promise<void>;
+  pullFromCloud: () => Promise<PullOutcome>;
   syncConflicts: SyncConflictState | null;
   resolveConflicts: (resolutions: Map<string, 'local' | 'remote'>) => Promise<void>;
   dismissSyncConflicts: () => void;
@@ -184,7 +188,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteSnapshot = async (id: string) => {
     await db.snapshots.delete(id);
-    setSnapshots(prev => prev.filter(s => s.id !== id));
+    setSnapshots(prev => {
+      const next = prev.filter(s => s.id !== id);
+      // Record the post-delete state so an auto-backup restore doesn't resurrect it.
+      if (prefsRef.current) {
+        recordAutoBackup('snapshot', next, goalsRef.current, prefsRef.current).catch(() => {});
+      }
+      return next;
+    });
+    // Propagate the deletion to Drive — without this the canonical file keeps the
+    // deleted record until the next save, so other devices never see the removal.
+    debouncedCloudSync();
   };
 
   const saveGoal = async (goal: Goal) => {
@@ -209,7 +223,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteGoal = async (id: string) => {
     await db.goals.delete(id);
-    setGoals(prev => prev.filter(g => g.id !== id));
+    setGoals(prev => {
+      const next = prev.filter(g => g.id !== id);
+      if (prefsRef.current) {
+        recordAutoBackup('goal', snapshotsRef.current, next, prefsRef.current).catch(() => {});
+      }
+      return next;
+    });
+    debouncedCloudSync();
   };
 
   const updatePreferences = async (prefs: Partial<UserPreferences>) => {
@@ -241,8 +262,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // to drop or re-introduce records. Sync paths re-seed it via storeSyncMeta.
         await db.syncMeta.clear();
 
-        if (data.snapshots.length) await db.snapshots.bulkAdd(data.snapshots);
-        if (data.goals.length) await db.goals.bulkAdd(data.goals);
+        // bulkPut (not bulkAdd): tolerate duplicate ids in an imported/corrupt backup
+        // rather than aborting the whole restore — the safety net must not be brittle.
+        if (data.snapshots.length) await db.snapshots.bulkPut(data.snapshots);
+        if (data.goals.length) await db.goals.bulkPut(data.goals);
         if (data.preferences) await db.preferences.put({ ...data.preferences, id: 1 });
       });
       await load();
@@ -267,11 +290,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await recordAutoBackup('manual', snapshots, goals, preferences);
   };
 
-  const storeSyncMeta = async (data: BackupData) => {
+  const storeSyncMeta = async (data: BackupData, baseVersion?: number) => {
     const record: SyncMetaRecord = {
       id: 1,
       updatedISO: new Date().toISOString(),
       base: JSON.stringify(data),
+      baseVersion,
     };
     await db.syncMeta.put(record);
   };
@@ -311,24 +335,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const plainJson = exportToJSON(snaps, gs, prefs);
     const plainData = JSON.parse(plainJson) as BackupData;
+    // Version the remote was last reconciled against — guards against clobbering a
+    // newer write from another device.
+    const expectedVersion = (await db.syncMeta.get(1))?.baseVersion;
     try {
       const pass = prefs.cloudSync.encryptionEnabled ? getPassphrase() : null;
       const payload = pass ? await encryptJSON(plainJson, pass) : plainJson;
 
       // Update the canonical sync file (create on first push)
-      await writeCanonicalFile(payload);
+      const { version } = await writeCanonicalFile(payload, expectedVersion);
 
       // Also keep a dated backup for history
       const date = new Date().toISOString().split('T')[0];
       await googleDriveProvider.upload(payload, `wealthpulse-backup-${date}.json`);
 
-      // Record the base state for future three-way merges
-      await storeSyncMeta(plainData);
+      // Record the base state + version for future three-way merges
+      await storeSyncMeta(plainData, version);
 
       const updated = { ...prefs.cloudSync, lastSyncISO: new Date().toISOString(), lastError: undefined };
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);
     } catch (err) {
+      if (err instanceof CanonicalConflictError) {
+        // Remote advanced since our last pull. Pull & merge first; if that auto-merges
+        // cleanly, re-push so the local edits still reach Drive. If it surfaces
+        // conflicts, the resolveConflicts path will push after the user resolves.
+        const outcome = await pullFromCloud();
+        if (outcome === 'merged') debouncedCloudSync();
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'Cloud sync failed';
       const updated = { ...prefs.cloudSync, lastError: msg };
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
@@ -336,15 +371,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const pullFromCloud = async () => {
+  const pullFromCloud = async (): Promise<PullOutcome> => {
     const prefs = prefsRef.current;
-    if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return;
+    if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return 'noop';
 
     try {
-      const rawPayload = await readCanonicalFile();
-      if (!rawPayload) return; // no canonical file yet — nothing to pull
+      const remoteFile = await readCanonicalFileWithMeta();
+      if (!remoteFile) return 'noop'; // no canonical file yet — nothing to pull
 
-      const plainJson = await decryptPayload(rawPayload);
+      const plainJson = await decryptPayload(remoteFile.content);
       const remote = parseBackupJSON(plainJson);
       const base = await loadSyncMeta();
 
@@ -361,8 +396,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (syncMode === 'override') {
         // Replace local data with remote, keep local preferences
         await restoreBackup({ ...remote, preferences: local.preferences });
-        await storeSyncMeta(remote);
-        return;
+        await storeSyncMeta(remote, remoteFile.version);
+        return 'merged';
       }
 
       // Merge mode
@@ -371,16 +406,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (result.conflicts.length === 0) {
         // Auto-merge — apply silently
         await restoreBackup(result.merged);
-        await storeSyncMeta(result.merged);
+        await storeSyncMeta(result.merged, remoteFile.version);
+        return 'merged';
       } else {
         // Surface conflicts for user resolution
-        setSyncConflicts({ result });
+        setSyncConflicts({ result, remoteVersion: remoteFile.version });
+        return 'conflicts';
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Pull from Drive failed';
       const updated = { ...prefs.cloudSync, lastError: msg };
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+      return 'error';
     }
   };
 
@@ -388,7 +426,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!syncConflicts) return;
     const finalData = applyResolutions(syncConflicts.result, resolutions);
     await restoreBackup(finalData);
-    await storeSyncMeta(finalData);
+    // Base the resolved state on the remote version we merged against, so the
+    // follow-up push passes the optimistic-concurrency guard.
+    await storeSyncMeta(finalData, syncConflicts.remoteVersion);
     setSyncConflicts(null);
     // Push the resolved state back to Drive
     debouncedCloudSync();

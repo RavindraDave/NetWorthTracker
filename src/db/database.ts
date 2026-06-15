@@ -15,6 +15,9 @@ export interface SyncMetaRecord {
   id: 1;
   updatedISO: string;
   base: string; // JSON-serialized BackupData (plaintext)
+  // Drive `version` of the canonical sync file that this base was reconciled against.
+  // Used for optimistic-concurrency: a push is refused if the remote advanced past it.
+  baseVersion?: number;
 }
 
 export class WealthPulseDB extends Dexie {
