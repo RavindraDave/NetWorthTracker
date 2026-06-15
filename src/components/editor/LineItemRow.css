@@ -102,6 +102,12 @@
   color: var(--accent-text);
 }
 
+.loan-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* Amount field shown as read-only when auto-calculated */
 .amount-input.amount-auto {
   color: var(--accent-text);
@@ -235,11 +241,30 @@
 
 @media (max-width: 640px) {
   .line-item-row {
-    grid-template-columns: 1fr auto auto;
-    row-gap: 4px;
+    grid-template-columns: 64px 1fr;
+    grid-template-areas:
+      "name name"
+      "currency amount"
+      "base base"
+      "chips actions";
+    row-gap: 6px;
     padding: 10px 0;
   }
-  .line-item-select { display: none; }
-  .line-item-base { display: none; }
+  .line-item-row .name-input    { grid-area: name; }
+  .line-item-row .line-item-select { grid-area: currency; }
+  .line-item-row .amount-input  { grid-area: amount; }
+  .line-item-row .line-item-base {
+    grid-area: base;
+    display: block;
+    text-align: left;
+  }
+  .line-item-row .incl-chips {
+    grid-area: chips;
+    justify-self: start;
+  }
+  .line-item-row .line-item-actions {
+    grid-area: actions;
+    justify-self: end;
+  }
   .loan-config-fields { grid-template-columns: repeat(2, 1fr); }
 }

@@ -10,6 +10,7 @@ import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
 import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer, CheckCircle2, X } from 'lucide-react';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 import { exportSnapshotToCSV, downloadFile, exportSnapshotToExcel } from '../utils/importExport';
 import { printSnapshotReport } from '../utils/printReport';
 import './SnapshotEditor.css';
@@ -251,7 +252,13 @@ export const SnapshotEditor: React.FC = () => {
               aria-label="Snapshot month"
             />
           </div>
-          <span className="editor-id-hint">ID {snapshot.id.slice(0, 8)}…</span>
+          <InfoTooltip body={
+            <div className="chip-legend">
+              <div className="chip-legend-row"><span className="chips-intro-glyph incl-accent">Σ✓</span> Counted in net worth &amp; goals</div>
+              <div className="chip-legend-row"><span className="chips-intro-glyph incl-amber">Σ</span> Net worth only — excluded from goals</div>
+              <div className="chip-legend-row"><span className="chips-intro-glyph incl-rose">⊘</span> Excluded from everything</div>
+            </div>
+          } />
         </div>
 
         <div className="editor-header-right">

@@ -218,13 +218,14 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
             {hasCostBasis && <span className="cost-basis-label">Cost</span>}
           </button>
           <button
-            className={`btn-icon${hasLoanConfig ? ' loan-active' : ''}`}
+            className={`btn-icon loan-btn${hasLoanConfig ? ' loan-active' : ''}`}
             onClick={() => setLoanOpen(o => !o)}
             title={loanOpen ? 'Hide loan configuration' : 'Configure as amortising loan'}
             aria-label="Loan calculator"
             aria-expanded={loanOpen}
           >
             <Calculator size={14} />
+            {hasLoanConfig && <span className="cost-basis-label">Loan</span>}
           </button>
           <button
             className="btn-icon danger"
