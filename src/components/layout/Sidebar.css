@@ -166,8 +166,16 @@
 }
 
 .wp-user-tier {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10.5px;
   color: var(--text-3);
+}
+
+.wp-user-tier .info-tooltip-trigger {
+  width: 14px;
+  height: 14px;
 }
 
 .wp-brand-credit {

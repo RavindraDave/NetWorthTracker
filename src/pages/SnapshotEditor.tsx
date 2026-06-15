@@ -46,6 +46,7 @@ export const SnapshotEditor: React.FC = () => {
     () => localStorage.getItem('wp_chips_intro_seen') === '1'
   );
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const isDirtyRef = useRef(false);
   const prevIdRef = useRef<string | null>(null);
@@ -191,6 +192,7 @@ export const SnapshotEditor: React.FC = () => {
       if (!ok) return;
     }
     isDirtyRef.current = false;
+    setIsSaving(true);
     try {
       await saveSnapshot({ ...snapshot, updatedAt: new Date().toISOString() });
       navigate('/');
@@ -202,6 +204,8 @@ export const SnapshotEditor: React.FC = () => {
         toastError('Failed to save snapshot. Please try again.');
         isDirtyRef.current = true;
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -284,9 +288,9 @@ export const SnapshotEditor: React.FC = () => {
               </div>
             )}
           </div>
-          <button className="btn btn-primary" onClick={handleSave}>
-            <Save size={15} />
-            <span>Save Snapshot</span>
+          <button className="btn btn-primary" onClick={handleSave} disabled={isSaving} aria-busy={isSaving}>
+            {isSaving ? <Save size={15} className="spinning" /> : <Save size={15} />}
+            <span>{isSaving ? 'Saving…' : 'Save Snapshot'}</span>
           </button>
         </div>
       </div>

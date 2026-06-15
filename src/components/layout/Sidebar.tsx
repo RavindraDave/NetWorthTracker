@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { googleDriveProvider } from '../../utils/cloudSync/google/drive';
+import { InfoTooltip } from '../common/InfoTooltip';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -128,6 +129,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onNewSnapshot }) => {
           <div className="wp-user-name">{displayName || 'WealthPulse'}</div>
           <div className="wp-user-tier">
             {driveConnected ? 'Google Drive · Synced' : 'Local-only · Encrypted'}
+            <InfoTooltip body={driveConnected
+              ? 'Your data is stored on this device and backed up to your private Google Drive app folder. Only this app can read that folder.'
+              : 'Your data is stored only on this device (IndexedDB). Nothing is sent to a server. Enable Google Drive sync in Settings for off-device backup.'} />
           </div>
         </div>
       </div>

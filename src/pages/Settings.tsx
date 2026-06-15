@@ -63,6 +63,14 @@ export const Settings: React.FC = () => {
     c.name.toLowerCase().includes(currencySearch.toLowerCase())
   );
 
+  const setAllVisibleCurrencies = (enable: boolean) => {
+    const visibleCodes = filteredCurrencies.map(c => c.code);
+    const next = enable
+      ? Array.from(new Set([...preferences.enabledCurrencies, ...visibleCodes]))
+      : preferences.enabledCurrencies.filter(c => c === preferences.baseCurrency || !visibleCodes.includes(c));
+    updatePreferences({ enabledCurrencies: next });
+  };
+
   const handleExport = () => {
     const jsonStr = exportToJSON(snapshots, goals, preferences);
     downloadFile(jsonStr, `wealthpulse-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
@@ -335,6 +343,14 @@ export const Settings: React.FC = () => {
                   onChange={e => setCurrencySearch(e.target.value)}
                   style={{ maxWidth: '100%' }}
                 />
+              </div>
+              <div className="currency-bulk-actions">
+                <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }} onClick={() => setAllVisibleCurrencies(true)}>
+                  Enable {currencySearch ? 'shown' : 'all'}
+                </button>
+                <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }} onClick={() => setAllVisibleCurrencies(false)}>
+                  Disable {currencySearch ? 'shown' : 'all'}
+                </button>
               </div>
               <div className="currency-grid">
                 {filteredCurrencies.map(c => {

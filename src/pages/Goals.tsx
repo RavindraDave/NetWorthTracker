@@ -42,9 +42,11 @@ export const Goals: React.FC = () => {
           <div className="section-label" style={{ marginBottom: 2 }}>Goals & FIRE Tracker</div>
           <div className="section-sub">Track your journey to Financial Independence and other milestones.</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsEditorOpen(true)}>
-          <Plus size={16} style={{ marginRight: '0.5rem' }} /> Add Goal
-        </button>
+        {goals.length > 0 && (
+          <button className="btn btn-primary" onClick={() => setIsEditorOpen(true)}>
+            <Plus size={16} style={{ marginRight: '0.5rem' }} /> Add Goal
+          </button>
+        )}
       </div>
 
       {goals.length === 0 ? (
@@ -55,7 +57,7 @@ export const Goals: React.FC = () => {
             Set a target net worth or calculate your FIRE number to start tracking your progress.
           </p>
           <button className="btn btn-primary" onClick={() => setIsEditorOpen(true)}>
-            Create First Goal
+            <Plus size={16} style={{ marginRight: '0.5rem' }} /> Create First Goal
           </button>
         </div>
       ) : (

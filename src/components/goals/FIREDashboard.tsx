@@ -173,7 +173,10 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
         <div className="fire-stat">
           <div className="fire-stat-icon"><Zap size={14} /></div>
           <div>
-            <div className="fire-stat-label">SWR {metrics.safeWithdrawalRate.toFixed(1)}%</div>
+            <div className="fire-stat-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              SWR {metrics.safeWithdrawalRate.toFixed(1)}%
+              <InfoTooltip body={HELP.safeWithdrawalRate} />
+            </div>
             <div className="fire-stat-value">
               <CurrencyDisplay amount={metrics.monthlyPassiveIncome} currency={baseCurrency} abbreviated />
             </div>

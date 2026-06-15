@@ -324,7 +324,7 @@ export const History: React.FC = () => {
                         </button>
                       ) : chronological.length < 13 && (
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
-                          Year-over-year available after 12 months
+                          Year-over-year comparison unlocks once you have 12 months of history
                         </span>
                       )}
                       <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => printSnapshotReport(snap, baseCurrency)}>
