@@ -224,7 +224,15 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
       'Annualised Return % (CAGR)': r.annualisedReturnPct ?? undefined,
     }));
     if (returnRows.length > 0) {
-      const wsReturns = XLSX.utils.json_to_sheet(returnRows);
+      // Caption so the sheet stands on its own when shared with an adviser who
+      // doesn't have the app's context — states the basis and its limitation.
+      const caption = [[
+        `Annualised return (CAGR) per account, purchase date → ${latest.month}. ` +
+        `Point-to-point: excludes the timing of any money added (SIPs) or withdrawn in between. ` +
+        `Accounts without a recorded cost basis are not listed.`,
+      ]];
+      const wsReturns = XLSX.utils.aoa_to_sheet(caption);
+      XLSX.utils.sheet_add_json(wsReturns, returnRows, { origin: 'A3' });
       XLSX.utils.book_append_sheet(wb, wsReturns, 'Returns');
     }
   }
