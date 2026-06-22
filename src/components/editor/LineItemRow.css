@@ -170,6 +170,11 @@
   color: var(--accent-text);
 }
 
+.loan-summary {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
 .loan-hint {
   font-size: 0.75rem;
   color: var(--text-3);

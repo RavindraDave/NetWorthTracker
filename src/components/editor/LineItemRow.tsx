@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { LineItem } from '../../types';
 import { convertToBase } from '../../utils/calculations';
-import { calculateOutstandingBalance, isLoanConfigComplete } from '../../utils/loanCalculator';
+import { calculateOutstandingBalance, calculateLoanSummary, isLoanConfigComplete } from '../../utils/loanCalculator';
 import { calculateXIRR } from '../../utils/xirr';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { InclusionChips, exclusionStateToInclusion, inclusionToExclusionState } from '../common/InclusionChips';
@@ -139,6 +139,10 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
       ))
     : null;
 
+  const loanSummary = hasLoanConfig
+    ? calculateLoanSummary(item.loanPrincipal!, item.annualInterestRate!, item.tenureMonths!)
+    : null;
+
   // Unrealised gain/loss — not meaningful when amount is auto-calculated from a loan balance
   const gainLoss = useMemo(() => {
     if (hasLoanConfig) return null;
@@ -147,17 +151,24 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     return { gain, gainPct: (gain / item.purchasePrice) * 100 };
   }, [item.amount, item.purchasePrice, hasLoanConfig]);
 
-  // XIRR (two-cashflow: purchase → current value)
-  const xirr = useMemo(() => {
-    if (!item.purchasePrice || item.purchasePrice <= 0 || !item.purchaseDate || item.amount <= 0) return null;
+  // Annualised return (CAGR) from the single purchase to the current value.
+  // This is point-to-point growth — it does not model interim contributions
+  // (SIPs, top-ups) or withdrawals, so it is labelled CAGR, not XIRR.
+  // Returns either a rate or a reason it can't be shown.
+  const cagr = useMemo<{ rate: number } | { reason: string } | null>(() => {
+    if (!item.purchasePrice || item.purchasePrice <= 0 || !item.purchaseDate) return null;
+    if (item.amount <= 0) return { reason: 'Enter a current value to see the annualised return.' };
     const purchaseDate = new Date(item.purchaseDate);
     const [yr, mo] = snapshotMonth.split('-');
     const snapshotDate = new Date(Number(yr), Number(mo), 0); // last day of month
-    if (purchaseDate >= snapshotDate) return null;
-    return calculateXIRR([
+    if (purchaseDate >= snapshotDate) {
+      return { reason: 'Purchase date is on or after this snapshot — no holding period yet.' };
+    }
+    const rate = calculateXIRR([
       { amount: -item.purchasePrice, date: purchaseDate },
       { amount: item.amount,         date: snapshotDate },
     ]);
+    return rate === null ? { reason: "Couldn't compute a return for these values." } : { rate };
   }, [item.purchasePrice, item.purchaseDate, item.amount, snapshotMonth]);
 
   return (
@@ -219,7 +230,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
           <button
             className={`btn-icon cost-basis-btn${hasCostBasis ? ' cost-active' : ''}`}
             onClick={() => setCostOpen(o => !o)}
-            title={costOpen ? 'Hide cost basis' : 'Track purchase cost for unrealised gain & XIRR'}
+            title={costOpen ? 'Hide cost basis' : 'Track purchase cost for unrealised gain & annualised return'}
             aria-label="Toggle cost basis tracking"
             aria-expanded={costOpen}
           >
@@ -275,22 +286,22 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
                   {gainLoss.gain >= 0 ? '↑ ' : '↓ '}<CurrencyDisplay amount={Math.abs(gainLoss.gain)} currency={item.currency} />
                   {' '}({gainLoss.gainPct >= 0 ? '+' : ''}{gainLoss.gainPct.toFixed(1)}%)
                 </span>
-                {xirr !== null && (
+                {cagr && 'rate' in cagr && (
                   <span
-                    className={xirr >= 0 ? 'gain-positive' : 'gain-negative'}
-                    title="XIRR: annualised return from purchase date to today, accounting for exact timing"
+                    className={cagr.rate >= 0 ? 'gain-positive' : 'gain-negative'}
+                    title="Compound annual growth rate (CAGR) from the purchase date to this snapshot. Point-to-point only — it does not account for any money added or withdrawn in between."
                   >
-                    XIRR&nbsp;{(xirr * 100).toFixed(1)}%
+                    CAGR&nbsp;{(cagr.rate * 100).toFixed(1)}%
                   </span>
                 )}
-                {xirr === null && item.purchaseDate && (
-                  <span className="loan-hint" style={{ marginLeft: 4 }}>XIRR unavailable</span>
+                {cagr && 'reason' in cagr && (
+                  <span className="loan-hint" style={{ marginLeft: 4 }}>{cagr.reason}</span>
                 )}
               </>
             ) : item.purchasePrice && item.purchasePrice > 0 && !item.purchaseDate ? (
-              <span className="loan-hint">Add a purchase date to see unrealised gain and XIRR.</span>
+              <span className="loan-hint">Add a purchase date to see unrealised gain and annualised return.</span>
             ) : (
-              <span className="loan-hint">Enter purchase price and date to track unrealised gain and XIRR.</span>
+              <span className="loan-hint">Enter purchase price and date to track unrealised gain and annualised return.</span>
             )}
             {hasCostBasis && (
               <button className="btn-link loan-clear" onClick={clearCostBasis}>
@@ -345,10 +356,14 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
           </div>
 
           <div className="loan-config-foot">
-            {computedOutstanding !== null ? (
+            {computedOutstanding !== null && loanSummary ? (
               <span className="loan-computed">
                 Outstanding ({snapshotMonth}):&nbsp;
                 <CurrencyDisplay amount={computedOutstanding} currency={item.currency} />
+                <span className="loan-summary" title="Equated monthly instalment and total interest over the full tenure, at a fixed rate with no prepayments.">
+                  {' · '}EMI&nbsp;<CurrencyDisplay amount={Math.round(loanSummary.emi)} currency={item.currency} />/mo
+                  {' · '}Total interest&nbsp;<CurrencyDisplay amount={Math.round(loanSummary.totalInterest)} currency={item.currency} />
+                </span>
               </span>
             ) : (
               <span className="loan-hint">Fill all fields to auto-calculate the outstanding balance.</span>

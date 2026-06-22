@@ -42,6 +42,35 @@ export function calculateOutstandingBalance(
   return (emi * (1 - Math.pow(1 + r, -remaining))) / r;
 }
 
+export interface LoanSummary {
+  emi: number;           // Equated monthly instalment
+  totalPayment: number;  // EMI × tenure
+  totalInterest: number; // totalPayment − principal
+}
+
+/**
+ * Headline figures for a fixed-rate, fixed-EMI loan: the monthly instalment,
+ * the total amount repaid over the full tenure, and the total interest cost.
+ * Interest-free loans (rate 0) repay the principal in equal slices.
+ */
+export function calculateLoanSummary(
+  principal: number,
+  annualRate: number,
+  tenureMonths: number,
+): LoanSummary {
+  if (principal <= 0 || tenureMonths <= 0) {
+    return { emi: 0, totalPayment: 0, totalInterest: 0 };
+  }
+
+  const r = Math.min(annualRate, 100) / 12 / 100;
+  const emi = r === 0
+    ? principal / tenureMonths
+    : (principal * r * Math.pow(1 + r, tenureMonths)) / (Math.pow(1 + r, tenureMonths) - 1);
+
+  const totalPayment = emi * tenureMonths;
+  return { emi, totalPayment, totalInterest: totalPayment - principal };
+}
+
 /** Returns true only when all four required loan parameters are provided and valid. */
 export function isLoanConfigComplete(
   principal: number | undefined,
