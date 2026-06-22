@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { LineItem } from '../../types';
 import { convertToBase } from '../../utils/calculations';
 import { calculateOutstandingBalance, calculateLoanSummary, isLoanConfigComplete } from '../../utils/loanCalculator';
-import { calculateXIRR } from '../../utils/xirr';
+import { annualisedReturn, monthEndDate } from '../../utils/returns';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { InclusionChips, exclusionStateToInclusion, inclusionToExclusionState } from '../common/InclusionChips';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
@@ -158,16 +158,11 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
   const cagr = useMemo<{ rate: number } | { reason: string } | null>(() => {
     if (!item.purchasePrice || item.purchasePrice <= 0 || !item.purchaseDate) return null;
     if (item.amount <= 0) return { reason: 'Enter a current value to see the annualised return.' };
-    const purchaseDate = new Date(item.purchaseDate);
-    const [yr, mo] = snapshotMonth.split('-');
-    const snapshotDate = new Date(Number(yr), Number(mo), 0); // last day of month
-    if (purchaseDate >= snapshotDate) {
+    const snapshotDate = monthEndDate(snapshotMonth);
+    if (new Date(item.purchaseDate) >= snapshotDate) {
       return { reason: 'Purchase date is on or after this snapshot — no holding period yet.' };
     }
-    const rate = calculateXIRR([
-      { amount: -item.purchasePrice, date: purchaseDate },
-      { amount: item.amount,         date: snapshotDate },
-    ]);
+    const rate = annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, snapshotDate);
     return rate === null ? { reason: "Couldn't compute a return for these values." } : { rate };
   }, [item.purchasePrice, item.purchaseDate, item.amount, snapshotMonth]);
 

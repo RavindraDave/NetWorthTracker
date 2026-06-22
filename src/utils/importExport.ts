@@ -1,6 +1,7 @@
 import { Snapshot, Goal, UserPreferences } from '../types';
 import * as XLSX from 'xlsx';
 import { calcNetWorth, convertToBase } from './calculations';
+import { buildAccountReturns, annualisedReturn, monthEndDate } from './returns';
 
 export interface BackupData {
   version: number;
@@ -123,12 +124,14 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
   const wb = XLSX.utils.book_new();
 
   // --- Sheet 1: Items ---
+  const asOf = monthEndDate(snapshot.month);
   const itemRows: ExcelRow[] = [];
   for (const cat of snapshot.categories) {
     for (const item of cat.items) {
       const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
       const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
       const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
+      const ret = annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, asOf);
       itemRows.push({
         'Category': cat.name,
         'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
@@ -136,6 +139,7 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
         'Currency': item.currency,
         'Amount': item.amount,
         [`Value (${baseCurrency})`]: baseValue,
+        'Return % p.a.': ret !== null ? parseFloat((ret * 100).toFixed(1)) : undefined,
         'In Net Worth': inNetWorth,
         'In Goals': inGoals,
         'Notes': item.notes ?? '',
@@ -201,18 +205,44 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
   const wsHistory = XLSX.utils.json_to_sheet(historyRows);
   XLSX.utils.book_append_sheet(wb, wsHistory, 'Net Worth History');
 
+  // --- Sheet: Returns (per-account annualised return, latest snapshot) ---
+  // Built from the most recent snapshot so the RM sees current values. Only
+  // accounts with a recorded cost basis appear; CAGR is blank when there's no
+  // purchase date or the holding period hasn't started yet.
+  const latest = sorted[sorted.length - 1];
+  if (latest) {
+    const returnRows: ExcelRow[] = buildAccountReturns(latest, baseCurrency).map(r => ({
+      'Category': r.category,
+      'Account': r.account,
+      'Currency': r.currency,
+      'Purchase Date': r.purchaseDate,
+      [`Purchase Price (${r.currency})`]: r.purchasePrice,
+      [`Current Value (${baseCurrency})`]: r.currentValueBase,
+      [`Cost Basis (${baseCurrency})`]: r.costBasisBase,
+      [`Unrealised Gain (${baseCurrency})`]: r.unrealisedGainBase,
+      'Total Return %': r.totalReturnPct,
+      'Annualised Return % (CAGR)': r.annualisedReturnPct ?? undefined,
+    }));
+    if (returnRows.length > 0) {
+      const wsReturns = XLSX.utils.json_to_sheet(returnRows);
+      XLSX.utils.book_append_sheet(wb, wsReturns, 'Returns');
+    }
+  }
+
   // --- Detail sheets: up to 30 snapshots (oldest first) ---
   const detailSnaps = sorted.slice(0, 30);
   for (const snap of detailSnaps) {
     const hasItems = snap.categories.some(cat => cat.items.length > 0);
     if (!hasItems) continue;
 
+    const asOf = monthEndDate(snap.month);
     const itemRows: ExcelRow[] = [];
     for (const cat of snap.categories) {
       for (const item of cat.items) {
         const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snap.exchangeRates));
         const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
         const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
+        const ret = annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, asOf);
         itemRows.push({
           'Category': cat.name,
           'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
@@ -220,6 +250,7 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
           'Currency': item.currency,
           'Amount': item.amount,
           [`Value (${baseCurrency})`]: baseValue,
+          'Return % p.a.': ret !== null ? parseFloat((ret * 100).toFixed(1)) : undefined,
           'In Net Worth': inNetWorth,
           'In Goals': inGoals,
           'Notes': item.notes ?? '',
