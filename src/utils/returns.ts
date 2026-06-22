@@ -1,4 +1,4 @@
-import { Snapshot } from '../types';
+import { Snapshot, LineItem } from '../types';
 import { calculateXIRR } from './xirr';
 import { convertToBase } from './calculations';
 
@@ -30,25 +30,46 @@ export function annualisedReturn(
   ]);
 }
 
+/**
+ * A single account's headline annual return %, as a rounded percentage (e.g.
+ * 5 or 9.4). Prefers a stated fixed yield; otherwise measures CAGR from cost
+ * basis. Returns undefined when neither is available (e.g. a current account).
+ */
+export function itemReturnPct(item: LineItem, asOf: Date): number | undefined {
+  if (typeof item.statedReturnRate === 'number' && item.statedReturnRate !== 0) {
+    return item.statedReturnRate;
+  }
+  const cagr = annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, asOf);
+  return cagr !== null ? parseFloat((cagr * 100).toFixed(1)) : undefined;
+}
+
+/** How an account's headline return rate was arrived at. */
+export type ReturnBasis = 'Stated' | 'CAGR';
+
 export interface AccountReturnRow {
   category: string;
   account: string;
   currency: string;
-  purchaseDate: string;
-  purchasePrice: number;
   currentValueBase: number;
-  costBasisBase: number;
-  unrealisedGainBase: number;
-  totalReturnPct: number;
-  annualisedReturnPct: number | null;
+  returnRatePct: number;       // headline annual return %
+  basis: ReturnBasis;          // 'Stated' (known fixed yield) or 'CAGR' (measured)
+  // Cost-basis detail — present only when a purchase price is recorded
+  purchaseDate?: string;
+  purchasePrice?: number;
+  costBasisBase?: number;
+  unrealisedGainBase?: number;
+  totalReturnPct?: number;
 }
 
 /**
- * One return row per account (line item) that has a cost basis recorded,
- * evaluated against the given snapshot. Loan-backed liabilities (auto-computed
- * balances) are skipped — annualised return is meaningless for them.
- * Amounts are converted to base currency so the RM can total across holdings;
- * the percentages are currency-agnostic.
+ * One return row per account (line item) for which a return rate can be
+ * reported, evaluated against the given snapshot. An account qualifies when it
+ * has either a stated yield (savings, FD, …) or a cost basis (market holdings).
+ *
+ * A stated rate always wins over a computed CAGR — it's the known, fixed figure
+ * the user entered. Loan-backed liabilities are skipped: annualised return is
+ * meaningless for them. Amounts are in base currency so the adviser can total
+ * across holdings; percentages are currency-agnostic.
  */
 export function buildAccountReturns(snapshot: Snapshot, baseCurrency: string): AccountReturnRow[] {
   const asOf = monthEndDate(snapshot.month);
@@ -56,26 +77,36 @@ export function buildAccountReturns(snapshot: Snapshot, baseCurrency: string): A
 
   for (const cat of snapshot.categories) {
     for (const item of cat.items) {
-      if (!item.purchasePrice || item.purchasePrice <= 0) continue; // no cost basis → no return
       const isLoan = !!(item.loanPrincipal && item.tenureMonths && item.loanStartMonth);
       if (isLoan) continue;
 
-      const currentValueBase = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
-      const costBasisBase = Math.round(convertToBase(item.purchasePrice, item.currency, baseCurrency, snapshot.exchangeRates));
-      const ret = annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, asOf);
+      const hasStated = typeof item.statedReturnRate === 'number' && item.statedReturnRate !== 0;
+      const hasCostBasis = !!(item.purchasePrice && item.purchasePrice > 0);
+      const cagr = hasCostBasis ? annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, asOf) : null;
 
-      rows.push({
+      // Need a reportable rate: a stated yield, or a computable CAGR.
+      if (!hasStated && cagr === null) continue;
+
+      const currentValueBase = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
+      const row: AccountReturnRow = {
         category: cat.name,
         account: item.name,
         currency: item.currency,
-        purchaseDate: item.purchaseDate ?? '',
-        purchasePrice: item.purchasePrice,
         currentValueBase,
-        costBasisBase,
-        unrealisedGainBase: currentValueBase - costBasisBase,
-        totalReturnPct: parseFloat(((item.amount - item.purchasePrice) / item.purchasePrice * 100).toFixed(1)),
-        annualisedReturnPct: ret !== null ? parseFloat((ret * 100).toFixed(1)) : null,
-      });
+        returnRatePct: hasStated ? item.statedReturnRate! : parseFloat((cagr! * 100).toFixed(1)),
+        basis: hasStated ? 'Stated' : 'CAGR',
+      };
+
+      if (hasCostBasis) {
+        const costBasisBase = Math.round(convertToBase(item.purchasePrice!, item.currency, baseCurrency, snapshot.exchangeRates));
+        row.purchaseDate = item.purchaseDate ?? '';
+        row.purchasePrice = item.purchasePrice;
+        row.costBasisBase = costBasisBase;
+        row.unrealisedGainBase = currentValueBase - costBasisBase;
+        row.totalReturnPct = parseFloat(((item.amount - item.purchasePrice!) / item.purchasePrice! * 100).toFixed(1));
+      }
+
+      rows.push(row);
     }
   }
 

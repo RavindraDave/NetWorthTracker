@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthEndDate, annualisedReturn, buildAccountReturns } from '../returns';
+import { monthEndDate, annualisedReturn, buildAccountReturns, itemReturnPct } from '../returns';
 import type { Snapshot } from '../../types';
 
 describe('monthEndDate', () => {
@@ -39,34 +39,60 @@ describe('annualisedReturn', () => {
   });
 });
 
+describe('itemReturnPct', () => {
+  const asOf = monthEndDate('2026-06');
+
+  it('prefers a stated rate over computed CAGR', () => {
+    expect(itemReturnPct({ id: 'x', name: 'FD', amount: 105000, currency: 'INR', statedReturnRate: 5, purchasePrice: 100000, purchaseDate: '2024-06-30' }, asOf)).toBe(5);
+  });
+
+  it('falls back to CAGR when no stated rate', () => {
+    const r = itemReturnPct({ id: 'x', name: 'MF', amount: 110000, currency: 'INR', purchasePrice: 100000, purchaseDate: '2025-06-30' }, asOf);
+    expect(r!).toBeGreaterThan(9);
+    expect(r!).toBeLessThan(11);
+  });
+
+  it('returns undefined for a plain current account', () => {
+    expect(itemReturnPct({ id: 'x', name: 'Savings', amount: 50000, currency: 'INR' }, asOf)).toBeUndefined();
+  });
+});
+
 describe('buildAccountReturns', () => {
   function snap(): Snapshot {
     return {
       id: 's1', month: '2026-06', createdAt: '', updatedAt: '',
       exchangeRates: { USD: 80 },
       categories: [{
-        id: 'c1', name: 'Equity', type: 'asset', icon: '📈', isLiquid: true, isInvestable: true,
+        id: 'c1', name: 'Portfolio', type: 'asset', icon: '📈', isLiquid: true, isInvestable: true,
         items: [
           { id: 'i1', name: 'Index Fund', amount: 150000, currency: 'INR', purchasePrice: 100000, purchaseDate: '2024-06-30' },
-          { id: 'i2', name: 'No Cost Basis', amount: 50000, currency: 'INR' },
-          { id: 'i3', name: 'Home Loan', amount: 4000000, currency: 'INR', purchasePrice: 5000000, purchaseDate: '2020-01-01', loanPrincipal: 5000000, annualInterestRate: 8.5, tenureMonths: 240, loanStartMonth: '2020-01' },
+          { id: 'i2', name: 'Savings A/C', amount: 50000, currency: 'INR', statedReturnRate: 1 },
+          { id: 'i3', name: 'Bank FD', amount: 200000, currency: 'INR', statedReturnRate: 5 },
+          { id: 'i4', name: 'Current A/C', amount: 30000, currency: 'INR' },
+          { id: 'i5', name: 'Home Loan', amount: 4000000, currency: 'INR', purchasePrice: 5000000, purchaseDate: '2020-01-01', loanPrincipal: 5000000, annualInterestRate: 8.5, tenureMonths: 240, loanStartMonth: '2020-01' },
         ],
       }],
     };
   }
 
-  it('includes only accounts with a cost basis, skipping loans', () => {
+  it('includes stated-rate and cost-basis accounts, skipping bare accounts and loans', () => {
     const rows = buildAccountReturns(snap(), 'INR');
-    expect(rows).toHaveLength(1);
-    expect(rows[0].account).toBe('Index Fund');
+    expect(rows.map(r => r.account)).toEqual(['Index Fund', 'Savings A/C', 'Bank FD']);
   });
 
-  it('reports total and annualised return for a 2-year 50% gain', () => {
-    const [row] = buildAccountReturns(snap(), 'INR');
-    expect(row.totalReturnPct).toBeCloseTo(50, 1);
-    // 50% over ~2 years annualises to ~22.5%
-    expect(row.annualisedReturnPct!).toBeGreaterThan(20);
-    expect(row.annualisedReturnPct!).toBeLessThan(25);
-    expect(row.unrealisedGainBase).toBe(50000);
+  it('reports stated yields verbatim with a Stated basis', () => {
+    const fd = buildAccountReturns(snap(), 'INR').find(r => r.account === 'Bank FD')!;
+    expect(fd.returnRatePct).toBe(5);
+    expect(fd.basis).toBe('Stated');
+    expect(fd.totalReturnPct).toBeUndefined(); // no cost basis
+  });
+
+  it('measures CAGR for market holdings with a CAGR basis', () => {
+    const fund = buildAccountReturns(snap(), 'INR').find(r => r.account === 'Index Fund')!;
+    expect(fund.basis).toBe('CAGR');
+    expect(fund.totalReturnPct).toBeCloseTo(50, 1);
+    expect(fund.returnRatePct).toBeGreaterThan(20); // ~22.5% over 2y
+    expect(fund.returnRatePct).toBeLessThan(25);
+    expect(fund.unrealisedGainBase).toBe(50000);
   });
 });

@@ -37,6 +37,10 @@ export interface LineItem {
   // Cost basis — for unrealised gain/loss and XIRR calculation
   purchasePrice?: number;       // Original cost in item.currency
   purchaseDate?: string;        // "YYYY-MM-DD"
+  // Stated yield — a known fixed annual return % for non-market accounts
+  // (savings, FD, PPF, bonds). When set, it is the account's reported return
+  // in reports, overriding any computed cost-basis CAGR.
+  statedReturnRate?: number;    // % p.a. e.g. 5 for a 5% FD
 }
 
 export type GoalType = 'net_worth_target' | 'fire' | 'savings' | 'debt_freedom' | 'custom';

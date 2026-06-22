@@ -1,7 +1,7 @@
 import { Snapshot, Goal, UserPreferences } from '../types';
 import * as XLSX from 'xlsx';
 import { calcNetWorth, convertToBase } from './calculations';
-import { buildAccountReturns, annualisedReturn, monthEndDate } from './returns';
+import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
 
 export interface BackupData {
   version: number;
@@ -131,7 +131,6 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
       const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
       const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
       const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
-      const ret = annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, asOf);
       itemRows.push({
         'Category': cat.name,
         'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
@@ -139,7 +138,7 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
         'Currency': item.currency,
         'Amount': item.amount,
         [`Value (${baseCurrency})`]: baseValue,
-        'Return % p.a.': ret !== null ? parseFloat((ret * 100).toFixed(1)) : undefined,
+        'Return % p.a.': itemReturnPct(item, asOf),
         'In Net Worth': inNetWorth,
         'In Goals': inGoals,
         'Notes': item.notes ?? '',
@@ -215,21 +214,24 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
       'Category': r.category,
       'Account': r.account,
       'Currency': r.currency,
-      'Purchase Date': r.purchaseDate,
-      [`Purchase Price (${r.currency})`]: r.purchasePrice,
       [`Current Value (${baseCurrency})`]: r.currentValueBase,
-      [`Cost Basis (${baseCurrency})`]: r.costBasisBase,
-      [`Unrealised Gain (${baseCurrency})`]: r.unrealisedGainBase,
-      'Total Return %': r.totalReturnPct,
-      'Annualised Return % (CAGR)': r.annualisedReturnPct ?? undefined,
+      'Return % p.a.': r.returnRatePct,
+      'Basis': r.basis,
+      'Purchase Date': r.purchaseDate ?? '',
+      'Purchase Price': r.purchasePrice ?? undefined,
+      [`Cost Basis (${baseCurrency})`]: r.costBasisBase ?? undefined,
+      [`Unrealised Gain (${baseCurrency})`]: r.unrealisedGainBase ?? undefined,
+      'Total Return %': r.totalReturnPct ?? undefined,
     }));
     if (returnRows.length > 0) {
       // Caption so the sheet stands on its own when shared with an adviser who
       // doesn't have the app's context — states the basis and its limitation.
       const caption = [[
-        `Annualised return (CAGR) per account, purchase date → ${latest.month}. ` +
-        `Point-to-point: excludes the timing of any money added (SIPs) or withdrawn in between. ` +
-        `Accounts without a recorded cost basis are not listed.`,
+        `Annual return % per account as of ${latest.month}. ` +
+        `Basis "Stated" = a known fixed yield you entered (savings, FD, bonds). ` +
+        `Basis "CAGR" = measured from cost basis to current value, point-to-point ` +
+        `(excludes the timing of money added/withdrawn, e.g. SIPs). ` +
+        `Accounts with neither a stated rate nor a cost basis are not listed.`,
       ]];
       const wsReturns = XLSX.utils.aoa_to_sheet(caption);
       XLSX.utils.sheet_add_json(wsReturns, returnRows, { origin: 'A3' });
@@ -250,7 +252,6 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
         const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snap.exchangeRates));
         const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
         const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
-        const ret = annualisedReturn(item.purchasePrice, item.purchaseDate, item.amount, asOf);
         itemRows.push({
           'Category': cat.name,
           'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
@@ -258,7 +259,7 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
           'Currency': item.currency,
           'Amount': item.amount,
           [`Value (${baseCurrency})`]: baseValue,
-          'Return % p.a.': ret !== null ? parseFloat((ret * 100).toFixed(1)) : undefined,
+          'Return % p.a.': itemReturnPct(item, asOf),
           'In Net Worth': inNetWorth,
           'In Goals': inGoals,
           'Notes': item.notes ?? '',
