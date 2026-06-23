@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateOutstandingBalance, isLoanConfigComplete } from '../loanCalculator';
+import { calculateOutstandingBalance, calculateLoanSummary, isLoanConfigComplete } from '../loanCalculator';
 
 const P  = 8_000_000; // ₹80 L principal
 const R  = 8.5;       // 8.5% p.a.
@@ -50,6 +50,33 @@ describe('calculateOutstandingBalance', () => {
 
   it('returns 0 when tenure is 0', () => {
     expect(calculateOutstandingBalance(P, R, 0, S, '2025-01')).toBe(0);
+  });
+});
+
+describe('calculateLoanSummary', () => {
+  it('computes the standard EMI for a typical home loan', () => {
+    // ₹80 L @ 8.5% over 240 months → ~₹69,400/mo (well-known amortisation result)
+    const { emi } = calculateLoanSummary(P, R, N);
+    expect(emi).toBeGreaterThan(69_000);
+    expect(emi).toBeLessThan(69_800);
+  });
+
+  it('derives total payment and interest from the EMI', () => {
+    const { emi, totalPayment, totalInterest } = calculateLoanSummary(P, R, N);
+    expect(totalPayment).toBeCloseTo(emi * N, 6);
+    expect(totalInterest).toBeCloseTo(totalPayment - P, 6);
+    expect(totalInterest).toBeGreaterThan(0);
+  });
+
+  it('charges no interest on an interest-free loan', () => {
+    const { emi, totalInterest } = calculateLoanSummary(1_200_000, 0, 120);
+    expect(emi).toBeCloseTo(10_000, 6); // 1.2M / 120
+    expect(totalInterest).toBeCloseTo(0, 6);
+  });
+
+  it('returns zeroes for invalid input', () => {
+    expect(calculateLoanSummary(0, R, N)).toEqual({ emi: 0, totalPayment: 0, totalInterest: 0 });
+    expect(calculateLoanSummary(P, R, 0)).toEqual({ emi: 0, totalPayment: 0, totalInterest: 0 });
   });
 });
 

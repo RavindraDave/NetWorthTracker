@@ -79,7 +79,7 @@ describe('LineItemRow', () => {
 
     it('opens cost basis panel on TrendingUp button click', () => {
       render(<LineItemRow item={makeItem()} {...defaultProps} />);
-      const costBtn = screen.getByRole('button', { name: /toggle cost basis/i });
+      const costBtn = screen.getByRole('button', { name: /toggle return tracking/i });
       expect(costBtn).toHaveAttribute('aria-expanded', 'false');
       fireEvent.click(costBtn);
       expect(costBtn).toHaveAttribute('aria-expanded', 'true');
@@ -87,7 +87,7 @@ describe('LineItemRow', () => {
 
     it('closes cost basis panel on second click', () => {
       render(<LineItemRow item={makeItem()} {...defaultProps} />);
-      const costBtn = screen.getByRole('button', { name: /toggle cost basis/i });
+      const costBtn = screen.getByRole('button', { name: /toggle return tracking/i });
       fireEvent.click(costBtn);
       fireEvent.click(costBtn);
       expect(costBtn).toHaveAttribute('aria-expanded', 'false');
@@ -108,7 +108,14 @@ describe('LineItemRow', () => {
     it('starts with cost basis panel open when item has cost basis', () => {
       const costItem = makeItem({ purchasePrice: 80000, purchaseDate: '2024-01-15' });
       render(<LineItemRow item={costItem} {...defaultProps} />);
-      const costBtn = screen.getByRole('button', { name: /toggle cost basis/i });
+      const costBtn = screen.getByRole('button', { name: /toggle return tracking/i });
+      expect(costBtn).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('starts with return panel open when item has a stated rate', () => {
+      const fdItem = makeItem({ statedReturnRate: 5 });
+      render(<LineItemRow item={fdItem} {...defaultProps} />);
+      const costBtn = screen.getByRole('button', { name: /toggle return tracking/i });
       expect(costBtn).toHaveAttribute('aria-expanded', 'true');
     });
   });

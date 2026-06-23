@@ -1,6 +1,7 @@
 import { Snapshot, Goal, UserPreferences } from '../types';
 import * as XLSX from 'xlsx';
 import { calcNetWorth, convertToBase } from './calculations';
+import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
 
 export interface BackupData {
   version: number;
@@ -123,6 +124,7 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
   const wb = XLSX.utils.book_new();
 
   // --- Sheet 1: Items ---
+  const asOf = monthEndDate(snapshot.month);
   const itemRows: ExcelRow[] = [];
   for (const cat of snapshot.categories) {
     for (const item of cat.items) {
@@ -136,6 +138,7 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
         'Currency': item.currency,
         'Amount': item.amount,
         [`Value (${baseCurrency})`]: baseValue,
+        'Return % p.a.': itemReturnPct(item, asOf),
         'In Net Worth': inNetWorth,
         'In Goals': inGoals,
         'Notes': item.notes ?? '',
@@ -201,12 +204,48 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
   const wsHistory = XLSX.utils.json_to_sheet(historyRows);
   XLSX.utils.book_append_sheet(wb, wsHistory, 'Net Worth History');
 
+  // --- Sheet: Returns (per-account annualised return, latest snapshot) ---
+  // Built from the most recent snapshot so the RM sees current values. Only
+  // accounts with a recorded cost basis appear; CAGR is blank when there's no
+  // purchase date or the holding period hasn't started yet.
+  const latest = sorted[sorted.length - 1];
+  if (latest) {
+    const returnRows: ExcelRow[] = buildAccountReturns(latest, baseCurrency).map(r => ({
+      'Category': r.category,
+      'Account': r.account,
+      'Currency': r.currency,
+      [`Current Value (${baseCurrency})`]: r.currentValueBase,
+      'Return % p.a.': r.returnRatePct,
+      'Basis': r.basis,
+      'Purchase Date': r.purchaseDate ?? '',
+      'Purchase Price': r.purchasePrice ?? undefined,
+      [`Cost Basis (${baseCurrency})`]: r.costBasisBase ?? undefined,
+      [`Unrealised Gain (${baseCurrency})`]: r.unrealisedGainBase ?? undefined,
+      'Total Return %': r.totalReturnPct ?? undefined,
+    }));
+    if (returnRows.length > 0) {
+      // Caption so the sheet stands on its own when shared with an adviser who
+      // doesn't have the app's context — states the basis and its limitation.
+      const caption = [[
+        `Annual return % per account as of ${latest.month}. ` +
+        `Basis "Stated" = a known fixed yield you entered (savings, FD, bonds). ` +
+        `Basis "CAGR" = measured from cost basis to current value, point-to-point ` +
+        `(excludes the timing of money added/withdrawn, e.g. SIPs). ` +
+        `Accounts with neither a stated rate nor a cost basis are not listed.`,
+      ]];
+      const wsReturns = XLSX.utils.aoa_to_sheet(caption);
+      XLSX.utils.sheet_add_json(wsReturns, returnRows, { origin: 'A3' });
+      XLSX.utils.book_append_sheet(wb, wsReturns, 'Returns');
+    }
+  }
+
   // --- Detail sheets: up to 30 snapshots (oldest first) ---
   const detailSnaps = sorted.slice(0, 30);
   for (const snap of detailSnaps) {
     const hasItems = snap.categories.some(cat => cat.items.length > 0);
     if (!hasItems) continue;
 
+    const asOf = monthEndDate(snap.month);
     const itemRows: ExcelRow[] = [];
     for (const cat of snap.categories) {
       for (const item of cat.items) {
@@ -220,6 +259,7 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
           'Currency': item.currency,
           'Amount': item.amount,
           [`Value (${baseCurrency})`]: baseValue,
+          'Return % p.a.': itemReturnPct(item, asOf),
           'In Net Worth': inNetWorth,
           'In Goals': inGoals,
           'Notes': item.notes ?? '',
