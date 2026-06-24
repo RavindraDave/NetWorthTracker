@@ -3,7 +3,13 @@ import { db, initializePreferences, UserPreferencesRecord } from '../db/database
 import { Snapshot, Goal, UserPreferences, AutoBackupRecord, CategoryTemplate } from '../types';
 import { googleDriveProvider } from '../utils/cloudSync/google/drive';
 import { configureClientId } from '../utils/cloudSync/google/gis';
-import { encryptJSON, getPassphrase } from '../utils/cloudSync/encryption';
+import { exportToJSON } from '../utils/importExport';
+import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
+import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
+import { ViewMode, BackupData } from '../types';
+import { useCloudSync, SyncConflictState, PullOutcome } from './useCloudSync';
+
+export type { SyncConflictState, PullOutcome };
 
 function normalizeRates(snap: Snapshot): Snapshot {
   const rates: Record<string, number> = {};
@@ -25,22 +31,6 @@ function rehydrateFlags(snaps: Snapshot[], templates: CategoryTemplate[]): Snaps
     }),
   }));
 }
-import { BackupData, exportToJSON, parseBackupJSON } from '../utils/importExport';
-import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
-import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
-import { ViewMode } from '../utils/calculations';
-import { writeCanonicalFile, readCanonicalFileWithMeta, CanonicalConflictError } from '../utils/cloudSync/google/drive';
-import { decryptJSON, isEncryptedEnvelope } from '../utils/cloudSync/encryption';
-import { mergeBackups, applyResolutions, SyncResult } from '../utils/cloudSync/syncEngine';
-import type { SyncMetaRecord } from '../db/database';
-
-export interface SyncConflictState {
-  result: SyncResult;
-  // Drive version of the remote file these conflicts were computed against.
-  remoteVersion?: number;
-}
-
-export type PullOutcome = 'merged' | 'conflicts' | 'noop' | 'error';
 
 interface AppContextType {
   snapshots: Snapshot[];
@@ -78,19 +68,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('overall');
   const [isLoading, setIsLoading] = useState(true);
-  const [syncConflicts, setSyncConflicts] = useState<SyncConflictState | null>(null);
 
-  // Refs so backup callbacks always see latest state without stale closures
   const snapshotsRef = useRef<Snapshot[]>([]);
   const goalsRef = useRef<Goal[]>([]);
   const prefsRef = useRef<UserPreferences | null>(null);
-  const cloudSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { snapshotsRef.current = snapshots; }, [snapshots]);
   useEffect(() => { goalsRef.current = goals; }, [goals]);
   useEffect(() => { prefsRef.current = preferences; }, [preferences]);
 
-  // Keep GIS client ID in sync with whatever is stored in preferences
   useEffect(() => {
     if (preferences?.cloudSync?.clientId) {
       configureClientId(preferences.cloudSync.clientId);
@@ -108,7 +94,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
       setGoals(gs);
 
-      // One-time migration: seed categoryTemplates from defaults + customCategories
       let finalPrefs = prefs ?? null;
       if (finalPrefs && !finalPrefs.categoryTemplates) {
         const migrated = [
@@ -123,7 +108,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await db.preferences.put({ ...finalPrefs, id: 1 } as UserPreferencesRecord);
       }
       setPreferences(finalPrefs);
-      // Apply flag rehydration so all pages see current isLiquid/isInvestable from templates
       const rehydrated = finalPrefs?.categoryTemplates
         ? rehydrateFlags(snaps.map(normalizeRates), finalPrefs.categoryTemplates)
         : snaps.map(normalizeRates);
@@ -135,23 +119,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Pull from Drive once after initial load when sync is enabled
-  const hasPulledRef = useRef(false);
-  useEffect(() => {
-    if (isLoading) return;
-    if (hasPulledRef.current) return;
-    hasPulledRef.current = true;
-    const prefs = prefsRef.current;
-    // Only attempt a silent pull if we already hold a valid session token.
-    // Otherwise getToken() would fall back to an interactive OAuth prompt,
-    // which on mobile surfaces as an unexpected redirect/popup on launch.
-    if (prefs?.cloudSync?.enabled && prefs.cloudSync.provider === 'google' && googleDriveProvider.isSignedIn()) {
-      pullFromCloud().catch(() => {});
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading]);
-
-  // Apply theme to <html> so CSS selectors can use [data-theme]
   useEffect(() => {
     if (!preferences) return;
     const root = document.documentElement;
@@ -162,14 +129,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [preferences?.theme]);
 
-  const currentSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+  const currentSnapshot  = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
   const previousSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
+
+  const restoreBackup = async (data: BackupData) => {
+    setIsLoading(true);
+    try {
+      await db.transaction('rw', db.snapshots, db.goals, db.preferences, db.syncMeta, async () => {
+        await db.snapshots.clear();
+        await db.goals.clear();
+        await db.preferences.clear();
+        await db.syncMeta.clear();
+        if (data.snapshots.length) await db.snapshots.bulkPut(data.snapshots);
+        if (data.goals.length) await db.goals.bulkPut(data.goals);
+        if (data.preferences) await db.preferences.put({ ...data.preferences, id: 1 });
+      });
+      await load();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const {
+    syncConflicts,
+    syncToCloud,
+    pullFromCloud,
+    resolveConflicts,
+    dismissSyncConflicts,
+    debouncedCloudSync,
+  } = useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences, restoreBackup });
+
+  // Silent pull from Drive once after initial load when a session token is available
+  const hasPulledRef = useRef(false);
+  useEffect(() => {
+    if (isLoading) return;
+    if (hasPulledRef.current) return;
+    hasPulledRef.current = true;
+    const prefs = prefsRef.current;
+    if (prefs?.cloudSync?.enabled && prefs.cloudSync.provider === 'google' && googleDriveProvider.isSignedIn()) {
+      pullFromCloud().catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
 
   const saveSnapshot = async (snapshot: Snapshot) => {
     const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
     if (duplicate) throw new Error(`duplicate_month:${snapshot.month}`);
-    // Always stamp updatedAt so the sync engine can detect changes regardless of
-    // which call site saved the snapshot (mirrors saveGoal).
     snapshot = { ...snapshot, updatedAt: new Date().toISOString() };
     await db.snapshots.put(snapshot);
     setSnapshots(prev => {
@@ -193,14 +198,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.snapshots.delete(id);
     setSnapshots(prev => {
       const next = prev.filter(s => s.id !== id);
-      // Record the post-delete state so an auto-backup restore doesn't resurrect it.
       if (prefsRef.current) {
         recordAutoBackup('snapshot', next, goalsRef.current, prefsRef.current).catch(() => {});
       }
       return next;
     });
-    // Propagate the deletion to Drive — without this the canonical file keeps the
-    // deleted record until the next save, so other devices never see the removal.
     debouncedCloudSync();
   };
 
@@ -253,30 +255,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     recordAutoBackup('preferences', snapshotsRef.current, goalsRef.current, updated).catch(() => {});
   };
 
-  const restoreBackup = async (data: BackupData) => {
-    setIsLoading(true);
-    try {
-      await db.transaction('rw', db.snapshots, db.goals, db.preferences, db.syncMeta, async () => {
-        await db.snapshots.clear();
-        await db.goals.clear();
-        await db.preferences.clear();
-        // Invalidate the three-way-merge base: after a full replace the old base
-        // no longer describes this data, and a stale base can cause the next pull
-        // to drop or re-introduce records. Sync paths re-seed it via storeSyncMeta.
-        await db.syncMeta.clear();
-
-        // bulkPut (not bulkAdd): tolerate duplicate ids in an imported/corrupt backup
-        // rather than aborting the whole restore — the safety net must not be brittle.
-        if (data.snapshots.length) await db.snapshots.bulkPut(data.snapshots);
-        if (data.goals.length) await db.goals.bulkPut(data.goals);
-        if (data.preferences) await db.preferences.put({ ...data.preferences, id: 1 });
-      });
-      await load();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const restoreAutoBackup = async (record: AutoBackupRecord) => {
     const data: BackupData = {
       version: 1,
@@ -291,169 +269,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const manualBackup = async () => {
     if (!preferences) return;
     await recordAutoBackup('manual', snapshots, goals, preferences);
-  };
-
-  const storeSyncMeta = async (data: BackupData, baseVersion?: number) => {
-    const record: SyncMetaRecord = {
-      id: 1,
-      updatedISO: new Date().toISOString(),
-      base: JSON.stringify(data),
-      baseVersion,
-    };
-    await db.syncMeta.put(record);
-  };
-
-  const loadSyncMeta = async (): Promise<BackupData | null> => {
-    const record = await db.syncMeta.get(1);
-    if (!record) return null;
-    try { return JSON.parse(record.base) as BackupData; } catch { return null; }
-  };
-
-  const decryptPayload = async (payload: string): Promise<string> => {
-    if (!isEncryptedEnvelope(payload)) return payload;
-    const pass = getPassphrase();
-    if (!pass) throw new Error('Encrypted backup — enter your passphrase in Settings → Google Drive Sync.');
-    return decryptJSON(payload, pass);
-  };
-
-  const syncToCloud = async () => {
-    // Read committed prefs from the DB, not prefsRef: callers may invoke this
-    // immediately after updatePreferences(), before the ref-syncing effect runs
-    // (e.g. enabling encryption then pushing). The DB is the source of truth.
-    const prefs = (await db.preferences.get(1)) ?? prefsRef.current ?? undefined;
-    if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return;
-    const snaps = snapshotsRef.current;
-    const gs = goalsRef.current;
-    if (snaps.length === 0) return;
-
-    // Don't trigger an interactive re-auth from a background auto-sync —
-    // surface a reconnect prompt instead so the user isn't unexpectedly
-    // sent through the Google sign-in flow.
-    if (!googleDriveProvider.isSignedIn()) {
-      const updated = { ...prefs.cloudSync, lastError: 'Google Drive session expired. Reconnect in Settings → Cloud Sync.' };
-      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
-      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
-      return;
-    }
-
-    if (prefs.cloudSync.encryptionEnabled) {
-      const pass = getPassphrase();
-      if (!pass) {
-        const updated = { ...prefs.cloudSync, lastError: 'Encryption enabled — enter your passphrase in Settings to sync.' };
-        await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
-        setPreferences(p => p ? { ...p, cloudSync: updated } : p);
-        return;
-      }
-    }
-
-    const plainJson = exportToJSON(snaps, gs, prefs);
-    const plainData = JSON.parse(plainJson) as BackupData;
-    // Version the remote was last reconciled against — guards against clobbering a
-    // newer write from another device.
-    const expectedVersion = (await db.syncMeta.get(1))?.baseVersion;
-    try {
-      const pass = prefs.cloudSync.encryptionEnabled ? getPassphrase() : null;
-      const payload = pass ? await encryptJSON(plainJson, pass) : plainJson;
-
-      // Update the canonical sync file (create on first push)
-      const { version } = await writeCanonicalFile(payload, expectedVersion);
-
-      // Also keep a dated backup for history
-      const date = new Date().toISOString().split('T')[0];
-      await googleDriveProvider.upload(payload, `wealthpulse-backup-${date}.json`);
-
-      // Record the base state + version for future three-way merges
-      await storeSyncMeta(plainData, version);
-
-      const updated = { ...prefs.cloudSync, lastSyncISO: new Date().toISOString(), lastError: undefined };
-      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
-      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
-    } catch (err) {
-      if (err instanceof CanonicalConflictError) {
-        // Remote advanced since our last pull. Pull & merge first; if that auto-merges
-        // cleanly, re-push so the local edits still reach Drive. If it surfaces
-        // conflicts, the resolveConflicts path will push after the user resolves.
-        const outcome = await pullFromCloud();
-        if (outcome === 'merged') debouncedCloudSync();
-        return;
-      }
-      const msg = err instanceof Error ? err.message : 'Cloud sync failed';
-      const updated = { ...prefs.cloudSync, lastError: msg };
-      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
-      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
-    }
-  };
-
-  const pullFromCloud = async (): Promise<PullOutcome> => {
-    const prefs = prefsRef.current;
-    if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return 'noop';
-
-    try {
-      const remoteFile = await readCanonicalFileWithMeta();
-      if (!remoteFile) return 'noop'; // no canonical file yet — nothing to pull
-
-      const plainJson = await decryptPayload(remoteFile.content);
-      const remote = parseBackupJSON(plainJson);
-      const base = await loadSyncMeta();
-
-      const local: BackupData = {
-        version: 1,
-        exportDate: new Date().toISOString(),
-        snapshots: snapshotsRef.current,
-        goals: goalsRef.current,
-        preferences: prefs,
-      };
-
-      const syncMode = prefs.cloudSync.syncMode ?? 'merge';
-
-      if (syncMode === 'override') {
-        // Replace local data with remote, keep local preferences
-        await restoreBackup({ ...remote, preferences: local.preferences });
-        await storeSyncMeta(remote, remoteFile.version);
-        return 'merged';
-      }
-
-      // Merge mode
-      const result = mergeBackups(base, local, remote);
-
-      if (result.conflicts.length === 0) {
-        // Auto-merge — apply silently
-        await restoreBackup(result.merged);
-        await storeSyncMeta(result.merged, remoteFile.version);
-        return 'merged';
-      } else {
-        // Surface conflicts for user resolution
-        setSyncConflicts({ result, remoteVersion: remoteFile.version });
-        return 'conflicts';
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Pull from Drive failed';
-      const updated = { ...prefs.cloudSync, lastError: msg };
-      await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
-      setPreferences(p => p ? { ...p, cloudSync: updated } : p);
-      return 'error';
-    }
-  };
-
-  const resolveConflicts = async (resolutions: Map<string, 'local' | 'remote'>) => {
-    if (!syncConflicts) return;
-    const finalData = applyResolutions(syncConflicts.result, resolutions);
-    await restoreBackup(finalData);
-    // Base the resolved state on the remote version we merged against, so the
-    // follow-up push passes the optimistic-concurrency guard.
-    await storeSyncMeta(finalData, syncConflicts.remoteVersion);
-    setSyncConflicts(null);
-    // Push the resolved state back to Drive
-    debouncedCloudSync();
-  };
-
-  const dismissSyncConflicts = () => {
-    setSyncConflicts(null);
-  };
-
-  const debouncedCloudSync = () => {
-    if (cloudSyncTimerRef.current) clearTimeout(cloudSyncTimerRef.current);
-    cloudSyncTimerRef.current = setTimeout(() => { syncToCloud().catch(() => {}); }, 5000);
   };
 
   const getEnabledTemplates = () =>
@@ -480,8 +295,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const year = parseInt(yearStr, 10);
     const month = parseInt(monthStr, 10);
     const nextMonth = month === 12 ? 1 : month + 1;
-    const nextYear = month === 12 ? year + 1 : year;
-    const newMonth = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    const nextYear  = month === 12 ? year + 1 : year;
+    const newMonth  = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 
     const enabledTemplates = getEnabledTemplates();
     const existing = currentSnapshot.categories;

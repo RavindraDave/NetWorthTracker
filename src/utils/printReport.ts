@@ -1,5 +1,5 @@
 import { Snapshot, UserPreferences } from '../types';
-import { calcNetWorth, convertToBase } from './calculations';
+import { calcNetWorth, convertToBase, calcSavingsRate } from './calculations';
 import { resolveNumberLocale, formatCurrency } from './currencies';
 
 /** Format a summary/aggregate amount — whole numbers, no cents. */
@@ -35,7 +35,7 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
   const income = snapshot.monthlyIncome ?? 0;
   const expenses = snapshot.monthlyExpenses ?? 0;
   const savings = income - expenses;
-  const savingsRate = income > 0 ? (savings / income * 100).toFixed(1) : '0';
+  const savingsRate = calcSavingsRate(income, expenses).toFixed(1);
   const hasCashFlow = income > 0;
 
   const nwColor = netWorth >= 0 ? '#16a34a' : '#dc2626';

@@ -5,8 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { AppProvider, useApp } from '../AppContext';
 import { db } from '../../db/database';
-import type { Snapshot, Goal, UserPreferences } from '../../types';
-import type { BackupData } from '../../utils/importExport';
+import type { Snapshot, Goal, UserPreferences, BackupData } from '../../types';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 

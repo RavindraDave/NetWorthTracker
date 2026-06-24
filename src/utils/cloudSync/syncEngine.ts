@@ -12,8 +12,7 @@
 // When base is null (first sync / meta cleared): fall back to last-write-wins
 // using updatedAt timestamps.
 
-import { BackupData } from '../importExport';
-import { Snapshot, Goal } from '../../types';
+import { Snapshot, Goal, BackupData } from '../../types';
 
 export interface SyncConflict {
   kind: 'snapshot' | 'goal';

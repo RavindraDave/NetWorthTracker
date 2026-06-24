@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useAppBase } from '../hooks/useAppBase';
 import { calcNetWorth, convertToBase } from '../utils/calculations';
 import { FlattenedItem } from '../types';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
@@ -11,9 +11,8 @@ import { LayoutGrid } from 'lucide-react';
 import './Portfolio.css';
 
 export const Portfolio: React.FC = () => {
-  const { currentSnapshot, preferences } = useApp();
+  const { currentSnapshot, preferences, baseCurrency } = useAppBase();
   const navigate = useNavigate();
-  const baseCurrency = preferences?.baseCurrency || 'INR';
 
   const { assets, liabilities, breakdown } = useMemo(() => {
     if (!currentSnapshot) return { assets: [], liabilities: [], breakdown: null };

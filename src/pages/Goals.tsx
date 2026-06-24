@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { useToast } from '../components/common/Toast';
+import { useAppBase } from '../hooks/useAppBase';
 import { GoalEditor } from '../components/goals/GoalEditor';
 import { FIREDashboard } from '../components/goals/FIREDashboard';
 import { GoalCard } from '../components/goals/GoalCard';
@@ -10,9 +9,7 @@ import { Plus, Target } from 'lucide-react';
 import './Goals.css';
 
 export const Goals: React.FC = () => {
-  const { goals, deleteGoal, currentSnapshot, preferences } = useApp();
-  const { confirm } = useToast();
-  const baseCurrency = preferences?.baseCurrency || 'INR';
+  const { goals, deleteGoal, currentSnapshot, preferences, confirm, baseCurrency } = useAppBase();
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>(undefined);
