@@ -1,17 +1,15 @@
 import { Snapshot, UserPreferences } from '../types';
 import { calcNetWorth, convertToBase } from './calculations';
-import { resolveNumberLocale } from './currencies';
+import { resolveNumberLocale, formatCurrency } from './currencies';
 
-/** Format a number with the appropriate currency symbol prefix. */
-function fmtCurrency(amount: number, currency: string, locale: string): string {
-  const symbols: Record<string, string> = {
-    INR: '₹',
-    USD: '$',
-    EUR: '€',
-    GBP: '£',
-  };
-  const prefix = symbols[currency] ?? `${currency} `;
-  return `${prefix}${Math.round(amount).toLocaleString(locale)}`;
+/** Format a summary/aggregate amount — whole numbers, no cents. */
+function fmtSummary(amount: number, currency: string, locale: string): string {
+  return formatCurrency(amount, currency, { locale, precision: 0 });
+}
+
+/** Format a line-item amount — 2 decimal places for consistent width. */
+function fmtItem(amount: number, currency: string, locale: string): string {
+  return formatCurrency(amount, currency, { locale, precision: 2 });
 }
 
 /** Convert YYYY-MM to a human-readable label like "May 2026". */
@@ -60,8 +58,8 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
         <tr>
           <td style="padding:5px 8px;color:#374151;">${escHtml(item.name)}</td>
           <td style="padding:5px 8px;color:#6b7280;text-align:center;">${escHtml(item.currency)}</td>
-          <td style="padding:5px 8px;color:#374151;text-align:right;">${item.amount.toLocaleString(locale)}</td>
-          <td style="padding:5px 8px;color:#374151;text-align:right;">${fmtCurrency(baseVal, baseCurrency, locale)}</td>
+          <td style="padding:5px 8px;color:#374151;text-align:right;">${fmtItem(item.amount, item.currency, locale)}</td>
+          <td style="padding:5px 8px;color:#374151;text-align:right;">${fmtSummary(baseVal, baseCurrency, locale)}</td>
         </tr>`;
       }).join('');
 
@@ -69,7 +67,7 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border-left:3px solid #10b981;padding:6px 10px;margin-bottom:4px;">
           <span style="font-weight:600;color:#111827;">${escHtml(cat.name)}</span>
-          <span style="font-weight:600;color:#111827;">${fmtCurrency(catTotal, baseCurrency, locale)}</span>
+          <span style="font-weight:600;color:#111827;">${fmtSummary(catTotal, baseCurrency, locale)}</span>
         </div>
         ${visibleItems.length > 0 ? `
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -91,15 +89,15 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
   <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px 18px;flex:1;min-width:120px;">
       <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Income</div>
-      <div style="font-size:16px;font-weight:600;color:#111827;">${fmtCurrency(income, baseCurrency, locale)}</div>
+      <div style="font-size:16px;font-weight:600;color:#111827;">${fmtSummary(income, baseCurrency, locale)}</div>
     </div>
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px 18px;flex:1;min-width:120px;">
       <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Expenses</div>
-      <div style="font-size:16px;font-weight:600;color:#111827;">${fmtCurrency(expenses, baseCurrency, locale)}</div>
+      <div style="font-size:16px;font-weight:600;color:#111827;">${fmtSummary(expenses, baseCurrency, locale)}</div>
     </div>
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px 18px;flex:1;min-width:120px;">
       <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Savings</div>
-      <div style="font-size:16px;font-weight:600;color:${savings >= 0 ? '#16a34a' : '#dc2626'};">${fmtCurrency(savings, baseCurrency, locale)}</div>
+      <div style="font-size:16px;font-weight:600;color:${savings >= 0 ? '#16a34a' : '#dc2626'};">${fmtSummary(savings, baseCurrency, locale)}</div>
     </div>
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px 18px;flex:1;min-width:120px;">
       <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Savings Rate</div>
@@ -152,15 +150,15 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
   <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;flex:1;min-width:140px;">
       <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Net Worth</div>
-      <div style="font-size:22px;font-weight:700;color:${nwColor};">${fmtCurrency(netWorth, baseCurrency, locale)}</div>
+      <div style="font-size:22px;font-weight:700;color:${nwColor};">${fmtSummary(netWorth, baseCurrency, locale)}</div>
     </div>
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;flex:1;min-width:140px;">
       <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Total Assets</div>
-      <div style="font-size:22px;font-weight:700;color:#16a34a;">${fmtCurrency(totalAssets, baseCurrency, locale)}</div>
+      <div style="font-size:22px;font-weight:700;color:#16a34a;">${fmtSummary(totalAssets, baseCurrency, locale)}</div>
     </div>
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;flex:1;min-width:140px;">
       <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Total Liabilities</div>
-      <div style="font-size:22px;font-weight:700;color:#dc2626;">${fmtCurrency(totalLiabilities, baseCurrency, locale)}</div>
+      <div style="font-size:22px;font-weight:700;color:#dc2626;">${fmtSummary(totalLiabilities, baseCurrency, locale)}</div>
     </div>
   </div>
 
