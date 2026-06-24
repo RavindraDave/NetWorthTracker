@@ -8,6 +8,7 @@ import {
   buildAllocationData,
   calcMonthChange,
   getMissingRateCurrencies,
+  calcSavingsRate,
 } from '../calculations';
 import { Snapshot, Category, LineItem } from '../../types';
 
@@ -481,6 +482,40 @@ function makeItem(overrides: Partial<LineItem> & { id: string; name: string; amo
     ...overrides,
   };
 }
+
+// ---------------------------------------------------------------------------
+// calcSavingsRate
+// ---------------------------------------------------------------------------
+
+describe('calcSavingsRate', () => {
+  it('returns correct savings rate', () => {
+    expect(calcSavingsRate(100_000, 60_000)).toBeCloseTo(40);
+  });
+
+  it('returns 100 when expenses are zero', () => {
+    expect(calcSavingsRate(100_000, 0)).toBeCloseTo(100);
+  });
+
+  it('returns negative rate when expenses exceed income', () => {
+    expect(calcSavingsRate(50_000, 75_000)).toBeCloseTo(-50);
+  });
+
+  it('returns 0 when income is zero', () => {
+    expect(calcSavingsRate(0, 5_000)).toBe(0);
+  });
+
+  it('returns 0 when income is negative', () => {
+    expect(calcSavingsRate(-1_000, 500)).toBe(0);
+  });
+
+  it('returns 0 when both income and expenses are zero', () => {
+    expect(calcSavingsRate(0, 0)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getMissingRateCurrencies
+// ---------------------------------------------------------------------------
 
 describe('getMissingRateCurrencies', () => {
   it('returns empty array when all currencies have valid rates', () => {

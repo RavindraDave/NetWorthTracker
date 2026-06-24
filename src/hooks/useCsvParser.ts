@@ -26,11 +26,11 @@ const FIELD_ALIASES: Record<CsvField, string[]> = {
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-function normalize(s: string): string {
+export function normalize(s: string): string {
   return s.toLowerCase().replace(/[\s_()\-.]/g, '');
 }
 
-function autoDetect(headers: string[]): CsvFieldMapping {
+export function autoDetect(headers: string[]): CsvFieldMapping {
   const result: CsvFieldMapping = {};
   for (const field of CSV_FIELDS) {
     const match = headers.find(h => FIELD_ALIASES[field].includes(normalize(h)));
