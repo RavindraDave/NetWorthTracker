@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { LineItem } from '../../types';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
+import { useApp } from '../../context/AppContext';
+import { resolveNumberLocale } from '../../utils/currencies';
 import './AddItemRow.css';
 
 interface AddItemRowProps {
@@ -10,6 +12,8 @@ interface AddItemRowProps {
 }
 
 export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCurrencies, onAdd }) => {
+  const { preferences } = useApp();
+  const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState(baseCurrency);
   const [amount, setAmount] = useState(0);
@@ -21,6 +25,7 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
     onCommit: next => { amountRef.current = next; setAmount(next); },
     precision: 2,
     min: 0,
+    locale,
   });
 
   const reset = () => {

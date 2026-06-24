@@ -9,7 +9,7 @@ import { Plus, Target } from 'lucide-react';
 import './Goals.css';
 
 export const Goals: React.FC = () => {
-  const { goals, deleteGoal, currentSnapshot, preferences, confirm, baseCurrency } = useAppBase();
+  const { goals, deleteGoal, currentSnapshot, confirm, baseCurrency } = useAppBase();
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>(undefined);

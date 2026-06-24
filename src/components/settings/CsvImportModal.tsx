@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
+import { TEXT, SPACE } from '../common/theme';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
 import { X, Save, Trash2 } from 'lucide-react';
@@ -127,7 +128,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '0.5rem' }}>
         <div style={{ minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Import CSV</h3>
-          <span className="text-muted" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{file.name}</span>
+          <span className="text-muted" style={{ fontSize: TEXT.base, wordBreak: 'break-all' }}>{file.name}</span>
         </div>
         <button className="btn-icon" onClick={onClose} aria-label="Close" style={{ flexShrink: 0 }}>
           <X size={18} />
@@ -135,18 +136,18 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
       </div>
 
       {parseError ? (
-        <div style={{ color: 'var(--rose)', fontSize: '0.875rem', marginBottom: '1rem', padding: '0.75rem', background: 'var(--rose-soft)', borderRadius: 'var(--radius-sm)' }}>
+        <div style={{ color: 'var(--rose)', fontSize: TEXT.body, marginBottom: SPACE.xl, padding: SPACE.lg, background: 'var(--rose-soft)', borderRadius: 'var(--radius-sm)' }}>
           {parseError}
         </div>
       ) : headers.length === 0 ? (
-        <div className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '1rem', textAlign: 'center', padding: '1rem' }}>
+        <div className="text-muted" style={{ fontSize: TEXT.body, marginBottom: SPACE.xl, textAlign: 'center', padding: SPACE.xl }}>
           Parsing file…
         </div>
       ) : (
         <>
           {/* Month picker */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 500, minWidth: 130 }}>Snapshot Month</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.lg, marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+            <label style={{ fontSize: TEXT.md, fontWeight: 500, minWidth: 130 }}>Snapshot Month</label>
             <input
               type="month"
               className="line-item-input"
@@ -155,7 +156,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
               style={{ maxWidth: 180 }}
             />
             {monthConflict && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--rose)' }}>
+              <span style={{ fontSize: TEXT.sm, color: 'var(--rose)' }}>
                 A snapshot already exists for this month — choose a different month above
               </span>
             )}
@@ -165,7 +166,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
             {profileNames.length > 0 && (
               <>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Saved mappings:</span>
+                <span style={{ fontSize: TEXT.sm, color: 'var(--text-3)' }}>Saved mappings:</span>
                 {profileNames.map(n => (
                   <span key={n} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -174,7 +175,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
                   }}>
                     <button
                       onClick={() => { const m = applyProfile(n); if (m) setMapping(m); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', fontSize: '0.78rem', padding: 0 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', fontSize: TEXT.smmd, padding: 0 }}
                       title={`Apply mapping "${n}"`}
                     >
                       {n}
@@ -202,11 +203,11 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
                     onChange={e => setProfileNameInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { saveProfile(profileNameInput, mapping); setShowSaveForm(false); setProfileNameInput(''); } }}
                     placeholder="Mapping name"
-                    style={{ maxWidth: 160, fontSize: '0.8rem' }}
+                    style={{ maxWidth: 160, fontSize: TEXT.base }}
                     aria-label="Name for this mapping"
                     autoFocus
                   />
-                  <button className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  <button className="btn btn-primary" style={{ fontSize: TEXT.sm, padding: '0.3rem 0.6rem' }}
                     onClick={() => { saveProfile(profileNameInput, mapping); setShowSaveForm(false); setProfileNameInput(''); }}
                     disabled={!profileNameInput.trim()}>
                     Save
@@ -218,7 +219,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
               ) : (
                 <button
                   className="btn btn-outline"
-                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  style={{ fontSize: TEXT.sm, padding: '0.3rem 0.6rem' }}
                   onClick={() => setShowSaveForm(true)}
                   disabled={!isValid}
                   title={isValid ? 'Save the current column mapping for reuse' : 'Map the required fields first'}
@@ -231,13 +232,13 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
 
           {/* Column mapping */}
           <div style={{ marginBottom: '1.25rem' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '0.5rem' }}>
+            <div style={{ fontSize: TEXT.sm, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: SPACE.sm }}>
               Column Mapping
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: SPACE.sm }}>
               {CSV_FIELDS.map(field => (
                 <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <label style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                  <label style={{ fontSize: TEXT.xs, color: 'var(--text-3)' }}>
                     {field}
                     {CSV_FIELD_HINTS[field] === 'required' && (
                       <span style={{ color: 'var(--rose)', marginLeft: 2 }}>*</span>
@@ -264,11 +265,11 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
           {/* Preview */}
           {previewRows.length > 0 && mappedFields.length > 0 && (
             <div style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '0.5rem' }}>
+              <div style={{ fontSize: TEXT.sm, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: SPACE.sm }}>
                 Preview ({Math.min(previewRows.length, 5)} of {rows.length} rows)
               </div>
               <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', fontSize: TEXT.sm, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {mappedFields.map(f => (
@@ -298,7 +299,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
 
       {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.5rem' }}>
-        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+        <span className="text-muted" style={{ fontSize: TEXT.base }}>
           {rows.length > 0 ? `${rows.length} rows detected` : ''}
         </span>
         <div style={{ display: 'flex', gap: '0.5rem' }}>

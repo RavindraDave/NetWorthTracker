@@ -53,8 +53,6 @@ export function getMissingRateCurrencies(snapshot: Snapshot, baseCurrency: strin
   return Array.from(missing);
 }
 
-export type { ViewMode };
-
 /**
  * Filter categories by view mode.
  */

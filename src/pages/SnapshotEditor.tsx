@@ -8,6 +8,7 @@ import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
 import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
+import { resolveNumberLocale } from '../utils/currencies';
 import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer, CheckCircle2, X } from 'lucide-react';
 import { InfoTooltip } from '../components/common/InfoTooltip';
 import { exportSnapshotToCSV, downloadFile, exportSnapshotToExcel } from '../utils/importExport';
@@ -26,6 +27,7 @@ export const SnapshotEditor: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { snapshots, saveSnapshot, preferences, confirm, error: toastError, baseCurrency } = useAppBase();
+  const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
 
   // Post-import summary banner (BL-5) — read once from navigation state, then clear
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(
@@ -117,6 +119,7 @@ export const SnapshotEditor: React.FC = () => {
     },
     precision: 2,
     min: 0,
+    locale,
   });
 
   const expensesInput = useDecimalInput({
@@ -127,6 +130,7 @@ export const SnapshotEditor: React.FC = () => {
     },
     precision: 2,
     min: 0,
+    locale,
   });
 
   const handleExportCSV = () => {

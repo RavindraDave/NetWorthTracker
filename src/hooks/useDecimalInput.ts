@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, useContext } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type React from 'react';
-import { AppContext } from '../context/AppContext';
 import { resolveNumberLocale } from '../utils/currencies';
 
 interface UseDecimalInputOptions {
@@ -35,8 +34,7 @@ export function useDecimalInput({
   locale,
   blankZero = false,
 }: UseDecimalInputOptions): UseDecimalInputReturn {
-  const ctx = useContext(AppContext);
-  const resolvedLocale = locale ?? resolveNumberLocale(ctx?.preferences?.baseCurrency ?? 'INR', ctx?.preferences?.numberFormat);
+  const resolvedLocale = locale ?? resolveNumberLocale('INR', undefined);
   const fmt = (n: number) =>
     new Intl.NumberFormat(resolvedLocale, {
       minimumFractionDigits: precision,

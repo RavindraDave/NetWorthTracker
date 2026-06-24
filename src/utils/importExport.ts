@@ -3,8 +3,6 @@ import * as XLSX from 'xlsx';
 import { calcNetWorth, convertToBase, calcSavingsRate } from './calculations';
 import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
 
-export type { BackupData };
-
 /**
  * Generates a JSON string representing the full state of the user's data.
  */

@@ -11,7 +11,7 @@ import { LayoutGrid } from 'lucide-react';
 import './Portfolio.css';
 
 export const Portfolio: React.FC = () => {
-  const { currentSnapshot, preferences, baseCurrency } = useAppBase();
+  const { currentSnapshot, baseCurrency } = useAppBase();
   const navigate = useNavigate();
 
   const { assets, liabilities, breakdown } = useMemo(() => {

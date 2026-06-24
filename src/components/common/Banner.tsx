@@ -1,4 +1,5 @@
 import React from 'react';
+import { TEXT, SPACE } from './theme';
 
 type BannerVariant = 'info' | 'warning' | 'error';
 
@@ -21,9 +22,9 @@ export const Banner: React.FC<BannerProps> = ({ variant = 'info', icon, children
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '0.75rem',
-      padding: '0.65rem 1rem',
-      marginBottom: '1rem',
+      gap: SPACE.lg,
+      padding: `${SPACE.md} ${SPACE.xl}`,
+      marginBottom: SPACE.xl,
       borderRadius: 'var(--radius-md)',
       background: `color-mix(in srgb, ${v.bg} 12%, transparent)`,
       border: `1px solid color-mix(in srgb, ${v.border} 40%, transparent)`,
@@ -32,11 +33,11 @@ export const Banner: React.FC<BannerProps> = ({ variant = 'info', icon, children
       <span style={{ color: v.icon, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
         {icon}
       </span>
-      <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+      <span style={{ flex: 1, fontSize: TEXT.md, color: 'var(--text-primary)' }}>
         {children}
       </span>
       {actions && (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: SPACE.sm, alignItems: 'center' }}>
           {actions}
         </div>
       )}

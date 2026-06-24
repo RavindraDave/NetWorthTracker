@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { getMissingRateCurrencies } from '../../utils/calculations';
 import { Banner } from './Banner';
+import { TEXT } from './theme';
 
 const SNOOZE_DAYS = 1;
 const SNOOZE_KEY = 'wealthpulse_missingRateSnoozeUntil';
@@ -40,7 +41,7 @@ export const MissingRateBanner: React.FC = () => {
         <>
           <button
             className="btn btn-outline"
-            style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
+            style={{ fontSize: TEXT.base, padding: '0.3rem 0.7rem' }}
             onClick={() => navigate(`/editor/${currentSnapshot.id}`)}
           >
             Set rates

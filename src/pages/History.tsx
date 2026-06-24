@@ -53,6 +53,13 @@ export const History: React.FC = () => {
     return true;
   }), [sortedSnapshots, filterFrom, filterTo, searchText]);
 
+  // Pre-compute all breakdowns once — avoids repeated calcNetWorth inside the render loop
+  const breakdownMap = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof calcNetWorth>>();
+    for (const s of snapshots) m.set(s.id, calcNetWorth(s, baseCurrency, 'overall'));
+    return m;
+  }, [snapshots, baseCurrency]);
+
   // Chart data (chronological)
   const chartData = useMemo(() => chronological.map(s => ({
     month: s.month,
@@ -65,13 +72,6 @@ export const History: React.FC = () => {
     const fireGoal = goals.find(g => g.type === 'fire' && g.targetAmount > 0);
     return fireGoal?.targetAmount ?? null;
   }, [goals]);
-
-  // Pre-compute all breakdowns once — avoids repeated calcNetWorth inside the render loop
-  const breakdownMap = useMemo(() => {
-    const m = new Map<string, ReturnType<typeof calcNetWorth>>();
-    for (const s of snapshots) m.set(s.id, calcNetWorth(s, baseCurrency, 'overall'));
-    return m;
-  }, [snapshots, baseCurrency]);
 
   // MoM change map
   const changeMap = useMemo(() => {

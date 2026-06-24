@@ -7,6 +7,7 @@ import { annualisedReturn, monthEndDate } from '../../utils/returns';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { InclusionChips, exclusionStateToInclusion, inclusionToExclusionState } from '../common/InclusionChips';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
+import { resolveNumberLocale } from '../../utils/currencies';
 import { CostBasisPanel } from './CostBasisPanel';
 import { LoanConfigPanel } from './LoanConfigPanel';
 import { Trash2, Calculator, TrendingUp } from 'lucide-react';
@@ -40,6 +41,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
   const { preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const enabledCurrencies = preferences?.enabledCurrencies || ['INR', 'USD', 'EUR', 'GBP', 'SGD'];
+  const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
 
   const hasLoanConfig = isLoanConfigComplete(
     item.loanPrincipal, item.annualInterestRate, item.tenureMonths, item.loanStartMonth
@@ -58,6 +60,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     precision: 2,
     min: 0,
     max: 1e15,
+    locale,
   });
 
   const principalInput = useDecimalInput({
@@ -67,6 +70,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     min: 0,
     max: 1e15,
     blankZero: true,
+    locale,
   });
 
   const rateInput = useDecimalInput({
@@ -76,6 +80,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     min: 0,
     max: 100,
     blankZero: true,
+    locale,
   });
 
   const tenureInput = useDecimalInput({
@@ -85,6 +90,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     min: 0,
     max: 600,
     blankZero: true,
+    locale,
   });
 
   const purchasePriceInput = useDecimalInput({
@@ -94,6 +100,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     min: 0,
     max: 1e15,
     blankZero: true,
+    locale,
   });
 
   const statedRateInput = useDecimalInput({
@@ -103,6 +110,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
     min: 0,
     max: 100,
     blankZero: true,
+    locale,
   });
 
   const onChangeRef = useRef(onChange);

@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { exportToJSON, downloadFile } from '../../utils/importExport';
 import { daysSinceISO, staleThresholdDays } from '../../utils/autoBackup';
 import { Banner } from './Banner';
+import { TEXT } from './theme';
 
 const MAX_SNOOZE_MS = 40 * 24 * 60 * 60 * 1000; // beyond the longest stale threshold (35 days) — reject tampered far-future dates
 
@@ -45,7 +46,7 @@ export const StaleBackupBanner: React.FC = () => {
       icon={<AlertTriangle size={16} />}
       actions={
         <>
-          <button className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={handleBackupNow}>
+          <button className="btn btn-outline" style={{ fontSize: TEXT.base, padding: '0.3rem 0.7rem' }} onClick={handleBackupNow}>
             Back up now
           </button>
           <button className="btn-icon" aria-label="Dismiss reminder" title="Dismiss reminder" onClick={handleSnooze}>

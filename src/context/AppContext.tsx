@@ -3,7 +3,6 @@ import { db, initializePreferences, UserPreferencesRecord } from '../db/database
 import { Snapshot, Goal, UserPreferences, AutoBackupRecord, CategoryTemplate } from '../types';
 import { googleDriveProvider } from '../utils/cloudSync/google/drive';
 import { configureClientId } from '../utils/cloudSync/google/gis';
-import { exportToJSON } from '../utils/importExport';
 import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/autoBackup';
 import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { ViewMode, BackupData } from '../types';
