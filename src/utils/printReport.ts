@@ -105,6 +105,46 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
     </div>
   </div>` : '';
 
+  // Collect non-base currencies actually used in line items
+  const usedForeignCurrencies = Array.from(
+    new Set(
+      snapshot.categories.flatMap(cat =>
+        cat.items
+          .filter(i => !i.excludeFromNetWorth && i.currency !== baseCurrency)
+          .map(i => i.currency)
+      )
+    )
+  ).sort();
+
+  const exchangeRatesHtml = usedForeignCurrencies.length > 0 ? (() => {
+    const ratesUpdated = snapshot.ratesLastUpdated
+      ? new Date(snapshot.ratesLastUpdated).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+      : null;
+
+    const rateRows = usedForeignCurrencies.map(currency => {
+      const rate = snapshot.exchangeRates?.[currency];
+      const rateStr = rate != null && rate > 0
+        ? formatCurrency(rate, baseCurrency, { locale, precision: 4 })
+        : '<span style="color:#dc2626;">Not set (treated as 1:1)</span>';
+      return `
+        <tr>
+          <td style="padding:4px 10px;color:#374151;font-family:monospace;font-size:12px;">${escHtml(currency)}</td>
+          <td style="padding:4px 10px;color:#374151;font-size:12px;">1 ${escHtml(currency)} = ${rateStr}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+  <div style="margin-top:20px;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+      <div style="font-size:12px;font-weight:600;color:#1e40af;text-transform:uppercase;letter-spacing:.05em;">Exchange Rates Used</div>
+      ${ratesUpdated ? `<div style="font-size:11px;color:#6b7280;">Rates as of ${escHtml(ratesUpdated)}</div>` : ''}
+    </div>
+    <table style="border-collapse:collapse;">
+      <tbody>${rateRows}</tbody>
+    </table>
+  </div>`;
+  })() : '';
+
   const notesHtml = snapshot.notes ? `
   <div style="margin-top:24px;padding:14px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;">
     <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Notes</div>
@@ -167,6 +207,7 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
   ${assetCats.length > 0 ? `<h2>Assets</h2>${buildCategoryRows(assetCats)}` : ''}
   ${liabilityCats.length > 0 ? `<h2>Liabilities</h2>${buildCategoryRows(liabilityCats)}` : ''}
 
+  ${exchangeRatesHtml}
   ${notesHtml}
 
   <!-- Footer -->
