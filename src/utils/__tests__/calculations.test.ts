@@ -28,12 +28,13 @@ function makeCategory(overrides: Partial<Category> & { id: string; type: 'asset'
 }
 
 function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
+  // Anchor-relative rates: "1 USD = X currency"
   return {
     id: 's1',
     month: '2025-01',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    exchangeRates: { USD: 83, EUR: 90, SGD: 62 },
+    exchangeRates: { INR: 83, EUR: 0.92222, SGD: 1.33871 },
     categories: [],
     ...overrides,
   };
@@ -49,7 +50,8 @@ describe('convertToBase', () => {
   });
 
   it('converts using exchange rate', () => {
-    expect(convertToBase(100, 'USD', 'INR', { USD: 83 })).toBe(8300);
+    // Anchor-relative: { INR: 83 } means "1 USD = 83 INR"
+    expect(convertToBase(100, 'USD', 'INR', { INR: 83 })).toBe(8300);
   });
 
   it('falls back to 1:1 when rate is missing', () => {
@@ -65,11 +67,11 @@ describe('convertToBase', () => {
   });
 
   it('handles zero amount', () => {
-    expect(convertToBase(0, 'USD', 'INR', { USD: 83 })).toBe(0);
+    expect(convertToBase(0, 'USD', 'INR', { INR: 83 })).toBe(0);
   });
 
   it('handles decimal amounts correctly', () => {
-    expect(convertToBase(1.5, 'USD', 'INR', { USD: 83 })).toBeCloseTo(124.5);
+    expect(convertToBase(1.5, 'USD', 'INR', { INR: 83 })).toBeCloseTo(124.5);
   });
 });
 
@@ -87,7 +89,7 @@ describe('calcCategoryTotal', () => {
         { id: 'i2', name: 'B', amount: 100, currency: 'USD' },
       ],
     });
-    expect(calcCategoryTotal(cat, 'INR', { USD: 83 })).toBe(9300);
+    expect(calcCategoryTotal(cat, 'INR', { INR: 83 })).toBe(9300);
   });
 
   it('returns 0 for empty category', () => {
@@ -519,8 +521,9 @@ describe('calcSavingsRate', () => {
 
 describe('getMissingRateCurrencies', () => {
   it('returns empty array when all currencies have valid rates', () => {
+    // USD is the anchor — never flagged as missing regardless of exchangeRates
     const snap = makeSnapshot({
-      exchangeRates: { USD: 83 },
+      exchangeRates: { INR: 83 },
       categories: [
         makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'USD' })] }),
       ],

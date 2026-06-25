@@ -7,6 +7,7 @@ import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/au
 import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { ViewMode, BackupData } from '../types';
 import { useCloudSync, SyncConflictState, PullOutcome } from './useCloudSync';
+import { RATE_ANCHOR } from '../utils/calculations';
 
 export type { SyncConflictState, PullOutcome };
 
@@ -16,6 +17,37 @@ function normalizeRates(snap: Snapshot): Snapshot {
     rates[code] = Math.round(rate * 1e5) / 1e5;
   }
   return { ...snap, exchangeRates: rates };
+}
+
+/**
+ * One-time migration from old base-relative rates ("1 foreign = X base") to
+ * anchor-relative rates ("1 USD = X currency"). Detected by absence of ratesAnchor.
+ *
+ * Migration formula (example, INR base):
+ *   old { USD: 83, SGD: 62 }  →  new { INR: 83, SGD: 83/62≈1.34 }
+ */
+function migrateToAnchorRates(snap: Snapshot, baseCurrency: string): Snapshot {
+  if (snap.ratesAnchor === RATE_ANCHOR) return snap; // already migrated
+
+  const oldRates = snap.exchangeRates;
+  const usdToBase = oldRates[RATE_ANCHOR]; // old "1 USD = usdToBase base"
+
+  if (!usdToBase || usdToBase <= 0) {
+    // Can't derive anchor rates without a USD reference — clear so MissingRateBanner fires
+    return { ...snap, exchangeRates: {}, ratesAnchor: RATE_ANCHOR };
+  }
+
+  const newRates: Record<string, number> = {};
+  newRates[baseCurrency] = usdToBase; // "1 USD = usdToBase baseCurrency"
+
+  for (const [currency, oldRate] of Object.entries(oldRates)) {
+    if (currency === RATE_ANCHOR || currency === baseCurrency) continue;
+    if (oldRate > 0) {
+      newRates[currency] = usdToBase / oldRate; // "1 USD = usdToBase/oldRate currency"
+    }
+  }
+
+  return { ...snap, exchangeRates: newRates, ratesAnchor: RATE_ANCHOR };
 }
 
 function rehydrateFlags(snaps: Snapshot[], templates: CategoryTemplate[]): Snapshot[] {
@@ -107,9 +139,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await db.preferences.put({ ...finalPrefs, id: 1 } as UserPreferencesRecord);
       }
       setPreferences(finalPrefs);
+      const baseCurrency = finalPrefs?.baseCurrency ?? 'INR';
+      const normalizedSnaps = snaps.map(s => migrateToAnchorRates(normalizeRates(s), baseCurrency));
+      const toSave = normalizedSnaps.filter((s, i) => s.ratesAnchor !== snaps[i].ratesAnchor);
+      if (toSave.length > 0) await db.snapshots.bulkPut(toSave);
       const rehydrated = finalPrefs?.categoryTemplates
-        ? rehydrateFlags(snaps.map(normalizeRates), finalPrefs.categoryTemplates)
-        : snaps.map(normalizeRates);
+        ? rehydrateFlags(normalizedSnaps, finalPrefs.categoryTemplates)
+        : normalizedSnaps;
       setSnapshots(rehydrated);
     } finally {
       setIsLoading(false);
@@ -282,7 +318,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       month,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
-      exchangeRates: { USD: 83, SGD: 62, EUR: 90, GBP: 105, AED: 22.6, AUD: 54 },
+      exchangeRates: currentSnapshot?.exchangeRates ?? {},
+      ratesLastUpdated: currentSnapshot?.ratesLastUpdated,
+      ratesAnchor: RATE_ANCHOR,
       categories,
     };
   };

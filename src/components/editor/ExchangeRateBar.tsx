@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { fetchLiveRates } from '../../utils/exchangeRates';
+import { fetchAnchorRates } from '../../utils/exchangeRates';
+import { RATE_ANCHOR } from '../../utils/calculations';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
 import { resolveNumberLocale } from '../../utils/currencies';
 import { RefreshCw, CheckCircle2, AlertTriangle, Clock, Wifi } from 'lucide-react';
@@ -85,12 +86,41 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
   const displayCurrencies = enabledCurrencies.filter(c => c !== baseCurrency);
   const { isStale, label: staleLabel } = getStaleInfo(ratesLastUpdated);
 
+  // "1 USD = baseAnchorRate baseCurrency". USD itself is implicitly 1.
+  const baseAnchorRate = baseCurrency === RATE_ANCHOR ? 1 : (rates[baseCurrency] ?? 0);
+
+  // Convert anchor-relative stored rate to display rate "1 currency = X baseCurrency".
+  const toDisplay = (currency: string): number => {
+    if (currency === RATE_ANCHOR) return baseAnchorRate; // "1 USD = baseAnchorRate base"
+    const anchorRate = rates[currency] ?? 0;
+    if (anchorRate <= 0 || baseAnchorRate <= 0) return 0;
+    return baseAnchorRate / anchorRate; // "1 currency = base/anchorRate base"
+  };
+
+  // Convert display rate D ("1 currency = D baseCurrency") back to anchor-relative before storing.
+  const handleDisplayRateCommit = (currency: string, displayRate: number) => {
+    if (displayRate <= 0) return;
+    if (currency === RATE_ANCHOR) {
+      // "1 USD = D base" → store rates[base] = D
+      onChange(baseCurrency, displayRate);
+    } else if (baseCurrency === RATE_ANCHOR) {
+      // "1 currency = D USD" → "1 USD = 1/D currency" → store rates[currency] = 1/D
+      onChange(currency, 1 / displayRate);
+    } else {
+      // "1 currency = D base" → rates[currency] = baseAnchorRate / D
+      if (baseAnchorRate <= 0) return; // can't compute without USD↔base rate
+      onChange(currency, baseAnchorRate / displayRate);
+    }
+  };
+
   const handleFetchRates = async () => {
     setFetchState('loading');
     setFetchMessage('');
     setUnavailable([]);
     try {
-      const result = await fetchLiveRates(baseCurrency, displayCurrencies);
+      // Fetch anchor-relative rates (1 USD = X currency) for all needed currencies
+      const targets = [...displayCurrencies, baseCurrency].filter(c => c !== RATE_ANCHOR);
+      const result = await fetchAnchorRates(targets);
 
       const roundedRates: Record<string, number> = {};
       for (const [currency, rate] of Object.entries(result.rates)) {
@@ -107,10 +137,12 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         ? 'Open Exchange Rates'
         : 'Frankfurter (ECB)';
 
+      const fetchedCount = Object.keys(roundedRates).length;
+      const totalNeeded = targets.length;
       if (result.unavailable.length > 0) {
         setUnavailable(result.unavailable);
         setFetchMessage(
-          `${displayCurrencies.length - result.unavailable.length}/${displayCurrencies.length} rates updated via ${sourceLabel}. ` +
+          `${fetchedCount}/${totalNeeded} rates updated via ${sourceLabel}. ` +
           `${result.unavailable.join(', ')} unavailable — please set manually.`
         );
       } else {
@@ -129,7 +161,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
     }
   };
 
-  const zeroRateCurrencies = displayCurrencies.filter(c => !rates[c] || rates[c] <= 0);
+  const zeroRateCurrencies = displayCurrencies.filter(c => toDisplay(c) <= 0);
 
   if (displayCurrencies.length === 0) return null;
 
@@ -202,8 +234,8 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
           <RateInput
             key={currency}
             currency={currency}
-            rate={rates[currency] ?? 0}
-            onChange={onChange}
+            rate={toDisplay(currency)}
+            onChange={handleDisplayRateCommit}
             needsManual={unavailable.includes(currency)}
             locale={locale}
           />

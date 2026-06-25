@@ -1,6 +1,6 @@
 import { Snapshot, Goal, UserPreferences, BackupData } from '../types';
 import * as XLSX from 'xlsx';
-import { calcNetWorth, convertToBase, calcSavingsRate } from './calculations';
+import { calcNetWorth, convertToBase, calcSavingsRate, RATE_ANCHOR } from './calculations';
 import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
 
 /**
@@ -124,11 +124,16 @@ function buildExchangeRateRows(snapshot: Snapshot, baseCurrency: string): ExcelR
     ? new Date(snapshot.ratesLastUpdated).toISOString().split('T')[0]
     : '';
 
+  const rates = snapshot.exchangeRates ?? {};
+  const baseAnchorRate = baseCurrency === RATE_ANCHOR ? 1 : (rates[baseCurrency] ?? 0);
   return usedCurrencies.map(currency => {
-    const rate = snapshot.exchangeRates?.[currency];
+    const currencyAnchorRate = currency === RATE_ANCHOR ? 1 : (rates[currency] ?? 0);
+    const displayRate = baseAnchorRate > 0 && currencyAnchorRate > 0
+      ? baseAnchorRate / currencyAnchorRate
+      : undefined;
     return {
       'Currency': currency,
-      [`Rate (1 ${currency} → ${baseCurrency})`]: rate != null && rate > 0 ? rate : undefined,
+      [`Rate (1 ${currency} → ${baseCurrency})`]: displayRate,
       'Rates As Of': asOf,
     };
   });
