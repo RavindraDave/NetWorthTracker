@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { csvSafeCell, exportSnapshotToCSV, parseBackupJSON } from '../importExport';
+import { csvSafeCell, exportSnapshotToCSV, parseBackupJSON, buildExchangeRateRows } from '../importExport';
 import type { Snapshot } from '../../types';
 
 describe('csvSafeCell — formula injection guard', () => {
@@ -92,5 +92,104 @@ describe('parseBackupJSON', () => {
   it('rejects missing baseCurrency in preferences', () => {
     const bad = { ...valid, preferences: { enabledCurrencies: ['INR'] } };
     expect(() => parseBackupJSON(JSON.stringify(bad))).toThrow(/baseCurrency/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildExchangeRateRows — display rate computation (anchor-relative format)
+// ---------------------------------------------------------------------------
+
+describe('buildExchangeRateRows', () => {
+  function makeSnap(exchangeRates: Record<string, number>, currencies: string[]): Snapshot {
+    return {
+      id: 's1', month: '2026-01',
+      createdAt: '', updatedAt: '',
+      exchangeRates,
+      ratesAnchor: 'USD',
+      categories: [{
+        id: 'c1', name: 'Cash', type: 'asset', icon: '💰', isLiquid: true, isInvestable: true,
+        items: currencies.map((c, i) => ({ id: `i${i}`, name: `Item ${i}`, amount: 1000, currency: c })),
+      }],
+    };
+  }
+
+  it('returns empty array when all items are in base currency', () => {
+    const snap = makeSnap({ INR: 83 }, ['INR']);
+    expect(buildExchangeRateRows(snap, 'INR')).toHaveLength(0);
+  });
+
+  it('computes correct display rate for SGD→INR', () => {
+    // anchor: { INR: 83, SGD: 1.34 }
+    // display: 1 SGD = 83/1.34 ≈ 61.94 INR
+    const snap = makeSnap({ INR: 83, SGD: 1.34 }, ['SGD']);
+    const rows = buildExchangeRateRows(snap, 'INR');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]['Currency']).toBe('SGD');
+    const rate = rows[0]['Rate (1 SGD → INR)'] as number;
+    expect(rate).toBeCloseTo(83 / 1.34, 3);
+  });
+
+  it('computes correct display rate for USD→INR', () => {
+    // USD is the anchor (anchorRate=1), display: 1 USD = 83 INR
+    const snap = makeSnap({ INR: 83 }, ['USD']);
+    const rows = buildExchangeRateRows(snap, 'INR');
+    expect(rows).toHaveLength(1);
+    const rate = rows[0]['Rate (1 USD → INR)'] as number;
+    expect(rate).toBeCloseTo(83, 4);
+  });
+
+  it('computes correct display rate when base is USD', () => {
+    // Base=USD, INR item: display 1 INR = 1/83 USD ≈ 0.01205
+    const snap = makeSnap({ INR: 83 }, ['INR']);
+    const rows = buildExchangeRateRows(snap, 'USD');
+    expect(rows).toHaveLength(1);
+    const rate = rows[0]['Rate (1 INR → USD)'] as number;
+    expect(rate).toBeCloseTo(1 / 83, 5);
+  });
+
+  it('returns undefined rate when exchange rate is missing', () => {
+    // SGD has no anchor rate set
+    const snap = makeSnap({ INR: 83 }, ['SGD']);
+    const rows = buildExchangeRateRows(snap, 'INR');
+    expect(rows[0]['Rate (1 SGD → INR)']).toBeUndefined();
+  });
+
+  it('returns undefined rate when base anchor rate is missing', () => {
+    // rates has SGD but not INR (base) — baseRate = 0
+    const snap = makeSnap({ SGD: 1.34 }, ['SGD']);
+    const rows = buildExchangeRateRows(snap, 'INR');
+    expect(rows[0]['Rate (1 SGD → INR)']).toBeUndefined();
+  });
+
+  it('excludes items with excludeFromNetWorth=true', () => {
+    const snap: Snapshot = {
+      id: 's1', month: '2026-01', createdAt: '', updatedAt: '',
+      exchangeRates: { INR: 83, SGD: 1.34 },
+      categories: [{
+        id: 'c1', name: 'Cash', type: 'asset', icon: '💰', isLiquid: true, isInvestable: true,
+        items: [
+          { id: 'i1', name: 'Included', amount: 1000, currency: 'SGD' },
+          { id: 'i2', name: 'Excluded', amount: 500, currency: 'EUR', excludeFromNetWorth: true },
+        ],
+      }],
+    };
+    const rows = buildExchangeRateRows(snap, 'INR');
+    expect(rows.map(r => r['Currency'])).toEqual(['SGD']); // EUR excluded
+  });
+
+  it('deduplicates currencies used in multiple items', () => {
+    const snap: Snapshot = {
+      id: 's1', month: '2026-01', createdAt: '', updatedAt: '',
+      exchangeRates: { INR: 83, SGD: 1.34 },
+      categories: [{
+        id: 'c1', name: 'Cash', type: 'asset', icon: '💰', isLiquid: true, isInvestable: true,
+        items: [
+          { id: 'i1', name: 'A', amount: 1000, currency: 'SGD' },
+          { id: 'i2', name: 'B', amount: 500, currency: 'SGD' },
+        ],
+      }],
+    };
+    const rows = buildExchangeRateRows(snap, 'INR');
+    expect(rows).toHaveLength(1); // SGD appears once
   });
 });

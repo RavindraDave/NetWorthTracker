@@ -8,6 +8,7 @@ import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/
 import { ViewMode, BackupData } from '../types';
 import { useCloudSync, SyncConflictState, PullOutcome } from './useCloudSync';
 import { RATE_ANCHOR } from '../utils/calculations';
+import { migrateToAnchorRates } from '../utils/ratesMigration';
 
 export type { SyncConflictState, PullOutcome };
 
@@ -19,36 +20,6 @@ function normalizeRates(snap: Snapshot): Snapshot {
   return { ...snap, exchangeRates: rates };
 }
 
-/**
- * One-time migration from old base-relative rates ("1 foreign = X base") to
- * anchor-relative rates ("1 USD = X currency"). Detected by absence of ratesAnchor.
- *
- * Migration formula (example, INR base):
- *   old { USD: 83, SGD: 62 }  →  new { INR: 83, SGD: 83/62≈1.34 }
- */
-function migrateToAnchorRates(snap: Snapshot, baseCurrency: string): Snapshot {
-  if (snap.ratesAnchor === RATE_ANCHOR) return snap; // already migrated
-
-  const oldRates = snap.exchangeRates;
-  const usdToBase = oldRates[RATE_ANCHOR]; // old "1 USD = usdToBase base"
-
-  if (!usdToBase || usdToBase <= 0) {
-    // Can't derive anchor rates without a USD reference — clear so MissingRateBanner fires
-    return { ...snap, exchangeRates: {}, ratesAnchor: RATE_ANCHOR };
-  }
-
-  const newRates: Record<string, number> = {};
-  newRates[baseCurrency] = usdToBase; // "1 USD = usdToBase baseCurrency"
-
-  for (const [currency, oldRate] of Object.entries(oldRates)) {
-    if (currency === RATE_ANCHOR || currency === baseCurrency) continue;
-    if (oldRate > 0) {
-      newRates[currency] = usdToBase / oldRate; // "1 USD = usdToBase/oldRate currency"
-    }
-  }
-
-  return { ...snap, exchangeRates: newRates, ratesAnchor: RATE_ANCHOR };
-}
 
 function rehydrateFlags(snaps: Snapshot[], templates: CategoryTemplate[]): Snapshot[] {
   if (!templates.length) return snaps;

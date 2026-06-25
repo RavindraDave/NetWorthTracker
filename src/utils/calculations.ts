@@ -6,7 +6,7 @@ import { Snapshot, Category, ViewMode } from '../types';
  */
 export const RATE_ANCHOR = 'USD';
 
-function anchorRate(currency: string, exchangeRates: Record<string, number>): number {
+export function anchorRate(currency: string, exchangeRates: Record<string, number>): number {
   if (currency === RATE_ANCHOR) return 1;
   const rate = exchangeRates[currency];
   if (!rate || rate <= 0) return 0; // 0 signals missing rate to caller

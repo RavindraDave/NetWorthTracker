@@ -1,6 +1,6 @@
 import { Snapshot, Goal, UserPreferences, BackupData } from '../types';
 import * as XLSX from 'xlsx';
-import { calcNetWorth, convertToBase, calcSavingsRate, RATE_ANCHOR } from './calculations';
+import { calcNetWorth, convertToBase, calcSavingsRate, anchorRate } from './calculations';
 import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
 
 /**
@@ -107,7 +107,7 @@ export function exportSnapshotToCSV(snapshot: Snapshot) {
 export type ExcelRow = Record<string, string | number | boolean | undefined>;
 
 /** Build exchange rate rows for foreign currencies actually used in a snapshot. */
-function buildExchangeRateRows(snapshot: Snapshot, baseCurrency: string): ExcelRow[] {
+export function buildExchangeRateRows(snapshot: Snapshot, baseCurrency: string): ExcelRow[] {
   const usedCurrencies = Array.from(
     new Set(
       snapshot.categories.flatMap(cat =>
@@ -125,12 +125,10 @@ function buildExchangeRateRows(snapshot: Snapshot, baseCurrency: string): ExcelR
     : '';
 
   const rates = snapshot.exchangeRates ?? {};
-  const baseAnchorRate = baseCurrency === RATE_ANCHOR ? 1 : (rates[baseCurrency] ?? 0);
+  const baseRate = anchorRate(baseCurrency, rates);
   return usedCurrencies.map(currency => {
-    const currencyAnchorRate = currency === RATE_ANCHOR ? 1 : (rates[currency] ?? 0);
-    const displayRate = baseAnchorRate > 0 && currencyAnchorRate > 0
-      ? baseAnchorRate / currencyAnchorRate
-      : undefined;
+    const currRate = anchorRate(currency, rates);
+    const displayRate = baseRate > 0 && currRate > 0 ? baseRate / currRate : undefined;
     return {
       'Currency': currency,
       [`Rate (1 ${currency} → ${baseCurrency})`]: displayRate,

@@ -1,5 +1,5 @@
 import { Snapshot, UserPreferences } from '../types';
-import { calcNetWorth, convertToBase, calcSavingsRate, RATE_ANCHOR } from './calculations';
+import { calcNetWorth, convertToBase, calcSavingsRate, anchorRate } from './calculations';
 import { resolveNumberLocale, formatCurrency } from './currencies';
 
 /** Format a summary/aggregate amount — whole numbers, no cents. */
@@ -122,12 +122,10 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
       : null;
 
     const rates = snapshot.exchangeRates ?? {};
-    const baseAnchorRate = baseCurrency === RATE_ANCHOR ? 1 : (rates[baseCurrency] ?? 0);
+    const baseRate = anchorRate(baseCurrency, rates);
     const rateRows = usedForeignCurrencies.map(currency => {
-      const currencyAnchorRate = currency === RATE_ANCHOR ? 1 : (rates[currency] ?? 0);
-      const displayRate = baseAnchorRate > 0 && currencyAnchorRate > 0
-        ? baseAnchorRate / currencyAnchorRate
-        : 0;
+      const currRate = anchorRate(currency, rates);
+      const displayRate = baseRate > 0 && currRate > 0 ? baseRate / currRate : 0;
       const rateStr = displayRate > 0
         ? formatCurrency(displayRate, baseCurrency, { locale, precision: 4 })
         : '<span style="color:#dc2626;">Not set (treated as 1:1)</span>';
