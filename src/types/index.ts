@@ -123,14 +123,24 @@ export interface AutoBackupRecord {
   preferences: UserPreferences;
 }
 
+export type ViewMode = 'overall' | 'liquid' | 'investable';
+
+export interface BackupData {
+  version: number;
+  exportDate: string;
+  snapshots: Snapshot[];
+  goals: Goal[];
+  preferences: UserPreferences;
+}
+
 export interface CloudSyncConfig {
   provider: 'google' | null;
   enabled: boolean;
-  clientId?: string;       // stored when user enters it via Settings UI
+  clientId?: string | null;
   lastSyncISO?: string;
   lastError?: string;
   encryptionEnabled?: boolean;
-  syncMode?: 'merge' | 'override'; // default 'merge'
+  syncMode?: 'merge' | 'override';
 }
 
 export interface UserPreferences {

@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { useToast } from '../components/common/Toast';
+import { useAppBase } from '../hooks/useAppBase';
 import { SnapshotCompare } from '../components/history/SnapshotCompare';
 import { calcNetWorth } from '../utils/calculations';
 import { resolveNumberLocale } from '../utils/currencies';
@@ -21,10 +20,8 @@ function yoyMonth(month: string): string {
 }
 
 export const History: React.FC = () => {
-  const { snapshots, deleteSnapshot, preferences, goals } = useApp();
-  const { confirm } = useToast();
+  const { snapshots, deleteSnapshot, preferences, goals, confirm, baseCurrency } = useAppBase();
   const navigate = useNavigate();
-  const baseCurrency = preferences?.baseCurrency || 'INR';
   const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -56,12 +53,19 @@ export const History: React.FC = () => {
     return true;
   }), [sortedSnapshots, filterFrom, filterTo, searchText]);
 
+  // Pre-compute all breakdowns once — avoids repeated calcNetWorth inside the render loop
+  const breakdownMap = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof calcNetWorth>>();
+    for (const s of snapshots) m.set(s.id, calcNetWorth(s, baseCurrency, 'overall'));
+    return m;
+  }, [snapshots, baseCurrency]);
+
   // Chart data (chronological)
   const chartData = useMemo(() => chronological.map(s => ({
     month: s.month,
     label: new Date(s.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-    nw: calcNetWorth(s, baseCurrency).netWorth,
-  })), [chronological, baseCurrency]);
+    nw: breakdownMap.get(s.id)?.netWorth ?? 0,
+  })), [chronological, breakdownMap]);
 
   // FIRE goal target line
   const fireTarget = useMemo(() => {
@@ -72,14 +76,13 @@ export const History: React.FC = () => {
   // MoM change map
   const changeMap = useMemo(() => {
     const map = new Map<string, number>();
-    for (let i = 0; i < chronological.length; i++) {
-      if (i === 0) continue;
-      const curr = calcNetWorth(chronological[i], baseCurrency).netWorth;
-      const prev = calcNetWorth(chronological[i - 1], baseCurrency).netWorth;
+    for (let i = 1; i < chronological.length; i++) {
+      const curr = (breakdownMap.get(chronological[i].id)?.netWorth) ?? 0;
+      const prev = (breakdownMap.get(chronological[i - 1].id)?.netWorth) ?? 0;
       map.set(chronological[i].id, curr - prev);
     }
     return map;
-  }, [chronological, baseCurrency]);
+  }, [chronological, breakdownMap]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -216,7 +219,7 @@ export const History: React.FC = () => {
       {/* Snapshot List */}
       <div className="hist-list">
         {filtered.map(snap => {
-          const breakdown = calcNetWorth(snap, baseCurrency, 'overall');
+          const breakdown = breakdownMap.get(snap.id) ?? { netWorth: 0, totalAssets: 0, totalLiabilities: 0, categoryTotals: {} };
           const change = changeMap.get(snap.id) ?? null;
           const isPos = (change ?? 0) >= 0;
           const isExpanded = expandedId === snap.id;
@@ -287,12 +290,8 @@ export const History: React.FC = () => {
                     {snap.categories
                       .filter(c => c.items.length > 0)
                       .map(cat => {
-                        const catTotal = calcNetWorth({ ...snap, categories: [cat] }, baseCurrency);
-                        const val = cat.type === 'asset' ? catTotal.totalAssets : catTotal.totalLiabilities;
-                        const maxVal = Math.max(...snap.categories.map(c => {
-                          const ct = calcNetWorth({ ...snap, categories: [c] }, baseCurrency);
-                          return c.type === 'asset' ? ct.totalAssets : ct.totalLiabilities;
-                        }));
+                        const val = breakdown.categoryTotals[cat.id] ?? 0;
+                        const maxVal = Math.max(0, ...snap.categories.map(c => breakdown.categoryTotals[c.id] ?? 0));
                         const pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
                         return (
                           <div key={cat.id} className="hist-cat-row">

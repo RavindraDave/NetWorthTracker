@@ -3,6 +3,8 @@ import { AlertTriangle, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { exportToJSON, downloadFile } from '../../utils/importExport';
 import { daysSinceISO, staleThresholdDays } from '../../utils/autoBackup';
+import { Banner } from './Banner';
+import { TEXT } from './theme';
 
 const MAX_SNOOZE_MS = 40 * 24 * 60 * 60 * 1000; // beyond the longest stale threshold (35 days) — reject tampered far-future dates
 
@@ -39,32 +41,24 @@ export const StaleBackupBanner: React.FC = () => {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.75rem',
-      padding: '0.65rem 1rem',
-      marginBottom: '1rem',
-      borderRadius: 'var(--radius-md)',
-      background: 'color-mix(in srgb, var(--accent-yellow, #f59e0b) 12%, transparent)',
-      border: '1px solid color-mix(in srgb, var(--accent-yellow, #f59e0b) 40%, transparent)',
-      flexWrap: 'wrap',
-    }}>
-      <AlertTriangle size={16} style={{ color: 'var(--accent-yellow, #f59e0b)', flexShrink: 0 }} />
-      <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-        Your last backup was {preferences.autoBackup?.lastRunISO
-          ? `${daysSinceBackup} days ago`
-          : 'never'
-        }. Back up your data to keep it safe.
-      </span>
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-        <button className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={handleBackupNow}>
-          Back up now
-        </button>
-        <button className="btn-icon" aria-label="Dismiss reminder" title="Dismiss reminder" onClick={handleSnooze}>
-          <X size={14} />
-        </button>
-      </div>
-    </div>
+    <Banner
+      variant="warning"
+      icon={<AlertTriangle size={16} />}
+      actions={
+        <>
+          <button className="btn btn-outline" style={{ fontSize: TEXT.base, padding: '0.3rem 0.7rem' }} onClick={handleBackupNow}>
+            Back up now
+          </button>
+          <button className="btn-icon" aria-label="Dismiss reminder" title="Dismiss reminder" onClick={handleSnooze}>
+            <X size={14} />
+          </button>
+        </>
+      }
+    >
+      Your last backup was {preferences.autoBackup?.lastRunISO
+        ? `${daysSinceBackup} days ago`
+        : 'never'
+      }. Back up your data to keep it safe.
+    </Banner>
   );
 };

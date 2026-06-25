@@ -6,6 +6,7 @@ import { X, Plus, Trash2, EyeOff, ShieldCheck } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
+import { resolveNumberLocale } from '../../utils/currencies';
 import './GoalEditor.css';
 
 interface GoalEditorProps {
@@ -16,6 +17,7 @@ interface GoalEditorProps {
 export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => {
   const { saveGoal, preferences, currentSnapshot } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
+  const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
 
   const [type, setType] = useState<GoalType>(editGoal?.type ?? 'fire');
   const [name, setName] = useState(editGoal?.name ?? '');
@@ -45,13 +47,13 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
 
   const assetCategories = currentSnapshot?.categories.filter(c => c.type === 'asset') ?? [];
 
-  const targetAmountInput = useDecimalInput({ value: targetAmount, onCommit: setTargetAmount, precision: 2, min: 0 });
-  const annualExpensesInput = useDecimalInput({ value: annualExpenses, onCommit: setAnnualExpenses, precision: 2, min: 0 });
-  const multiplierInput = useDecimalInput({ value: multiplier, onCommit: setMultiplier, precision: 0, min: 1 });
-  const expectedReturnInput = useDecimalInput({ value: expectedReturn, onCommit: setExpectedReturn, precision: 2, min: 0 });
-  const inflationRateInput = useDecimalInput({ value: inflationRate, onCommit: setInflationRate, precision: 2, min: 0 });
-  const annualSavingsGrowthInput = useDecimalInput({ value: annualSavingsGrowth, onCommit: setAnnualSavingsGrowth, precision: 2, min: 0 });
-  const milestonAmountInput = useDecimalInput({ value: newMilestoneAmount, onCommit: setNewMilestoneAmount, precision: 2, min: 0, blankZero: true });
+  const targetAmountInput = useDecimalInput({ value: targetAmount, onCommit: setTargetAmount, precision: 2, min: 0, locale });
+  const annualExpensesInput = useDecimalInput({ value: annualExpenses, onCommit: setAnnualExpenses, precision: 2, min: 0, locale });
+  const multiplierInput = useDecimalInput({ value: multiplier, onCommit: setMultiplier, precision: 0, min: 1, locale });
+  const expectedReturnInput = useDecimalInput({ value: expectedReturn, onCommit: setExpectedReturn, precision: 2, min: 0, locale });
+  const inflationRateInput = useDecimalInput({ value: inflationRate, onCommit: setInflationRate, precision: 2, min: 0, locale });
+  const annualSavingsGrowthInput = useDecimalInput({ value: annualSavingsGrowth, onCommit: setAnnualSavingsGrowth, precision: 2, min: 0, locale });
+  const milestonAmountInput = useDecimalInput({ value: newMilestoneAmount, onCommit: setNewMilestoneAmount, precision: 2, min: 0, blankZero: true, locale });
 
   const handleAddMilestone = () => {
     if (!newMilestoneLabel.trim() || newMilestoneAmount <= 0) return;

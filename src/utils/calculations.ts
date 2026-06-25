@@ -1,4 +1,4 @@
-import { Snapshot, Category } from '../types';
+import { Snapshot, Category, ViewMode } from '../types';
 
 /**
  * Convert a single line item's amount to the base currency.
@@ -52,8 +52,6 @@ export function getMissingRateCurrencies(snapshot: Snapshot, baseCurrency: strin
 
   return Array.from(missing);
 }
-
-export type ViewMode = 'overall' | 'liquid' | 'investable';
 
 /**
  * Filter categories by view mode.
@@ -275,4 +273,10 @@ export function calcMonthChange(
   const change = curr - prev;
   const changePercent = prev !== 0 ? (change / Math.abs(prev)) * 100 : 0;
   return { change, changePercent };
+}
+
+/** Savings rate as a percentage (0–100). Returns 0 when income is zero or negative. */
+export function calcSavingsRate(income: number, expenses: number): number {
+  if (income <= 0) return 0;
+  return ((income - expenses) / income) * 100;
 }

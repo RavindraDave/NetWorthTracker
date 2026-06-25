@@ -3,6 +3,8 @@ import { Calendar, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from './Toast';
+import { Banner } from './Banner';
+import { TEXT } from './theme';
 
 const SNOOZE_DAYS = 7;
 const SNOOZE_KEY = 'wealthpulse_missingSnapshotSnoozeUntil';
@@ -50,38 +52,25 @@ export const MissingSnapshotBanner: React.FC = () => {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.75rem',
-      padding: '0.65rem 1rem',
-      marginBottom: '1rem',
-      borderRadius: 'var(--radius-md)',
-      background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
-      border: '1px solid color-mix(in srgb, var(--accent) 40%, transparent)',
-      flexWrap: 'wrap',
-    }}>
-      <Calendar size={16} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
-      <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-        You haven't recorded your net worth for <strong>{displayMonth}</strong> yet.
-      </span>
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-        <button
-          className="btn btn-outline"
-          style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
-          onClick={handleCreate}
-        >
-          Create snapshot
-        </button>
-        <button
-          className="btn-icon"
-          aria-label="Dismiss for 7 days"
-          title="Dismiss for 7 days"
-          onClick={handleSnooze}
-        >
-          <X size={14} />
-        </button>
-      </div>
-    </div>
+    <Banner
+      variant="info"
+      icon={<Calendar size={16} />}
+      actions={
+        <>
+          <button
+            className="btn btn-outline"
+            style={{ fontSize: TEXT.base, padding: '0.3rem 0.7rem' }}
+            onClick={handleCreate}
+          >
+            Create snapshot
+          </button>
+          <button className="btn-icon" aria-label="Dismiss for 7 days" title="Dismiss for 7 days" onClick={handleSnooze}>
+            <X size={14} />
+          </button>
+        </>
+      }
+    >
+      You haven't recorded your net worth for <strong>{displayMonth}</strong> yet.
+    </Banner>
   );
 };

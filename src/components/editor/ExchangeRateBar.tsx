@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { fetchLiveRates } from '../../utils/exchangeRates';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
+import { resolveNumberLocale } from '../../utils/currencies';
 import { RefreshCw, CheckCircle2, AlertTriangle, Clock, Wifi } from 'lucide-react';
 import './ExchangeRateBar.css';
 
@@ -36,14 +37,16 @@ interface RateInputProps {
   rate: number;
   onChange: (currency: string, rate: number) => void;
   needsManual: boolean;
+  locale: string;
 }
 
-const RateInput: React.FC<RateInputProps> = ({ currency, rate, onChange, needsManual }) => {
+const RateInput: React.FC<RateInputProps> = ({ currency, rate, onChange, needsManual, locale }) => {
   const { inputProps } = useDecimalInput({
     value: rate,
     onCommit: (next) => { if (next > 0) onChange(currency, next); },
     precision: 5,
     min: 0,
+    locale,
   });
 
   return (
@@ -73,6 +76,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
   const { preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const enabledCurrencies = preferences?.enabledCurrencies || ['INR', 'USD', 'EUR', 'GBP', 'SGD'];
+  const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
 
   const [fetchState, setFetchState] = useState<FetchState>('idle');
   const [fetchMessage, setFetchMessage] = useState('');
@@ -201,6 +205,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
             rate={rates[currency] ?? 0}
             onChange={onChange}
             needsManual={unavailable.includes(currency)}
+            locale={locale}
           />
         ))}
       </div>

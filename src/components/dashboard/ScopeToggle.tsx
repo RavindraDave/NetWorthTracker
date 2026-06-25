@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { ViewMode } from '../../utils/calculations';
+import { ViewMode } from '../../types';
 import { InfoTooltip } from '../common/InfoTooltip';
 import './ScopeToggle.css';
 

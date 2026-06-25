@@ -7,8 +7,7 @@ import { PerformanceChart } from '../components/dashboard/PerformanceChart';
 import { DonutChart } from '../components/dashboard/DonutChart';
 import { LedgerActivity } from '../components/dashboard/LedgerActivity';
 import { GoalCard } from '../components/goals/GoalCard';
-import { useApp } from '../context/AppContext';
-import { useToast } from '../components/common/Toast';
+import { useAppBase } from '../hooks/useAppBase';
 import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
 import { MissingSnapshotBanner } from '../components/common/MissingSnapshotBanner';
 import { MissingRateBanner } from '../components/common/MissingRateBanner';
@@ -18,10 +17,8 @@ import { printSnapshotReport } from '../utils/printReport';
 import './Dashboard.css';
 
 export const Dashboard: React.FC = () => {
-  const { currentSnapshot, createNewSnapshot, cloneLatestSnapshot, saveSnapshot, snapshots, goals, preferences } = useApp();
-  const { error: toastError } = useToast();
+  const { currentSnapshot, createNewSnapshot, cloneLatestSnapshot, saveSnapshot, snapshots, goals, preferences, error: toastError, baseCurrency } = useAppBase();
   const navigate = useNavigate();
-  const baseCurrency = preferences?.baseCurrency || 'INR';
 
   const handleCreateSnapshot = async () => {
     const snap = snapshots.length > 0 ? cloneLatestSnapshot() : createNewSnapshot();

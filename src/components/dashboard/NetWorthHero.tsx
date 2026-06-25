@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { calcNetWorth, calcMonthChange } from '../../utils/calculations';
+import { calcNetWorth, calcMonthChange, calcSavingsRate } from '../../utils/calculations';
 import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { ScopeToggle } from './ScopeToggle';
@@ -59,8 +59,7 @@ export const NetWorthHero: React.FC = () => {
   const savingsRate = useMemo(() => {
     const income = currentSnapshot?.monthlyIncome ?? 0;
     if (income <= 0) return null;
-    const expenses = currentSnapshot?.monthlyExpenses ?? 0;
-    return ((income - expenses) / income) * 100;
+    return calcSavingsRate(income, currentSnapshot?.monthlyExpenses ?? 0);
   }, [currentSnapshot?.monthlyIncome, currentSnapshot?.monthlyExpenses]);
 
   const fireMetrics = useMemo(() => {

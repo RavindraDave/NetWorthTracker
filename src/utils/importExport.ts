@@ -1,15 +1,7 @@
-import { Snapshot, Goal, UserPreferences } from '../types';
+import { Snapshot, Goal, UserPreferences, BackupData } from '../types';
 import * as XLSX from 'xlsx';
-import { calcNetWorth, convertToBase } from './calculations';
+import { calcNetWorth, convertToBase, calcSavingsRate } from './calculations';
 import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
-
-export interface BackupData {
-  version: number;
-  exportDate: string;
-  snapshots: Snapshot[];
-  goals: Goal[];
-  preferences: UserPreferences;
-}
 
 /**
  * Generates a JSON string representing the full state of the user's data.
@@ -188,7 +180,7 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
     const income = snap.monthlyIncome ?? 0;
     const expenses = snap.monthlyExpenses ?? 0;
     const savings = income - expenses;
-    const savingsRate = income > 0 ? parseFloat((savings / income * 100).toFixed(1)) : 0;
+    const savingsRate = parseFloat(calcSavingsRate(income, expenses).toFixed(1));
     return {
       'Month': snap.month,
       [`Total Assets (${baseCurrency})`]: Math.round(totalAssets),

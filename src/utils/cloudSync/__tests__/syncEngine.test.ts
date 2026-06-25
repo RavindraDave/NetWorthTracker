@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mergeBackups, applyResolutions } from '../syncEngine';
-import { BackupData } from '../../importExport';
-import { Snapshot, Goal, UserPreferences } from '../../../types';
+import { Snapshot, Goal, UserPreferences, BackupData } from '../../../types';
 
 const PREFS: UserPreferences = {
   baseCurrency: 'INR',
