@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { Layout } from './components/layout/Layout';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './components/common/Toast';
@@ -72,6 +73,7 @@ function App() {
           <SnapshotReminderManager />
           <SyncConflictManager />
           <RouterProvider router={router} />
+          <Analytics />
         </ToastProvider>
       </AppProvider>
     </ErrorBoundary>
