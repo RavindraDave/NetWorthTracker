@@ -106,10 +106,39 @@ export function exportSnapshotToCSV(snapshot: Snapshot) {
 
 export type ExcelRow = Record<string, string | number | boolean | undefined>;
 
+/** Build exchange rate rows for foreign currencies actually used in a snapshot. */
+function buildExchangeRateRows(snapshot: Snapshot, baseCurrency: string): ExcelRow[] {
+  const usedCurrencies = Array.from(
+    new Set(
+      snapshot.categories.flatMap(cat =>
+        cat.items
+          .filter(i => !i.excludeFromNetWorth && i.currency !== baseCurrency)
+          .map(i => i.currency)
+      )
+    )
+  ).sort();
+
+  if (usedCurrencies.length === 0) return [];
+
+  const asOf = snapshot.ratesLastUpdated
+    ? new Date(snapshot.ratesLastUpdated).toISOString().split('T')[0]
+    : '';
+
+  return usedCurrencies.map(currency => {
+    const rate = snapshot.exchangeRates?.[currency];
+    return {
+      'Currency': currency,
+      [`Rate (1 ${currency} → ${baseCurrency})`]: rate != null && rate > 0 ? rate : undefined,
+      'Rates As Of': asOf,
+    };
+  });
+}
+
 /**
- * Export a single snapshot to a two-sheet Excel workbook.
+ * Export a single snapshot to a three-sheet Excel workbook.
  * Sheet "Items": one row per line item with base-currency values.
  * Sheet "Summary": category totals + grand totals.
+ * Sheet "Exchange Rates": rates used for currency conversion.
  */
 export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string): void {
   const { categoryTotals, totalAssets, totalLiabilities, netWorth } = calcNetWorth(snapshot, baseCurrency);
@@ -162,6 +191,13 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
   const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
+  // --- Sheet 3: Exchange Rates ---
+  const rateRows = buildExchangeRateRows(snapshot, baseCurrency);
+  if (rateRows.length > 0) {
+    const wsRates = XLSX.utils.json_to_sheet(rateRows);
+    XLSX.utils.book_append_sheet(wb, wsRates, 'Exchange Rates');
+  }
+
   XLSX.writeFile(wb, `snapshot-${snapshot.month}.xlsx`);
 }
 
@@ -195,6 +231,16 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
   });
   const wsHistory = XLSX.utils.json_to_sheet(historyRows);
   XLSX.utils.book_append_sheet(wb, wsHistory, 'Net Worth History');
+
+  // --- Sheet: Exchange Rates (all snapshots, one row per currency per month) ---
+  const allRateRows: ExcelRow[] = sorted.flatMap(snap => {
+    const rows = buildExchangeRateRows(snap, baseCurrency);
+    return rows.map(r => ({ 'Month': snap.month, ...r }));
+  });
+  if (allRateRows.length > 0) {
+    const wsRates = XLSX.utils.json_to_sheet(allRateRows);
+    XLSX.utils.book_append_sheet(wb, wsRates, 'Exchange Rates');
+  }
 
   // --- Sheet: Returns (per-account annualised return, latest snapshot) ---
   // Built from the most recent snapshot so the RM sees current values. Only
