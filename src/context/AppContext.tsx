@@ -7,6 +7,8 @@ import { recordAutoBackup, listAutoBackups, deleteAutoBackup } from '../utils/au
 import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { ViewMode, BackupData } from '../types';
 import { useCloudSync, SyncConflictState, PullOutcome } from './useCloudSync';
+import { RATE_ANCHOR } from '../utils/calculations';
+import { migrateToAnchorRates } from '../utils/ratesMigration';
 
 export type { SyncConflictState, PullOutcome };
 
@@ -17,6 +19,7 @@ function normalizeRates(snap: Snapshot): Snapshot {
   }
   return { ...snap, exchangeRates: rates };
 }
+
 
 function rehydrateFlags(snaps: Snapshot[], templates: CategoryTemplate[]): Snapshot[] {
   if (!templates.length) return snaps;
@@ -107,9 +110,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await db.preferences.put({ ...finalPrefs, id: 1 } as UserPreferencesRecord);
       }
       setPreferences(finalPrefs);
+      const baseCurrency = finalPrefs?.baseCurrency ?? 'INR';
+      const normalizedSnaps = snaps.map(s => migrateToAnchorRates(normalizeRates(s), baseCurrency));
+      const toSave = normalizedSnaps.filter((s, i) => s.ratesAnchor !== snaps[i].ratesAnchor);
+      if (toSave.length > 0) await db.snapshots.bulkPut(toSave);
       const rehydrated = finalPrefs?.categoryTemplates
-        ? rehydrateFlags(snaps.map(normalizeRates), finalPrefs.categoryTemplates)
-        : snaps.map(normalizeRates);
+        ? rehydrateFlags(normalizedSnaps, finalPrefs.categoryTemplates)
+        : normalizedSnaps;
       setSnapshots(rehydrated);
     } finally {
       setIsLoading(false);
@@ -282,7 +289,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       month,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
-      exchangeRates: { USD: 83, SGD: 62, EUR: 90, GBP: 105, AED: 22.6, AUD: 54 },
+      exchangeRates: currentSnapshot?.exchangeRates ?? {},
+      ratesLastUpdated: currentSnapshot?.ratesLastUpdated,
+      ratesAnchor: RATE_ANCHOR,
       categories,
     };
   };

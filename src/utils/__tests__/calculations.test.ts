@@ -9,6 +9,8 @@ import {
   calcMonthChange,
   getMissingRateCurrencies,
   calcSavingsRate,
+  anchorRate,
+  RATE_ANCHOR,
 } from '../calculations';
 import { Snapshot, Category, LineItem } from '../../types';
 
@@ -28,12 +30,13 @@ function makeCategory(overrides: Partial<Category> & { id: string; type: 'asset'
 }
 
 function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
+  // Anchor-relative rates: "1 USD = X currency"
   return {
     id: 's1',
     month: '2025-01',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    exchangeRates: { USD: 83, EUR: 90, SGD: 62 },
+    exchangeRates: { INR: 83, EUR: 0.92222, SGD: 1.33871 },
     categories: [],
     ...overrides,
   };
@@ -49,7 +52,8 @@ describe('convertToBase', () => {
   });
 
   it('converts using exchange rate', () => {
-    expect(convertToBase(100, 'USD', 'INR', { USD: 83 })).toBe(8300);
+    // Anchor-relative: { INR: 83 } means "1 USD = 83 INR"
+    expect(convertToBase(100, 'USD', 'INR', { INR: 83 })).toBe(8300);
   });
 
   it('falls back to 1:1 when rate is missing', () => {
@@ -65,11 +69,11 @@ describe('convertToBase', () => {
   });
 
   it('handles zero amount', () => {
-    expect(convertToBase(0, 'USD', 'INR', { USD: 83 })).toBe(0);
+    expect(convertToBase(0, 'USD', 'INR', { INR: 83 })).toBe(0);
   });
 
   it('handles decimal amounts correctly', () => {
-    expect(convertToBase(1.5, 'USD', 'INR', { USD: 83 })).toBeCloseTo(124.5);
+    expect(convertToBase(1.5, 'USD', 'INR', { INR: 83 })).toBeCloseTo(124.5);
   });
 });
 
@@ -87,7 +91,7 @@ describe('calcCategoryTotal', () => {
         { id: 'i2', name: 'B', amount: 100, currency: 'USD' },
       ],
     });
-    expect(calcCategoryTotal(cat, 'INR', { USD: 83 })).toBe(9300);
+    expect(calcCategoryTotal(cat, 'INR', { INR: 83 })).toBe(9300);
   });
 
   it('returns 0 for empty category', () => {
@@ -519,8 +523,9 @@ describe('calcSavingsRate', () => {
 
 describe('getMissingRateCurrencies', () => {
   it('returns empty array when all currencies have valid rates', () => {
+    // USD is the anchor — never flagged as missing regardless of exchangeRates
     const snap = makeSnapshot({
-      exchangeRates: { USD: 83 },
+      exchangeRates: { INR: 83 },
       categories: [
         makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'USD' })] }),
       ],
@@ -577,5 +582,117 @@ describe('getMissingRateCurrencies', () => {
       ],
     });
     expect(getMissingRateCurrencies(snap, 'INR')).toEqual(['EUR']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// anchorRate (exported helper)
+// ---------------------------------------------------------------------------
+
+describe('anchorRate', () => {
+  it('returns 1 for the anchor currency regardless of rates map', () => {
+    expect(anchorRate(RATE_ANCHOR, {})).toBe(1);
+    expect(anchorRate(RATE_ANCHOR, { USD: 99 })).toBe(1); // USD key is irrelevant
+  });
+
+  it('returns the stored rate for non-anchor currencies', () => {
+    expect(anchorRate('INR', { INR: 83 })).toBe(83);
+    expect(anchorRate('SGD', { SGD: 1.34 })).toBe(1.34);
+  });
+
+  it('returns 0 when rate is missing', () => {
+    expect(anchorRate('EUR', {})).toBe(0);
+  });
+
+  it('returns 0 when rate is zero', () => {
+    expect(anchorRate('EUR', { EUR: 0 })).toBe(0);
+  });
+
+  it('returns 0 when rate is negative', () => {
+    expect(anchorRate('EUR', { EUR: -1 })).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// convertToBase — anchor-relative cross-currency paths
+// ---------------------------------------------------------------------------
+
+describe('convertToBase — anchor-relative cross-currency', () => {
+  it('converts SGD → INR via anchor (the primary new formula path)', () => {
+    // rates: "1 USD = 83 INR, 1 USD = 1.34 SGD"
+    // expected: 1000 SGD * (83 INR/USD) / (1.34 SGD/USD) ≈ 61,940 INR
+    const rates = { INR: 83, SGD: 1.34 };
+    expect(convertToBase(1000, 'SGD', 'INR', rates)).toBeCloseTo(61940.3, 0);
+  });
+
+  it('converts INR → USD using anchor (toRate = 1)', () => {
+    // rates: "1 USD = 83 INR"
+    // expected: 1000 INR * 1 / 83 ≈ 12.05 USD
+    expect(convertToBase(1000, 'INR', 'USD', { INR: 83 })).toBeCloseTo(12.05, 1);
+  });
+
+  it('converts USD → INR using anchor (fromRate = 1)', () => {
+    // Verified in existing test; included here for explicit anchor semantics
+    expect(convertToBase(100, 'USD', 'INR', { INR: 83 })).toBe(8300);
+  });
+
+  it('converts EUR → SGD cross-rate', () => {
+    // rates: "1 USD = 0.92 EUR, 1 USD = 1.34 SGD"
+    // 100 EUR * (1.34 SGD/USD) / (0.92 EUR/USD) ≈ 145.65 SGD
+    const rates = { EUR: 0.92, SGD: 1.34 };
+    expect(convertToBase(100, 'EUR', 'SGD', rates)).toBeCloseTo(145.65, 1);
+  });
+
+  it('round-trips correctly: convert to base then back', () => {
+    const rates = { INR: 83, SGD: 1.34 };
+    const inr = convertToBase(1000, 'SGD', 'INR', rates);
+    const sgdBack = convertToBase(inr, 'INR', 'SGD', rates);
+    expect(sgdBack).toBeCloseTo(1000, 3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getMissingRateCurrencies — anchor / USD-as-base edge cases
+// ---------------------------------------------------------------------------
+
+describe('getMissingRateCurrencies — anchor edge cases', () => {
+  it('USD item is never flagged as missing (USD is the implicit anchor)', () => {
+    const snap = makeSnapshot({
+      exchangeRates: { INR: 83 }, // no USD key — correct anchor-relative format
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'USD' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'INR')).toEqual([]);
+  });
+
+  it('USD item is not flagged even with empty rates when base is USD', () => {
+    const snap = makeSnapshot({
+      exchangeRates: {},
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'USD' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'USD')).toEqual([]);
+  });
+
+  it('flags non-anchor foreign currency missing rate when base is USD', () => {
+    const snap = makeSnapshot({
+      exchangeRates: {}, // SGD rate not set
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'SGD' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'USD')).toEqual(['SGD']);
+  });
+
+  it('does not flag non-anchor currency that has a valid rate', () => {
+    const snap = makeSnapshot({
+      exchangeRates: { SGD: 1.34 },
+      categories: [
+        makeCategory({ id: 'c1', type: 'asset', items: [makeItem({ id: 'i1', name: 'A', amount: 100, currency: 'SGD' })] }),
+      ],
+    });
+    expect(getMissingRateCurrencies(snap, 'USD')).toEqual([]);
   });
 });

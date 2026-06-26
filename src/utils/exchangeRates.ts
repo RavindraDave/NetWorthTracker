@@ -2,13 +2,13 @@
  * Live exchange rate fetching utility.
  *
  * Primary:  open.er-api.com  — free, no API key, 161+ currencies, updated daily
- *           https://open.er-api.com/v6/latest/{base}
+ *           https://open.er-api.com/v6/latest/USD
  *
  * Fallback: api.frankfurter.app — ECB-backed, free, no API key, ~30 major currencies
- *           https://api.frankfurter.app/latest?from={base}&to={targets}
+ *           https://api.frankfurter.app/latest?from=USD&to={targets}
  *
- * The app stores exchangeRates as { USD: 83 } = "1 USD costs 83 INR" (1 foreign → X base).
- * Both APIs return "1 base = X foreign", so we invert each value before returning.
+ * The app stores rates in anchor-relative format: { INR: 83, SGD: 1.34 } = "1 USD = X currency".
+ * Both APIs return "1 USD = X foreign" when queried with USD as base — stored as-is, no inversion.
  */
 
 export interface FetchRatesResult {
@@ -19,6 +19,7 @@ export interface FetchRatesResult {
 }
 
 const FETCH_TIMEOUT_MS = 8000;
+const ANCHOR = 'USD';
 
 function withTimeout(promise: Promise<Response>): Promise<Response> {
   const timeout = new Promise<never>((_, reject) =>
@@ -28,26 +29,16 @@ function withTimeout(promise: Promise<Response>): Promise<Response> {
 }
 
 /**
- * Inverts a rate from "1 base = X foreign" to "1 foreign = X base".
- * Guards against division-by-zero.
- */
-function invertRate(rate: number): number {
-  return rate > 0 ? 1 / rate : 0;
-}
-
-/**
- * Fetches live rates for `targetCurrencies` against `baseCurrency`.
- * Tries Open Exchange Rates first; falls back to Frankfurter on failure.
+ * Fetches live rates for `targetCurrencies` against the USD anchor.
+ * Returned rates are in anchor format: { INR: 83, SGD: 1.34 } = "1 USD = X currency".
+ * No inversion is applied — the APIs return this format natively when queried from USD.
  *
- * @param baseCurrency  - ISO code for the user's base currency (e.g. "INR")
- * @param targetCurrencies - array of foreign ISO codes to fetch (e.g. ["USD", "SGD", "EUR"])
- * @returns FetchRatesResult
+ * Tries Open Exchange Rates first; falls back to Frankfurter on failure.
  */
-export async function fetchLiveRates(
-  baseCurrency: string,
+export async function fetchAnchorRates(
   targetCurrencies: string[]
 ): Promise<FetchRatesResult> {
-  const targets = targetCurrencies.filter(c => c !== baseCurrency);
+  const targets = targetCurrencies.filter(c => c !== ANCHOR);
   if (targets.length === 0) {
     return { rates: {}, source: 'open.er-api', updatedAt: new Date().toISOString(), unavailable: [] };
   }
@@ -55,7 +46,7 @@ export async function fetchLiveRates(
   // ── Primary: Open Exchange Rates (free, no key) ──────────────────────────
   try {
     const response = await withTimeout(
-      fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`)
+      fetch(`https://open.er-api.com/v6/latest/${ANCHOR}`)
     );
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -69,7 +60,7 @@ export async function fetchLiveRates(
     for (const currency of targets) {
       const raw = data.rates[currency];
       if (raw && raw > 0) {
-        rates[currency] = invertRate(raw);
+        rates[currency] = raw; // "1 USD = raw currency" — stored as-is
       } else {
         unavailable.push(currency);
       }
@@ -90,7 +81,7 @@ export async function fetchLiveRates(
   // ── Fallback: Frankfurter (ECB-backed, major currencies only) ────────────
   const targetList = targets.join(',');
   const response = await withTimeout(
-    fetch(`https://api.frankfurter.app/latest?from=${baseCurrency}&to=${targetList}`)
+    fetch(`https://api.frankfurter.app/latest?from=${ANCHOR}&to=${targetList}`)
   );
 
   if (!response.ok) {
@@ -108,9 +99,8 @@ export async function fetchLiveRates(
   for (const currency of targets) {
     const raw = data.rates?.[currency];
     if (raw && raw > 0) {
-      rates[currency] = invertRate(raw);
+      rates[currency] = raw; // "1 USD = raw currency" — stored as-is
     } else {
-      // Frankfurter doesn't cover all currencies (e.g. AED)
       unavailable.push(currency);
     }
   }

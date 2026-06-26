@@ -1,7 +1,21 @@
 import { Snapshot, Category, ViewMode } from '../types';
 
 /**
- * Convert a single line item's amount to the base currency.
+ * Fixed anchor currency. All exchange rates are stored as "1 USD = X currency".
+ * USD itself is never stored in exchangeRates (implicitly = 1).
+ */
+export const RATE_ANCHOR = 'USD';
+
+export function anchorRate(currency: string, exchangeRates: Record<string, number>): number {
+  if (currency === RATE_ANCHOR) return 1;
+  const rate = exchangeRates[currency];
+  if (!rate || rate <= 0) return 0; // 0 signals missing rate to caller
+  return rate;
+}
+
+/**
+ * Convert an amount from one currency to another using anchor-relative rates.
+ * rates["INR"] = 83 means "1 USD = 83 INR". USD is the implicit anchor (= 1).
  */
 export function convertToBase(
   amount: number,
@@ -10,12 +24,13 @@ export function convertToBase(
   exchangeRates: Record<string, number>
 ): number {
   if (currency === baseCurrency) return amount;
-  const rate = exchangeRates[currency];
-  if (!rate || rate <= 0) {
-    console.warn(`[WealthPulse] No valid exchange rate for ${currency} → ${baseCurrency}. Value may be inaccurate.`);
-    return amount; // fallback: treat as 1:1
+  const fromRate = anchorRate(currency, exchangeRates);
+  const toRate = anchorRate(baseCurrency, exchangeRates);
+  if (fromRate <= 0 || toRate <= 0) {
+    console.warn(`[WealthPulse] Missing anchor rate for ${fromRate <= 0 ? currency : baseCurrency}. Falling back to 1:1.`);
+    return amount;
   }
-  return amount * rate;
+  return amount * toRate / fromRate;
 }
 
 /**
@@ -45,6 +60,7 @@ export function getMissingRateCurrencies(snapshot: Snapshot, baseCurrency: strin
     for (const item of cat.items) {
       if (item.excludeFromNetWorth) continue;
       if (item.currency === baseCurrency) continue;
+      if (item.currency === RATE_ANCHOR) continue; // USD is the implicit anchor, always rate = 1
       const rate = exchangeRates[item.currency];
       if (!rate || rate <= 0) missing.add(item.currency);
     }

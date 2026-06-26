@@ -3,8 +3,9 @@ export interface Snapshot {
   month: string; // "YYYY-MM"
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
-  exchangeRates: Record<string, number>; // e.g., { "SGD": 72, "USD": 83 }
+  exchangeRates: Record<string, number>; // anchor-relative: { "INR": 83, "SGD": 1.34 } = "1 USD = X currency"
   ratesLastUpdated?: string; // ISO string — set when user refreshes or manually edits rates
+  ratesAnchor?: string; // migration sentinel — 'USD' once migrated to anchor-relative format
   categories: Category[];
   notes?: string;
   monthlyIncome?: number;
