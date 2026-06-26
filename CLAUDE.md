@@ -8,7 +8,7 @@ Three-phase data-loss protection (decided May 2026):
 
 **Phase 2 — shipped**: Opt-in Google Drive sync to `appDataFolder` (hidden per-app folder). Scope: `drive.appdata` only — cannot access user files. Auto-syncs after every save (5s debounce). Restore from Drive button in Settings and on empty Dashboard.
 
-**Phase 3 — deferred**: E2E-encrypted cloud sync (Actual Budget / Bitwarden pattern). Full design in `~/.claude/projects/-Users-ravindradave-Documents-Github-NetWorthTracker/memory/project_phase3_e2e_sync.md`. Build when multi-device zero-knowledge sync is required. Uses `window.crypto.subtle` (no deps), Supabase or PocketBase as backend, passphrase → PBKDF2 → AES-GCM-256.
+**Phase 3 — deferred**: E2E-encrypted cloud sync (Actual Budget / Bitwarden pattern). Full design in `.claude/memory/project_phase3_e2e_sync.md`. Build when multi-device zero-knowledge sync is required. Uses `window.crypto.subtle` (no deps), Supabase or PocketBase as backend, passphrase → PBKDF2 → AES-GCM-256.
 
 ## Notion documentation (permanent reference)
 
@@ -36,6 +36,14 @@ https://www.notion.so/37394476928181f9bdfbf3d90f86c155
   - **C4** FIRE scenario modeller ("what if" panel in `FIREDashboard`)
   - **D** E2E encrypted sync (Phase 3 deferred — prerequisite: B1 shipped first)
 
+## Session memory (available to all sessions)
+
+Persistent knowledge lives in `.claude/memory/` — always read these at session start:
+
+- `.claude/memory/decisions.md` — architecture and product decisions log
+- `.claude/memory/project_phase3_e2e_sync.md` — full E2E sync design (Phase 3)
+- `.claude/memory/ux-review-lessons.md` — UX/CX review lessons and process gaps
+
 ## Key files
 
 - `src/utils/storagePersist.ts` — `requestPersist`, `estimateStorage`, `formatBytes`
@@ -43,3 +51,4 @@ https://www.notion.so/37394476928181f9bdfbf3d90f86c155
 - `src/utils/cloudSync/google/drive.ts` — Drive `appDataFolder` REST helpers
 - `src/components/settings/CloudSyncCard.tsx` — Drive sync UI in Settings
 - `src/hooks/useAutoBackup.ts` — local auto-backup tick (extended to call cloud sync)
+- `src/utils/printReport.ts` — print report HTML generator (raw string, not React)
