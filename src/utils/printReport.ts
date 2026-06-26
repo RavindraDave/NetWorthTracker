@@ -56,10 +56,10 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
         const baseVal = convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates);
         return `
         <tr>
-          <td style="padding:5px 8px;color:#374151;">${escHtml(item.name)}</td>
+          <td style="padding:5px 8px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(item.name)}</td>
           <td style="padding:5px 8px;color:#6b7280;text-align:center;">${escHtml(item.currency)}</td>
-          <td style="padding:5px 8px;color:#374151;text-align:right;">${fmtItem(item.amount, item.currency, locale)}</td>
-          <td style="padding:5px 8px;color:#374151;text-align:right;">${fmtSummary(baseVal, baseCurrency, locale)}</td>
+          <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtItem(item.amount, item.currency, locale)}</td>
+          <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtSummary(baseVal, baseCurrency, locale)}</td>
         </tr>`;
       }).join('');
 
@@ -70,7 +70,13 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
           <span style="font-weight:600;color:#111827;">${fmtSummary(catTotal, baseCurrency, locale)}</span>
         </div>
         ${visibleItems.length > 0 ? `
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+          <colgroup>
+            <col style="width:50%;" />
+            <col style="width:10%;" />
+            <col style="width:20%;" />
+            <col style="width:20%;" />
+          </colgroup>
           <thead>
             <tr style="background:#f3f4f6;">
               <th style="padding:4px 8px;text-align:left;color:#6b7280;font-weight:500;">Item</th>
