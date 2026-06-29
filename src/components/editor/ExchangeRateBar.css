@@ -135,6 +135,12 @@
   color: #f59e0b;
 }
 
+.exchange-rate-bar__banner.neutral {
+  background: var(--surface-glass, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  color: var(--text-3);
+}
+
 /* ── Rate input grid ─────────────────────────────────────────────────────── */
 .exchange-rate-bar__grid {
   display: flex;

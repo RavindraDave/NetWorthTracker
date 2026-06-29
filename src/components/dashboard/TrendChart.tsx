@@ -89,9 +89,10 @@ export const TrendChart: React.FC = () => {
     );
   }
 
+  const monthsLabel = `last ${data.length} month${data.length === 1 ? '' : 's'}`;
   const subLabel = selectedCat
-    ? `${selectedCat.name} · last ${data.length} months`
-    : `Net worth (solid) · assets (dashed) · last ${data.length} months`;
+    ? `${selectedCat.name} · ${monthsLabel}`
+    : `Net worth (solid) · assets (dashed) · ${monthsLabel}`;
 
   return (
     <div className="wp-card chart-trend">

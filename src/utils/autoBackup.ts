@@ -1,7 +1,7 @@
 import { db } from '../db/database';
 import { AutoBackupRecord, Snapshot, Goal, UserPreferences, BackupCadence } from '../types';
 
-const MAX_BACKUPS = 30;
+const MAX_BACKUPS = 90;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

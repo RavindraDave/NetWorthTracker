@@ -9,6 +9,27 @@ import './Settings.css';
 
 type Section = 'preferences' | 'currencies' | 'categories' | 'data' | 'sync';
 
+/**
+ * Brand logo for the About card. The logo is served from an external CDN, which
+ * is unreachable when the app runs offline (it's an installable, local-first
+ * PWA). Fall back to a styled "R2D" monogram so the card never shows a broken
+ * image.
+ */
+const BrandLogo: React.FC = () => {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return <span className="settings-about-logo settings-about-logo--fallback" aria-label="R2DSolutions logo">R2D</span>;
+  }
+  return (
+    <img
+      src="https://extensions.r2dsolutions.com/logo.png"
+      alt="R2DSolutions logo"
+      className="settings-about-logo"
+      onError={() => setFailed(true)}
+    />
+  );
+};
+
 export const Settings: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>(() => {
     return (localStorage.getItem('settings-section') as Section) || 'preferences';
@@ -58,7 +79,7 @@ export const Settings: React.FC = () => {
 
           <div className="wp-card settings-about">
             <a href="https://r2dsolutions.com" target="_blank" rel="noopener noreferrer" className="settings-about-brand">
-              <img src="https://extensions.r2dsolutions.com/logo.png" alt="R2DSolutions logo" className="settings-about-logo" />
+              <BrandLogo />
               <div>
                 <div className="settings-about-name">R2DSolutions</div>
                 <div className="settings-about-tagline">Requirement to Development</div>

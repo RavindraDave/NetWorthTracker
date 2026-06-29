@@ -25,8 +25,9 @@ export const DriveRestoreButton: React.FC = () => {
   if (!isClientIdConfigured()) {
     return (
       <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.75rem' }}>
-        To restore from Google Drive, configure your Client ID in{' '}
-        <strong>Settings → Cloud Sync</strong> first.
+        Google Drive backup is optional — your data already lives safely on this
+        device. To also sync it to your own Drive, set it up in{' '}
+        <strong>Settings → Cloud Sync</strong>.
       </p>
     );
   }

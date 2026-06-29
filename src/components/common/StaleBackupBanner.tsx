@@ -23,6 +23,19 @@ export const StaleBackupBanner: React.FC = () => {
   if (snapshots.length === 0) return null;
   if (isSnoozed(preferences.staleBackupSnoozeUntil)) return null;
 
+  // Grace period for brand-new users: don't nag the moment the first snapshot is
+  // saved. Only prompt once there's history worth protecting — a 2nd snapshot, or
+  // 24h of use. (Only applies when they've never backed up; once they have, the
+  // normal cadence-based staleness logic below takes over.)
+  if (!preferences.autoBackup?.lastRunISO && snapshots.length < 2) {
+    const oldestISO = snapshots.reduce(
+      (min, s) => (s.createdAt < min ? s.createdAt : min),
+      snapshots[0].createdAt,
+    );
+    const hoursSinceFirst = (Date.now() - new Date(oldestISO).getTime()) / (60 * 60 * 1000);
+    if (Number.isFinite(hoursSinceFirst) && hoursSinceFirst < 24) return null;
+  }
+
   const daysSinceBackup = daysSinceISO(preferences.autoBackup?.lastRunISO);
   if (daysSinceBackup <= staleThresholdDays(preferences.autoBackup?.cadence)) return null;
 

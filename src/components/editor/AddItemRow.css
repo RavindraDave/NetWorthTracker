@@ -15,3 +15,30 @@
 .add-item-row .name-input:focus {
   border-style: solid;
 }
+
+.add-item-btn {
+  grid-area: delete;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--accent, #14b8a6);
+  background: var(--accent, #14b8a6);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.add-item-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.add-item-btn:disabled {
+  background: transparent;
+  border-color: var(--border, rgba(255, 255, 255, 0.12));
+  color: var(--text-3);
+  cursor: default;
+}
