@@ -7,7 +7,7 @@ import type { CloudProvider } from '../types';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
-const MAX_BACKUPS = 30;
+const MAX_BACKUPS = 90;
 const CANONICAL_FILENAME = 'wealthpulse-sync.json';
 
 async function authedFetch(url: string, options: RequestInit, retry = true): Promise<Response> {
