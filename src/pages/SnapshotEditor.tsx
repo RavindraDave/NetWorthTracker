@@ -227,6 +227,13 @@ export const SnapshotEditor: React.FC = () => {
     baseCurrency
   ).netWorth;
 
+  // Only surface exchange-rate prompts once the snapshot actually holds a
+  // non-base-currency item — a brand-new INR-only user shouldn't be greeted by
+  // a "set your USD rate first" error before entering any data.
+  const hasForeignItems = snapshot.categories.some(c =>
+    c.items.some(i => i.currency !== baseCurrency)
+  );
+
   const assets = snapshot.categories.filter(c => c.type === 'asset');
   const liabilities = snapshot.categories.filter(c => c.type === 'liability');
 
@@ -361,6 +368,7 @@ export const SnapshotEditor: React.FC = () => {
         ratesLastUpdated={snapshot.ratesLastUpdated}
         onChange={handleRateChange}
         onRatesRefreshed={handleRatesRefreshed}
+        hasForeignItems={hasForeignItems}
       />
 
       {/* Cash Flow (optional) */}
@@ -443,7 +451,10 @@ export const SnapshotEditor: React.FC = () => {
         </div>
         <div className="summ-sep" />
         <div className="summ-block">
-          <span className="summ-label">Goals NW</span>
+          <span className="summ-label">
+            Goals NW
+            <InfoTooltip body="Net worth counted toward your goals. Excludes any line items you've marked as excluded from goals (e.g. your primary home), so it can be lower than total net worth." />
+          </span>
           <span className="summ-val">
             <CurrencyDisplay amount={goalsNW} currency={baseCurrency} abbreviated />
           </span>

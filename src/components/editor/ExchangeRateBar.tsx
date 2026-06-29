@@ -14,6 +14,13 @@ interface ExchangeRateBarProps {
   ratesLastUpdated?: string;
   onChange: (currency: string, rate: number) => void;
   onRatesRefreshed: (rates: Record<string, number>, updatedAt: string) => void;
+  /**
+   * Whether the snapshot holds any non-base-currency line item. When false, the
+   * rate inputs stay available (for users who want to pre-set rates) but the
+   * "set a rate first" error/warning banners are suppressed — nothing needs a
+   * rate yet, so there's nothing to warn about.
+   */
+  hasForeignItems?: boolean;
 }
 
 function getStaleInfo(ratesLastUpdated?: string): { isStale: boolean; label: string } {
@@ -77,6 +84,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
   ratesLastUpdated,
   onChange,
   onRatesRefreshed,
+  hasForeignItems = true,
 }) => {
   const { preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency || 'INR';
@@ -161,10 +169,11 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         setFetchState('idle');
         setFetchMessage('');
       }, 5000);
-    } catch (err) {
+    } catch {
       setFetchState('error');
-      const msg = err instanceof Error ? err.message : 'Failed to fetch rates. Check your connection and try again.';
-      setFetchMessage(msg);
+      setFetchMessage(
+        `Couldn't reach the rate provider. Check your connection and retry, or enter rates manually below.`,
+      );
     }
   };
 
@@ -212,17 +221,23 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         </button>
       </div>
 
-      {missingBaseRate && !fetchMessage && (
+      {hasForeignItems && missingBaseRate && !fetchMessage && (
         <div className="exchange-rate-bar__banner error">
           <AlertTriangle size={13} />
           Enter the <strong>USD → {baseCurrency}</strong> rate first — it establishes the baseline for all other currencies. Or click <strong>Live Rates</strong>.
         </div>
       )}
 
-      {!missingBaseRate && zeroRateCurrencies.length > 0 && !fetchMessage && (
+      {hasForeignItems && !missingBaseRate && zeroRateCurrencies.length > 0 && !fetchMessage && (
         <div className="exchange-rate-bar__banner error">
           <AlertTriangle size={13} />
           <strong>{zeroRateCurrencies.join(', ')}</strong> {zeroRateCurrencies.length === 1 ? 'has' : 'have'} no exchange rate set — balances will be treated as {baseCurrency} (1:1). Enter rates manually or click <strong>Live Rates</strong>.
+        </div>
+      )}
+
+      {!hasForeignItems && !fetchMessage && (
+        <div className="exchange-rate-bar__banner neutral">
+          All amounts are in {baseCurrency}. Add a foreign-currency line item, or set rates here in advance.
         </div>
       )}
 
@@ -236,7 +251,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
         </div>
       )}
 
-      {isStale && !fetchMessage && !missingBaseRate && zeroRateCurrencies.length === 0 && (
+      {hasForeignItems && isStale && !fetchMessage && !missingBaseRate && zeroRateCurrencies.length === 0 && (
         <div className="exchange-rate-bar__banner stale-warning">
           <AlertTriangle size={13} />
           Rates may be outdated. Click <strong>Live Rates</strong> to auto-refresh from the market.
@@ -252,7 +267,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
             onChange={handleDisplayRateCommit}
             needsManual={unavailable.includes(currency)}
             locale={locale}
-            disabled={missingBaseRate && currency !== RATE_ANCHOR}
+            disabled={hasForeignItems && missingBaseRate && currency !== RATE_ANCHOR}
             disabledTitle={`Enter the USD → ${baseCurrency} rate first`}
           />
         ))}

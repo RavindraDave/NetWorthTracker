@@ -312,6 +312,17 @@
   border: 1px solid var(--border);
 }
 
+.settings-about-logo--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--accent-text, var(--text-1));
+  background: var(--surface-glass, rgba(255, 255, 255, 0.04));
+}
+
 .settings-about-name {
   font-size: 0.95rem;
   font-weight: 700;

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { LineItem } from '../../types';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
 import { useApp } from '../../context/AppContext';
@@ -85,6 +86,17 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
           onKeyDown={handleKeyDown}
           onBlur={() => { amountInput.inputProps.onBlur(); if (name.trim()) commit(); }}
         />
+
+        <button
+          type="button"
+          className="add-item-btn"
+          onClick={commit}
+          disabled={!name.trim()}
+          aria-label="Add item"
+          title="Add item"
+        >
+          <Plus size={16} />
+        </button>
       </div>
     </div>
   );
