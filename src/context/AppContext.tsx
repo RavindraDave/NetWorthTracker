@@ -9,6 +9,10 @@ import { ViewMode, BackupData } from '../types';
 import { useCloudSync, SyncConflictState, PullOutcome } from './useCloudSync';
 import { RATE_ANCHOR } from '../utils/calculations';
 import { migrateToAnchorRates } from '../utils/ratesMigration';
+import * as secureStore from '../utils/secureStore';
+import * as appLock from '../utils/appLock';
+import { getSessionDEK, setSessionDEK, lockSession } from '../utils/cloudSync/keyVault';
+import { setPassphrase } from '../utils/cloudSync/encryption';
 
 export type { SyncConflictState, PullOutcome };
 
@@ -60,6 +64,17 @@ interface AppContextType {
   resolveConflicts: (resolutions: Map<string, 'local' | 'remote'>) => Promise<void>;
   dismissSyncConflicts: () => void;
   isLoading: boolean;
+  // ── App lock ──
+  isLocked: boolean;
+  unlockWithPassphrase: (passphrase: string) => Promise<boolean>;
+  unlockWithDEK: (dek: string) => Promise<void>;
+  lockNow: () => void;
+  enableAppLock: (passphrase: string) => Promise<void>;
+  disableAppLock: () => Promise<void>;
+  changeAppLockPassphrase: (newPassphrase: string) => Promise<void>;
+  setRecoveryCode: (enabled: boolean) => Promise<string | null>;
+  setGoogleEscrow: (enabled: boolean) => Promise<void>;
+  setPasskey: (enabled: boolean) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -70,6 +85,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('overall');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   const snapshotsRef = useRef<Snapshot[]>([]);
   const goalsRef = useRef<Goal[]>([]);
@@ -89,12 +105,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       await initializePreferences();
-      const [snaps, gs, prefs] = await Promise.all([
-        db.snapshots.orderBy('month').toArray(),
-        db.goals.toArray(),
-        db.preferences.get(1),
-      ]);
-      setGoals(gs);
+      // Read preferences first: they hold the appLock config and stay plaintext, so we can
+      // decide whether to gate before any sensitive data is read into memory.
+      const prefs = await db.preferences.get(1);
 
       let finalPrefs = prefs ?? null;
       if (finalPrefs && !finalPrefs.categoryTemplates) {
@@ -110,10 +123,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await db.preferences.put({ ...finalPrefs, id: 1 } as UserPreferencesRecord);
       }
       setPreferences(finalPrefs);
+
+      // Gate: lock is enabled but no DEK in session → show the lock screen and load nothing.
+      if (finalPrefs?.appLock?.enabled && !getSessionDEK()) {
+        setSnapshots([]);
+        setGoals([]);
+        setIsLocked(true);
+        return;
+      }
+      setIsLocked(false);
+
+      const [snaps, gs] = await Promise.all([
+        secureStore.readSnapshots(),
+        secureStore.readGoals(),
+      ]);
+      setGoals(gs);
+
       const baseCurrency = finalPrefs?.baseCurrency ?? 'INR';
-      const normalizedSnaps = snaps.map(s => migrateToAnchorRates(normalizeRates(s), baseCurrency));
-      const toSave = normalizedSnaps.filter((s, i) => s.ratesAnchor !== snaps[i].ratesAnchor);
-      if (toSave.length > 0) await db.snapshots.bulkPut(toSave);
+      const sorted = [...snaps].sort((a, b) => a.month.localeCompare(b.month));
+      const normalizedSnaps = sorted.map(s => migrateToAnchorRates(normalizeRates(s), baseCurrency));
+      const toSave = normalizedSnaps.filter((s, i) => s.ratesAnchor !== sorted[i].ratesAnchor);
+      if (toSave.length > 0) await secureStore.bulkPutSnapshots(toSave);
       const rehydrated = finalPrefs?.categoryTemplates
         ? rehydrateFlags(normalizedSnaps, finalPrefs.categoryTemplates)
         : normalizedSnaps;
@@ -141,13 +171,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const restoreBackup = async (data: BackupData) => {
     setIsLoading(true);
     try {
+      // Encode (encrypt-at-rest if locked) outside the transaction — crypto is async and
+      // would otherwise let the Dexie transaction auto-commit prematurely.
+      const encSnaps = await secureStore.encodeSnapshots(data.snapshots);
+      const encGoals = await secureStore.encodeGoals(data.goals);
       await db.transaction('rw', db.snapshots, db.goals, db.preferences, db.syncMeta, async () => {
         await db.snapshots.clear();
         await db.goals.clear();
         await db.preferences.clear();
         await db.syncMeta.clear();
-        if (data.snapshots.length) await db.snapshots.bulkPut(data.snapshots);
-        if (data.goals.length) await db.goals.bulkPut(data.goals);
+        if (encSnaps.length) await db.snapshots.bulkPut(encSnaps as unknown as Snapshot[]);
+        if (encGoals.length) await db.goals.bulkPut(encGoals as unknown as Goal[]);
         if (data.preferences) await db.preferences.put({ ...data.preferences, id: 1 });
       });
       await load();
@@ -169,6 +203,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const hasPulledRef = useRef(false);
   useEffect(() => {
     if (isLoading) return;
+    if (isLocked) return; // never sync while gated — there is no DEK to encrypt writes with
     if (hasPulledRef.current) return;
     hasPulledRef.current = true;
     const prefs = prefsRef.current;
@@ -176,13 +211,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       pullFromCloud().catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading]);
+  }, [isLoading, isLocked]);
 
   const saveSnapshot = async (snapshot: Snapshot) => {
     const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
     if (duplicate) throw new Error(`duplicate_month:${snapshot.month}`);
     snapshot = { ...snapshot, updatedAt: new Date().toISOString() };
-    await db.snapshots.put(snapshot);
+    await secureStore.putSnapshot(snapshot);
     setSnapshots(prev => {
       const idx = prev.findIndex(s => s.id === snapshot.id);
       let next: Snapshot[];
@@ -214,7 +249,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const saveGoal = async (goal: Goal) => {
     const stamped = { ...goal, updatedAt: new Date().toISOString() };
-    await db.goals.put(stamped);
+    await secureStore.putGoal(stamped);
     setGoals(prev => {
       const idx = prev.findIndex(g => g.id === stamped.id);
       let next: Goal[];
@@ -276,6 +311,97 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!preferences) return;
     await recordAutoBackup('manual', snapshots, goals, preferences);
   };
+
+  // ── App lock ────────────────────────────────────────────────────────────────
+  const unlockWithDEK = async (dek: string) => {
+    setSessionDEK(dek);
+    setIsLocked(false);
+    await load();
+  };
+
+  const unlockWithPassphrase = async (passphrase: string): Promise<boolean> => {
+    const dek = await appLock.unlockWithPassphrase(passphrase);
+    if (!dek) return false;
+    // Reuse the same secret for Drive backup encryption so one entry covers both.
+    setPassphrase(passphrase);
+    await unlockWithDEK(dek);
+    return true;
+  };
+
+  const lockNow = () => {
+    if (!prefsRef.current?.appLock?.enabled) return;
+    lockSession();
+    setSnapshots([]);
+    setGoals([]);
+    setIsLocked(true);
+  };
+
+  const enableAppLock = async (passphrase: string) => {
+    await appLock.enableAppLock(passphrase);
+    setPassphrase(passphrase);
+    await updatePreferences({
+      appLock: { enabled: true, autoLockMinutes: 15, recovery: { code: false, googleEscrow: false } },
+    });
+  };
+
+  const disableAppLock = async () => {
+    await appLock.disableAppLock();
+    await updatePreferences({ appLock: { enabled: false, autoLockMinutes: 15, recovery: { code: false, googleEscrow: false } } });
+  };
+
+  const changeAppLockPassphrase = async (newPassphrase: string) => {
+    await appLock.changeAppLockPassphrase(newPassphrase);
+    setPassphrase(newPassphrase);
+  };
+
+  const setRecoveryCode = async (enabled: boolean): Promise<string | null> => {
+    const current = prefsRef.current?.appLock;
+    if (!current) return null;
+    let code: string | null = null;
+    if (enabled) {
+      code = await appLock.addRecoveryCode();
+    } else {
+      await appLock.removeRecoveryCode();
+    }
+    await updatePreferences({ appLock: { ...current, recovery: { ...current.recovery, code: enabled } } });
+    return code;
+  };
+
+  const setGoogleEscrow = async (enabled: boolean) => {
+    const current = prefsRef.current?.appLock;
+    if (!current) return;
+    if (enabled) await appLock.enableGoogleEscrow();
+    else await appLock.disableGoogleEscrow();
+    await updatePreferences({ appLock: { ...current, recovery: { ...current.recovery, googleEscrow: enabled } } });
+  };
+
+  const setPasskey = async (enabled: boolean) => {
+    const current = prefsRef.current?.appLock;
+    if (!current) return;
+    if (enabled) await appLock.addPasskey();
+    else await appLock.removePasskey();
+    await updatePreferences({ appLock: { ...current, webauthnEnabled: enabled } });
+  };
+
+  // Auto-lock after idle. Active only while the lock is enabled and currently unlocked.
+  useEffect(() => {
+    if (!preferences?.appLock?.enabled || isLocked) return;
+    const minutes = preferences.appLock.autoLockMinutes;
+    if (!minutes || minutes <= 0) return; // 0 = only lock on tab close
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => lockNow(), minutes * 60_000);
+    };
+    const events: (keyof WindowEventMap)[] = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferences?.appLock?.enabled, preferences?.appLock?.autoLockMinutes, isLocked]);
 
   const getEnabledTemplates = () =>
     (preferences?.categoryTemplates ?? DEFAULT_CATEGORY_TEMPLATES).filter(t => !t.disabled);
@@ -349,6 +475,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resolveConflicts,
       dismissSyncConflicts,
       isLoading,
+      isLocked,
+      unlockWithPassphrase,
+      unlockWithDEK,
+      lockNow,
+      enableAppLock,
+      disableAppLock,
+      changeAppLockPassphrase,
+      setRecoveryCode,
+      setGoogleEscrow,
+      setPasskey,
     }}>
       {children}
     </AppContext.Provider>

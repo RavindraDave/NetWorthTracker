@@ -9,6 +9,10 @@ const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const MAX_BACKUPS = 90;
 const CANONICAL_FILENAME = 'wealthpulse-sync.json';
+const RECOVERY_FILENAME = 'wealthpulse-recovery.json';
+
+// Reserved single-purpose files in appDataFolder that must never be pruned as old backups.
+const RESERVED_FILENAMES = new Set([CANONICAL_FILENAME, RECOVERY_FILENAME]);
 
 async function authedFetch(url: string, options: RequestInit, retry = true): Promise<Response> {
   const token = await getToken();
@@ -69,7 +73,7 @@ export async function deleteBackup(fileId: string): Promise<void> {
 }
 
 async function pruneOldBackups(): Promise<void> {
-  const files = await listBackups();
+  const files = (await listBackups()).filter(f => !RESERVED_FILENAMES.has(f.name));
   if (files.length > MAX_BACKUPS) {
     const toDelete = files.slice(MAX_BACKUPS);
     await Promise.all(toDelete.map(f => deleteBackup(f.id)));
@@ -102,10 +106,10 @@ function parseVersion(v?: string): number | undefined {
   return v ? parseInt(v, 10) : undefined;
 }
 
-export async function findCanonicalFile(): Promise<CanonicalMeta | null> {
+async function findFileByName(name: string): Promise<CanonicalMeta | null> {
   const params = new URLSearchParams({
     spaces: 'appDataFolder',
-    q: `name='${CANONICAL_FILENAME}'`,
+    q: `name='${name}'`,
     fields: 'files(id,version)',
     pageSize: '1',
   });
@@ -114,6 +118,10 @@ export async function findCanonicalFile(): Promise<CanonicalMeta | null> {
   const json = await res.json() as { files: Array<{ id: string; version?: string }> };
   const f = json.files?.[0];
   return f ? { id: f.id, version: parseVersion(f.version) } : null;
+}
+
+export function findCanonicalFile(): Promise<CanonicalMeta | null> {
+  return findFileByName(CANONICAL_FILENAME);
 }
 
 async function createCanonicalFile(payload: string): Promise<CanonicalMeta> {
@@ -174,6 +182,42 @@ export async function readCanonicalFileWithMeta(): Promise<{ content: string; ve
   if (!meta) return null;
   const content = await downloadBackup(meta.id);
   return { content, version: meta.version };
+}
+
+// ── Recovery file ──────────────────────────────────────────────────────────────
+// wealthpulse-recovery.json: a single small file holding the app-lock key-recovery blob
+// (recovery-code-wrapped DEK and/or Google-escrow copy). Exempt from backup pruning.
+
+async function createFileNamed(name: string, payload: string): Promise<void> {
+  const metadata = JSON.stringify({ name, parents: ['appDataFolder'] });
+  const body = new FormData();
+  body.append('metadata', new Blob([metadata], { type: 'application/json' }));
+  body.append('file', new Blob([payload], { type: 'application/json' }));
+  const res = await authedFetch(`${DRIVE_UPLOAD}/files?uploadType=multipart&fields=id`, { method: 'POST', body });
+  if (!res.ok) throw new Error(`Drive create file failed: ${res.status}`);
+}
+
+/** Create or overwrite the recovery file. */
+export async function writeRecoveryFile(payload: string): Promise<void> {
+  const existing = await findFileByName(RECOVERY_FILENAME);
+  if (existing) {
+    await updateCanonicalFile(existing.id, payload);
+  } else {
+    await createFileNamed(RECOVERY_FILENAME, payload);
+  }
+}
+
+/** Read the recovery file content, or null if it doesn't exist. */
+export async function readRecoveryFile(): Promise<string | null> {
+  const meta = await findFileByName(RECOVERY_FILENAME);
+  if (!meta) return null;
+  return downloadBackup(meta.id);
+}
+
+/** Delete the recovery file if present. */
+export async function deleteRecoveryFile(): Promise<void> {
+  const meta = await findFileByName(RECOVERY_FILENAME);
+  if (meta) await deleteBackup(meta.id);
 }
 
 // CloudProvider implementation for Google Drive

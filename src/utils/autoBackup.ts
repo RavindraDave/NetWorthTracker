@@ -1,7 +1,31 @@
 import { db } from '../db/database';
 import { AutoBackupRecord, Snapshot, Goal, UserPreferences, BackupCadence } from '../types';
+import { getSessionDEK, encryptWithDEK, decryptWithDEK } from './cloudSync/keyVault';
 
 const MAX_BACKUPS = 90;
+
+interface BackupPayload {
+  snapshots: Snapshot[];
+  goals: Goal[];
+  preferences: UserPreferences;
+}
+
+// When the app lock is active, encrypt the recovery point's payload at rest.
+async function encodeRecord(record: AutoBackupRecord): Promise<AutoBackupRecord> {
+  const dek = getSessionDEK();
+  if (!dek) return record;
+  const payload: BackupPayload = { snapshots: record.snapshots, goals: record.goals, preferences: record.preferences };
+  const enc = await encryptWithDEK(dek, JSON.stringify(payload));
+  return { ...record, snapshots: [], goals: [], preferences: record.preferences, enc };
+}
+
+async function decodeRecord(record: AutoBackupRecord): Promise<AutoBackupRecord> {
+  if (!record.enc) return record;
+  const dek = getSessionDEK();
+  if (!dek) throw new Error('App is locked — cannot read encrypted recovery point.');
+  const payload = JSON.parse(await decryptWithDEK(dek, record.enc)) as BackupPayload;
+  return { ...record, ...payload, enc: undefined };
+}
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -42,7 +66,7 @@ export async function recordAutoBackup(
     goals,
     preferences,
   };
-  await db.autoBackups.add(record);
+  await db.autoBackups.add(await encodeRecord(record));
 
   const count = await db.autoBackups.count();
   if (count > MAX_BACKUPS) {
@@ -52,9 +76,30 @@ export async function recordAutoBackup(
 }
 
 export async function listAutoBackups(): Promise<AutoBackupRecord[]> {
-  return db.autoBackups.orderBy('createdAt').reverse().toArray();
+  const records = await db.autoBackups.orderBy('createdAt').reverse().toArray();
+  return Promise.all(records.map(decodeRecord));
 }
 
 export async function deleteAutoBackup(id: number): Promise<void> {
   return db.autoBackups.delete(id);
+}
+
+/** Encrypt every currently-plaintext recovery point with `dek` (lock enable migration). */
+export async function encryptAllAutoBackups(dek: string): Promise<void> {
+  const records = await db.autoBackups.toArray();
+  for (const r of records) {
+    if (r.enc) continue;
+    const payload: BackupPayload = { snapshots: r.snapshots, goals: r.goals, preferences: r.preferences };
+    await db.autoBackups.put({ ...r, snapshots: [], goals: [], enc: await encryptWithDEK(dek, JSON.stringify(payload)) });
+  }
+}
+
+/** Decrypt every recovery point back to plaintext with `dek` (lock disable migration). */
+export async function decryptAllAutoBackups(dek: string): Promise<void> {
+  const records = await db.autoBackups.toArray();
+  for (const r of records) {
+    if (!r.enc) continue;
+    const payload = JSON.parse(await decryptWithDEK(dek, r.enc)) as BackupPayload;
+    await db.autoBackups.put({ ...r, ...payload, enc: undefined });
+  }
 }

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Search, Archive, Download, RefreshCw } from 'lucide-react';
+import { Settings as SettingsIcon, Search, Archive, Download, RefreshCw, Lock } from 'lucide-react';
 import { PreferencesSection } from '../components/settings/PreferencesSection';
 import { CurrenciesSection } from '../components/settings/CurrenciesSection';
 import { CategoriesSection } from '../components/settings/CategoriesSection';
 import { DataBackupSection } from '../components/settings/DataBackupSection';
 import { CloudSyncSection } from '../components/settings/CloudSyncSection';
+import { AppLockSection } from '../components/settings/AppLockSection';
 import './Settings.css';
 
-type Section = 'preferences' | 'currencies' | 'categories' | 'data' | 'sync';
+type Section = 'preferences' | 'currencies' | 'categories' | 'data' | 'sync' | 'security';
 
 /**
  * Brand logo for the About card. The logo is served from an external CDN, which
@@ -46,6 +47,7 @@ export const Settings: React.FC = () => {
     { id: 'categories',  label: 'Categories',    icon: <Archive size={15} /> },
     { id: 'data',        label: 'Data & Backup', icon: <Download size={15} /> },
     { id: 'sync',        label: 'Cloud Sync',    icon: <RefreshCw size={15} /> },
+    { id: 'security',    label: 'Security',      icon: <Lock size={15} /> },
   ];
 
   return (
@@ -76,6 +78,7 @@ export const Settings: React.FC = () => {
           {activeSection === 'categories'  && <CategoriesSection />}
           {activeSection === 'data'        && <DataBackupSection />}
           {activeSection === 'sync'        && <CloudSyncSection />}
+          {activeSection === 'security'    && <AppLockSection />}
 
           <div className="wp-card settings-about">
             <a href="https://r2dsolutions.com" target="_blank" rel="noopener noreferrer" className="settings-about-brand">

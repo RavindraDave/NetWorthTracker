@@ -122,6 +122,12 @@ export interface AutoBackupRecord {
   snapshots: Snapshot[];
   goals: Goal[];
   preferences: UserPreferences;
+  /**
+   * When the app lock is active, the snapshots/goals/preferences payload is stored
+   * encrypted here (and the plaintext arrays above are emptied) so local recovery points
+   * never leak amounts at rest. Decrypted back on read. See `src/utils/autoBackup.ts`.
+   */
+  enc?: string;
 }
 
 export type ViewMode = 'overall' | 'liquid' | 'investable';
@@ -144,6 +150,20 @@ export interface CloudSyncConfig {
   syncMode?: 'merge' | 'override';
 }
 
+/**
+ * Opt-in local app lock that encrypts snapshot/goal data at rest. See
+ * `src/utils/cloudSync/keyVault.ts` and `src/utils/appLock.ts`.
+ */
+export interface AppLockConfig {
+  enabled: boolean;
+  /** Re-lock after this many minutes idle. 0 = only lock on tab close. */
+  autoLockMinutes: number;
+  /** Which recovery methods the user has set up. */
+  recovery: { code: boolean; googleEscrow: boolean };
+  /** Passkey (WebAuthn) unlock registered. */
+  webauthnEnabled?: boolean;
+}
+
 export interface UserPreferences {
   baseCurrency: string;
   enabledCurrencies: string[];
@@ -154,6 +174,7 @@ export interface UserPreferences {
   autoBackup?: AutoBackupConfig;
   staleBackupSnoozeUntil?: string;
   cloudSync?: CloudSyncConfig;
+  appLock?: AppLockConfig;
   notificationReminders?: boolean;
   csvMappingProfiles?: Record<string, CsvFieldMapping>; // saved column mappings, keyed by user-given name
   /** Digit-grouping style for all displayed amounts. 'auto' derives it from baseCurrency. */
