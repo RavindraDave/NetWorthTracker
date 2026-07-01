@@ -1,0 +1,100 @@
+.applock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--bg, #0b0e14);
+}
+
+.applock-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 2rem 1.75rem;
+  border-radius: var(--radius, 14px);
+  text-align: center;
+}
+
+.applock-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-bottom: 1rem;
+  color: var(--accent, #6ea8fe);
+  background: color-mix(in srgb, var(--accent, #6ea8fe) 14%, transparent);
+}
+
+.applock-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.applock-sub {
+  margin: 0 0 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-3, #9aa4b2);
+  line-height: 1.5;
+}
+
+.applock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.applock-input {
+  text-align: center;
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+}
+
+.applock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.applock-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-3, #9aa4b2);
+  line-height: 1.45;
+}
+
+.applock-error {
+  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  color: var(--red, #f87171);
+}
+
+.applock-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.applock-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--accent-text, #8ab4ff);
+  padding: 0.2rem;
+}
+
+.applock-link:hover {
+  text-decoration: underline;
+}

@@ -133,15 +133,20 @@ function describeGisError(type: string): string {
   return GIS_ERROR_MESSAGES[type] ?? `Google sign-in failed (${type}). Please try again.`;
 }
 
-export async function signIn(): Promise<{ accessToken: string; expiresAt: number; email: string; name: string; picture: string }> {
+export async function signIn(opts?: { prompt?: string }): Promise<{ accessToken: string; expiresAt: number; email: string; name: string; picture: string }> {
   const clientId = resolveClientId();
   if (!clientId) {
     throw new Error('Google Client ID not configured. Enter it in Settings → Cloud Sync, or ask the app host to configure VITE_GOOGLE_CLIENT_ID.');
   }
 
+  // Forcing a prompt (e.g. 'consent' for the key-recovery path) must never silently reuse
+  // a cached token — that's what prevents a live Google session on a shared PC from
+  // bypassing the lock during recovery.
+  const forcePrompt = !!opts?.prompt;
+
   // Return cached valid token
   const cached = loadToken();
-  if (cached && cached.expiresAt > Date.now() + 60_000) {
+  if (!forcePrompt && cached && cached.expiresAt > Date.now() + 60_000) {
     return { accessToken: cached.accessToken, expiresAt: cached.expiresAt, email: cached.email, name: cached.name, picture: cached.picture };
   }
 
@@ -165,7 +170,8 @@ export async function signIn(): Promise<{ accessToken: string; expiresAt: number
       error_callback: (err) => reject(new Error(describeGisError(err.type))),
     });
     // prompt: '' = use consent already granted; no popup if token is still valid server-side.
-    client.requestAccessToken({ prompt: '' });
+    // A caller-supplied prompt (e.g. 'consent') forces re-authentication.
+    client.requestAccessToken({ prompt: opts?.prompt ?? '' });
   });
 }
 

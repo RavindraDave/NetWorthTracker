@@ -7,6 +7,7 @@ import { MobileNav } from './MobileNav';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
 import { Modal } from '../common/Modal';
+import { AppLockScreen } from '../common/AppLockScreen';
 import './Layout.css';
 
 function getDefaultMonth(snapshots: { month: string }[]): string {
@@ -24,7 +25,7 @@ function getDefaultMonth(snapshots: { month: string }[]): string {
 export const Layout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { snapshots, createNewSnapshot, saveSnapshot, isLoading } = useApp();
+  const { snapshots, createNewSnapshot, saveSnapshot, isLoading, isLocked } = useApp();
   const { error: toastError } = useToast();
 
   const [showNewSnapshot, setShowNewSnapshot] = useState(false);
@@ -85,6 +86,11 @@ export const Layout: React.FC = () => {
     } else {
       breadcrumb = ['Snapshot Editor'];
     }
+  }
+
+  // When locked, replace the entire app chrome with the unlock gate — no sidebar, no data.
+  if (isLocked) {
+    return <AppLockScreen />;
   }
 
   return (

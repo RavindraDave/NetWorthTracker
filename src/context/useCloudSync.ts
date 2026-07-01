@@ -6,6 +6,7 @@ import { googleDriveProvider } from '../utils/cloudSync/google/drive';
 import { encryptJSON, getPassphrase, decryptJSON, isEncryptedEnvelope } from '../utils/cloudSync/encryption';
 import { writeCanonicalFile, readCanonicalFileWithMeta, CanonicalConflictError } from '../utils/cloudSync/google/drive';
 import { mergeBackups, applyResolutions, SyncResult } from '../utils/cloudSync/syncEngine';
+import { encodeSyncMetaBase, decodeSyncMetaBase } from '../utils/secureStore';
 import type { SyncMetaRecord } from '../db/database';
 
 export interface SyncConflictState {
@@ -31,7 +32,7 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
     const record: SyncMetaRecord = {
       id: 1,
       updatedISO: new Date().toISOString(),
-      base: JSON.stringify(data),
+      base: await encodeSyncMetaBase(JSON.stringify(data)), // encrypted at rest when locked
       baseVersion,
     };
     await db.syncMeta.put(record);
@@ -40,7 +41,7 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
   const loadSyncMeta = async (): Promise<BackupData | null> => {
     const record = await db.syncMeta.get(1);
     if (!record) return null;
-    try { return JSON.parse(record.base) as BackupData; } catch { return null; }
+    try { return JSON.parse(await decodeSyncMetaBase(record.base)) as BackupData; } catch { return null; }
   };
 
   const decryptPayload = async (payload: string): Promise<string> => {

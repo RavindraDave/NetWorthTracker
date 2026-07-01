@@ -10,6 +10,32 @@ Three-phase data-loss protection (decided May 2026):
 
 **Phase 3 — shipped (implemented over Drive, not a new backend)**: End-to-end encryption for Drive backups — AES-GCM-256, PBKDF2 (100K, SHA-256) via `window.crypto.subtle`, zero new deps, session-only passphrase, versioned envelope (`encryption.ts`). Plus canonical sync + three-way merge with edit-wins-over-delete (`syncEngine.ts`), Merge/Override modes, and a conflict-resolution modal. Note: shipped over Google Drive `appDataFolder` — the Supabase/PocketBase design sketched in `.claude/memory/project_phase3_e2e_sync.md` was the original plan and is superseded by this Drive-based implementation.
 
+## App Lock — local encryption-at-rest (Settings → Security)
+
+**Shipped, opt-in, off by default.** Solves the shared-PC privacy gap: previously anyone using
+the browser profile could read all data (it was plaintext in IndexedDB). Now an optional
+passphrase lock encrypts the financial data **at rest** and gates the app on boot.
+
+- **DEK envelope** (`keyVault.ts`): a random AES-256 Data Encryption Key encrypts snapshot/goal
+  records (`secureStore.ts`) and auto-backup payloads (`autoBackup.ts`). The DEK is wrapped by one
+  or more unlock "slots" — passphrase, recovery code, Google-escrow, passkey — any one unlocks; the
+  data is never re-encrypted when a slot is added/removed. Wrapping **reuses `encryptJSON`** from
+  `encryption.ts` (zero new crypto primitives). Stored in the `keyVault` Dexie store (DB v5).
+- **Preferences stay plaintext** so `appLock` config is readable before unlock. Only snapshots,
+  goals, and auto-backups are encrypted.
+- **Boot gate**: `AppContext.load()` reads prefs first; if `appLock.enabled && !getSessionDEK()` it
+  sets `isLocked` and loads nothing. `Layout.tsx` shows `AppLockScreen` instead of the app chrome.
+  DEK is memory-only → closing the tab re-locks; idle auto-lock (configurable, default 15 min).
+- **Recovery (both models, user picks)**: recovery code = zero-knowledge (code wraps the DEK, blob
+  mirrored to Drive `wealthpulse-recovery.json`, exempt from pruning); Google-escrow = convenient but
+  NOT zero-knowledge (recoverable DEK copy in Drive), forces `prompt:'consent'` re-auth so a live
+  Google session can't silently bypass the lock on a shared PC.
+- **Passkey/WebAuthn (PRF)**: optional hardware-bound unlock (Touch ID / Hello), feature-detected;
+  passphrase always remains the fallback. `webauthn.ts`.
+- Orchestration in `appLock.ts`; UI in `AppLockCard.tsx`/`AppLockSection.tsx`. Asymmetric keys were
+  evaluated and rejected for the core (single user = no encrypt/decrypt separation benefit); the only
+  asymmetric use is the passkey unlock factor.
+
 ## Notion documentation (permanent reference)
 
 All project docs live under the **WealthPulse — Project Hub** page:
@@ -57,6 +83,12 @@ Persistent knowledge lives in `.claude/memory/` — always read these at session
 - `src/utils/cloudSync/google/gis.ts` — GIS OAuth wrapper
 - `src/utils/cloudSync/google/drive.ts` — Drive `appDataFolder` REST helpers; `MAX_BACKUPS = 90`
 - `src/utils/cloudSync/encryption.ts` — AES-GCM-256 + PBKDF2 envelope (Phase 3)
+- `src/utils/cloudSync/keyVault.ts` — DEK-envelope crypto for app lock (wrap/unwrap, record enc/dec, verifier, recovery code, session DEK)
+- `src/utils/secureStore.ts` — encryption-at-rest boundary for snapshots/goals
+- `src/utils/appLock.ts` — app-lock orchestration (enable/disable/change, recovery code, Google-escrow, passkey)
+- `src/utils/webauthn.ts` — WebAuthn PRF passkey register/unlock
+- `src/components/common/AppLockScreen.tsx` — full-screen unlock gate (passphrase/passkey/recovery)
+- `src/components/settings/AppLockCard.tsx` — App Lock UI in Settings → Security
 - `src/utils/cloudSync/syncEngine.ts` — three-way merge (`mergeBackups`, `applyResolutions`)
 - `src/components/settings/CloudSyncCard.tsx` — Drive sync UI in Settings
 - `src/components/editor/ExchangeRateBar.tsx` — per-snapshot rates; error banners gated on `hasForeignItems`

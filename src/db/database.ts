@@ -20,6 +20,22 @@ export interface SyncMetaRecord {
   baseVersion?: number;
 }
 
+// App-lock key vault. Stores the DEK wrapped by each unlock method ("slot"); never the
+// DEK or any passphrase in plaintext. See `src/utils/cloudSync/keyVault.ts`.
+export type WrappedKeyEnvelope = string;
+export interface KeyVaultRecord {
+  id: 1;
+  v: 1;
+  slots: {
+    passphrase?: WrappedKeyEnvelope;
+    recoveryCode?: WrappedKeyEnvelope;
+    googleEscrow?: WrappedKeyEnvelope; // sentinel marker; the recoverable copy lives in Drive
+    webauthn?: { wrapped: WrappedKeyEnvelope; credentialId: string };
+  };
+  verifier: string; // a known plaintext encrypted by the DEK → confirms a correct unlock
+  createdISO: string;
+}
+
 export class WealthPulseDB extends Dexie {
   snapshots!: Table<Snapshot, string>;
   goals!: Table<Goal, string>;
@@ -27,6 +43,7 @@ export class WealthPulseDB extends Dexie {
   autoBackups!: Table<AutoBackupRecord, number>;
   fileHandles!: Table<FileHandleRecord, string>;
   syncMeta!: Table<SyncMetaRecord, number>;
+  keyVault!: Table<KeyVaultRecord, number>;
 
   constructor() {
     super('WealthPulseDB');
@@ -59,6 +76,16 @@ export class WealthPulseDB extends Dexie {
       autoBackups: '++id, createdAt',
       fileHandles: 'id',
       syncMeta: 'id',
+    });
+
+    this.version(5).stores({
+      snapshots: 'id, month, createdAt',
+      goals: 'id, type',
+      preferences: '++id',
+      autoBackups: '++id, createdAt',
+      fileHandles: 'id',
+      syncMeta: 'id',
+      keyVault: 'id',
     });
   }
 }
