@@ -3,11 +3,13 @@ import { Cloud, Download } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
+import { PassphraseModal } from './PassphraseModal';
 import { CloudBackupFile } from '../../utils/cloudSync/types';
 import { googleDriveProvider, listBackups, downloadBackup } from '../../utils/cloudSync/google/drive';
 import { parseBackupJSON, downloadFile, exportToJSON } from '../../utils/importExport';
 import { formatBytes } from '../../utils/storagePersist';
 import { isClientIdConfigured } from '../../utils/cloudSync/google/gis';
+import { getPassphrase, setPassphrase, isEncryptedEnvelope, decryptJSON } from '../../utils/cloudSync/encryption';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
@@ -18,6 +20,7 @@ export const DriveRestoreButton: React.FC = () => {
   const { success, error, confirm } = useToast();
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<CloudBackupFile[] | null>(null);
+  const [pendingFile, setPendingFile] = useState<CloudBackupFile | null>(null);
 
   // Only show if a client ID is available (either from build env or from user-saved preferences).
   // Note: on a fully cleared browser, the stored clientId is also gone. In that case,
@@ -62,13 +65,39 @@ export const DriveRestoreButton: React.FC = () => {
     }
 
     try {
-      const json = await downloadBackup(file.id);
+      let json = await downloadBackup(file.id);
+      if (isEncryptedEnvelope(json)) {
+        const pass = getPassphrase();
+        if (!pass) {
+          setPendingFile(file);
+          return;
+        }
+        json = await decryptJSON(json, pass);
+      }
       const data = parseBackupJSON(json);
       await restoreBackup(data);
       setFiles(null);
       success('Backup restored successfully!');
     } catch (err) {
       error(err instanceof Error ? err.message : 'Restore failed.');
+    }
+  };
+
+  const handlePassphraseSubmit = async (passphrase: string) => {
+    const file = pendingFile;
+    setPendingFile(null);
+    if (!file) return;
+    setPassphrase(passphrase);
+    try {
+      const raw = await downloadBackup(file.id);
+      const json = await decryptJSON(raw, passphrase);
+      const data = parseBackupJSON(json);
+      await restoreBackup(data);
+      setFiles(null);
+      success('Backup restored successfully!');
+    } catch (err) {
+      error(err instanceof Error ? err.message : 'Restore failed — check your passphrase.');
+      setPassphrase(null);
     }
   };
 
@@ -123,6 +152,14 @@ export const DriveRestoreButton: React.FC = () => {
             <button className="btn btn-outline" onClick={() => setFiles(null)}>Cancel</button>
           </div>
         </Modal>
+      )}
+
+      {pendingFile && (
+        <PassphraseModal
+          mode="unlock"
+          onSubmit={handlePassphraseSubmit}
+          onClose={() => setPendingFile(null)}
+        />
       )}
     </>
   );
