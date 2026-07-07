@@ -9,6 +9,7 @@ import {
   calcMonthChange,
   getMissingRateCurrencies,
   calcSavingsRate,
+  avgMonthlyCashflow,
   anchorRate,
   RATE_ANCHOR,
 } from '../calculations';
@@ -694,5 +695,55 @@ describe('getMissingRateCurrencies — anchor edge cases', () => {
       ],
     });
     expect(getMissingRateCurrencies(snap, 'USD')).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// avgMonthlyCashflow
+// ---------------------------------------------------------------------------
+
+describe('avgMonthlyCashflow', () => {
+  const snap = (month: string, income?: number, expenses?: number): Snapshot => ({
+    id: month,
+    month,
+    createdAt: '',
+    updatedAt: '',
+    exchangeRates: {},
+    categories: [],
+    monthlyIncome: income,
+    monthlyExpenses: expenses,
+  });
+
+  it('averages over the most recent N snapshots with cash-flow data', () => {
+    const result = avgMonthlyCashflow(
+      [snap('2025-01', 100, 40), snap('2025-02', 200, 60), snap('2025-03', 300, 80)],
+      2
+    );
+    expect(result).toEqual({ income: 250, expenses: 70 });
+  });
+
+  it('sorts by month before windowing (input order does not matter)', () => {
+    const result = avgMonthlyCashflow(
+      [snap('2025-03', 300, 80), snap('2025-01', 100, 40), snap('2025-02', 200, 60)],
+      2
+    );
+    expect(result).toEqual({ income: 250, expenses: 70 });
+  });
+
+  it('skips snapshots without any cash-flow data', () => {
+    const result = avgMonthlyCashflow(
+      [snap('2025-01', 100, 40), snap('2025-02'), snap('2025-03', 300, 80)],
+      2
+    );
+    expect(result).toEqual({ income: 200, expenses: 60 });
+  });
+
+  it('returns null when no snapshot has cash-flow data', () => {
+    expect(avgMonthlyCashflow([snap('2025-01'), snap('2025-02')], 3)).toBeNull();
+  });
+
+  it('window larger than available data averages what exists', () => {
+    const result = avgMonthlyCashflow([snap('2025-01', 100, 40)], 6);
+    expect(result).toEqual({ income: 100, expenses: 40 });
   });
 });

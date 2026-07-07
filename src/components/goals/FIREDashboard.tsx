@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Goal, Snapshot } from '../../types';
+import { useApp } from '../../context/AppContext';
 import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { calcWithdrawalTax } from '../../utils/taxCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
@@ -24,7 +25,8 @@ type ScenarioState = {
 };
 
 export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnapshot, baseCurrency, onEdit, onDelete }) => {
-  const metrics = calcFIREMetrics(goal, currentSnapshot, baseCurrency);
+  const { snapshots } = useApp();
+  const metrics = calcFIREMetrics(goal, currentSnapshot, baseCurrency, snapshots);
   const progressPct = Math.min(Math.max(metrics.progressPercentage, 0), 100);
 
   const categories = currentSnapshot?.categories ?? [];
@@ -65,7 +67,7 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
   }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scenarioMetrics = scenarioOpen
-    ? calcFIREMetrics({ ...goal, ...scenario }, currentSnapshot, baseCurrency)
+    ? calcFIREMetrics({ ...goal, ...scenario }, currentSnapshot, baseCurrency, snapshots)
     : null;
 
   const setField = (field: keyof ScenarioState) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,6 +168,7 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
             <div className="fire-stat-value">{metrics.savingsRatePercentage.toFixed(1)}%</div>
             <div className="fire-stat-sub">
               <CurrencyDisplay amount={metrics.monthlySavings} currency={baseCurrency} abbreviated /> / mo
+              {(goal.cashflowWindow ?? 1) > 1 && ` · ${goal.cashflowWindow}-mo avg`}
             </div>
           </div>
         </div>

@@ -28,8 +28,9 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
   const [expectedReturn, setExpectedReturn] = useState(editGoal?.expectedReturn ?? 7);
   const [inflationRate, setInflationRate] = useState(editGoal?.inflationRate ?? 3);
   const [annualSavingsGrowth, setAnnualSavingsGrowth] = useState(editGoal?.annualSavingsGrowth ?? 0);
+  const [cashflowWindow, setCashflowWindow] = useState(editGoal?.cashflowWindow ?? 1);
   const [showAdvanced, setShowAdvanced] = useState(
-    !!(editGoal && (editGoal.expectedReturn || editGoal.inflationRate || editGoal.annualSavingsGrowth))
+    !!(editGoal && (editGoal.expectedReturn || editGoal.inflationRate || editGoal.annualSavingsGrowth || (editGoal.cashflowWindow ?? 1) > 1))
   );
   const [milestones, setMilestones] = useState<Milestone[]>(editGoal?.milestones ?? []);
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
@@ -88,6 +89,7 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
       goal.expectedReturn = expectedReturn;
       goal.inflationRate = inflationRate;
       if (annualSavingsGrowth > 0) goal.annualSavingsGrowth = annualSavingsGrowth;
+      if (cashflowWindow > 1) goal.cashflowWindow = cashflowWindow;
       if (taxEnabled) goal.taxParams = taxParams;
     }
 
@@ -204,6 +206,21 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
                   <div className="form-group">
                     <label htmlFor="goal-savings-growth">Savings Growth (%/yr)</label>
                     <input id="goal-savings-growth" {...annualSavingsGrowthInput.inputProps} className="form-input form-input--sm" aria-label="Annual savings growth" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="goal-cashflow-basis">Cash Flow Basis</label>
+                    <select
+                      id="goal-cashflow-basis"
+                      className="form-input form-input--sm"
+                      value={cashflowWindow}
+                      onChange={e => setCashflowWindow(Number(e.target.value))}
+                      aria-label="Cash flow basis for projections"
+                      title="Time-to-FI uses this income/expense basis — averaging smooths out bonus or gap months"
+                    >
+                      <option value={1}>Latest month</option>
+                      <option value={3}>3-month average</option>
+                      <option value={6}>6-month average</option>
+                    </select>
                   </div>
                 </div>
               )}

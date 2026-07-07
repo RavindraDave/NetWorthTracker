@@ -37,7 +37,7 @@ function useCountUp(target: number, duration = 1200) {
 }
 
 export const NetWorthHero: React.FC = () => {
-  const { currentSnapshot, previousSnapshot, preferences, viewMode, goals } = useApp();
+  const { currentSnapshot, previousSnapshot, preferences, viewMode, goals, snapshots } = useApp();
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
 
   const breakdown = currentSnapshot
@@ -65,8 +65,8 @@ export const NetWorthHero: React.FC = () => {
   const fireMetrics = useMemo(() => {
     const fireGoal = goals.find(g => g.type === 'fire');
     if (!fireGoal || !currentSnapshot) return null;
-    return calcFIREMetrics(fireGoal, currentSnapshot, baseCurrency);
-  }, [goals, currentSnapshot, baseCurrency]);
+    return calcFIREMetrics(fireGoal, currentSnapshot, baseCurrency, snapshots);
+  }, [goals, currentSnapshot, baseCurrency, snapshots]);
 
   return (
     <div className="hero-card">

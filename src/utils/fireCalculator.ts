@@ -1,5 +1,5 @@
 import { Goal, Snapshot } from '../types';
-import { calcNetWorthForGoal } from './calculations';
+import { calcNetWorthForGoal, avgMonthlyCashflow } from './calculations';
 
 export interface FIREMetrics {
   fiNumber: number;
@@ -48,7 +48,9 @@ function calcMonthsToFI(pv: number, pmt: number, fv: number, r: number, annualGr
 export function calcFIREMetrics(
   goal: Goal,
   currentSnapshot: Snapshot | null,
-  baseCurrency: string
+  baseCurrency: string,
+  /** All snapshots — only needed when goal.cashflowWindow > 1 (averaged cash flow). */
+  snapshots?: Snapshot[]
 ): FIREMetrics {
   const annualExpenses = goal.annualExpenses ?? 0;
   const multiplier = goal.multiplier ?? (goal.withdrawalRate ? 100 / goal.withdrawalRate : 25);
@@ -72,8 +74,15 @@ export function calcFIREMetrics(
   const rawProgress = fiNumber > 0 ? (currentNetWorth / fiNumber) * 100 : 0;
   const progressPercentage = Math.min(Math.max(rawProgress, 0), 100);
 
-  const income = currentSnapshot?.monthlyIncome ?? 0;
-  const expenses = currentSnapshot?.monthlyExpenses ?? 0;
+  // Cash-flow basis: current snapshot, or an average over the last N
+  // snapshots when the goal opts in (smooths bonus months / gaps)
+  const cashflowWindow = goal.cashflowWindow ?? 1;
+  let income = currentSnapshot?.monthlyIncome ?? 0;
+  let expenses = currentSnapshot?.monthlyExpenses ?? 0;
+  if (cashflowWindow > 1 && snapshots && snapshots.length > 0) {
+    const avg = avgMonthlyCashflow(snapshots, cashflowWindow);
+    if (avg) { income = avg.income; expenses = avg.expenses; }
+  }
   const monthlySavings = income - expenses;
   const savingsRatePercentage = income > 0 ? (monthlySavings / income) * 100 : 0;
 
