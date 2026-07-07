@@ -43,7 +43,7 @@ export const Portfolio: React.FC = () => {
 
   if (!currentSnapshot || !breakdown) {
     return (
-      <div className="wp-page">
+      <div className="wp-page portfolio-page">
         <div className="wp-card empty-state">
           <LayoutGrid size={48} className="empty-state__icon" style={{ opacity: 0.5 }} />
           <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>No portfolio data yet</h2>
@@ -55,7 +55,7 @@ export const Portfolio: React.FC = () => {
   }
 
   return (
-    <div className="wp-page">
+    <div className="wp-page portfolio-page">
       <MissingRateBanner />
       <div>
         <div className="section-label" style={{ marginBottom: 2 }}>Portfolio Allocation</div>

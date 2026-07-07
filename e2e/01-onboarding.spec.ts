@@ -13,13 +13,13 @@ test.describe('Onboarding — empty state', () => {
 
   test('CTA navigates to snapshot editor', async ({ page }) => {
     await createFirstSnapshot(page);
-    await expect(page.locator('.snapshot-editor')).toBeVisible();
-    await expect(page.locator('input[type="month"]')).toBeVisible();
+    await expect(page.locator('.editor-page')).toBeVisible();
+    await expect(page.locator('input[aria-label="Snapshot month"]')).toBeVisible();
   });
 
   test('saving first snapshot shows dashboard with net worth hero', async ({ page }) => {
     await createFirstSnapshot(page);
     await saveAndGoHome(page);
-    await expect(page.locator('.nw-hero__amount')).toBeVisible();
+    await expect(page.locator('.hero-num')).toBeVisible();
   });
 });

@@ -69,9 +69,10 @@ https://www.notion.so/37394476928181f9bdfbf3d90f86c155
     respects exclusion chips + id-first category matching; FIRE cash-flow averaging
     (`Goal.cashflowWindow` 1/3/6); `LedgerActivity` replaced by `CashflowChart` (E4);
     Excel history export keeps the most-recent 30 detail sheets; backup copy interpolates
-    `MAX_BACKUPS`. Known gap: the Playwright e2e suite is stale (helpers wait on
-    `.snapshot-editor`/`.dashboard` classes that no longer exist in src) — the unit suite
-    (351 tests) is the reliable gate.
+    `MAX_BACKUPS`. Follow-up same day: the Playwright e2e suite (helpers + 8 specs) was
+    rewritten against the current UI — 60 tests green; `screenshots.spec.ts` is docs
+    tooling gated behind `SCREENSHOTS=1`. Page roots now carry `dashboard-page` /
+    `history-page` / `portfolio-page` classes for stable test hooks.
   - **Earlier pass (2026-06-29):** backup retention 30→90 (local + Drive); first-run UX —
     deferred the exchange-rate error wall until a foreign-currency item exists, explicit
     "+ Add item" button, stale-backup grace period, trend-chart pluralization, "Goals NW"

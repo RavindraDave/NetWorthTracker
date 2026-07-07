@@ -36,7 +36,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="wp-page">
+    <div className="wp-page dashboard-page">
       <StaleBackupBanner />
       <MissingSnapshotBanner />
       <MissingRateBanner />

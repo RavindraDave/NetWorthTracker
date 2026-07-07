@@ -1,72 +1,75 @@
 import { test, expect } from '@playwright/test';
-import { clearAppData, createFirstSnapshot, saveAndGoHome } from './helpers';
+import { clearAppData, createFirstSnapshot, addLineItem, saveAndGoHome, setSnapshotMonth, monthOffset } from './helpers';
 
 test.describe('History', () => {
   test.beforeEach(async ({ page }) => {
     await clearAppData(page);
-    // Create two snapshots for different months
+    // Snapshot 1 — two months ago
     await createFirstSnapshot(page);
-    await page.locator('input[type="month"]').fill('2024-01');
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('500000');
+    await setSnapshotMonth(page, monthOffset(2));
+    await addLineItem(page, 'Savings', '500000');
     await saveAndGoHome(page);
-
-    await page.click('button:has-text("New Month")');
-    await page.locator('input[type="month"]').fill('2024-02');
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('600000');
+    // Snapshot 2 — current month, via the missing-snapshot banner
+    await page.getByRole('button', { name: 'Create snapshot' }).click();
+    await page.waitForSelector('.editor-page');
+    await addLineItem(page, 'Savings 2', '100000');
     await saveAndGoHome(page);
 
     await page.goto('/history');
+    await page.waitForSelector('.history-page');
   });
 
-  test('shows history grid with snapshot cards', async ({ page }) => {
-    await expect(page.locator('.history-card')).toHaveCount(2);
+  test('shows one card per snapshot', async ({ page }) => {
+    await expect(page.locator('.hist-card')).toHaveCount(2);
   });
 
-  test('filter by date range reduces visible cards', async ({ page }) => {
-    // Use input[type="month"] within the filter area to avoid ambiguity
-    await page.locator('input[type="month"].history-filter-input').first().fill('2024-01');
-    await page.locator('input[type="month"].history-filter-input').last().fill('2024-01');
-    await expect(page.locator('.history-card')).toHaveCount(1);
+  test('date-range filter reduces visible cards and shows a count badge', async ({ page }) => {
+    const from = page.locator('.hist-filter-input').first();
+    const to   = page.locator('.hist-filter-input').last();
+    await from.fill(monthOffset(2));
+    await to.fill(monthOffset(2));
+    await expect(page.locator('.hist-card')).toHaveCount(1);
+    await expect(page.locator('.hist-count-badge')).toHaveText('1 / 2');
   });
 
-  test('filter badge appears when filter is active', async ({ page }) => {
-    await page.locator('input[type="month"].history-filter-input').first().fill('2024-01');
-    await expect(page.locator('.history-filter-badge')).toBeVisible();
-  });
-
-  test('clear filter button restores all cards', async ({ page }) => {
-    await page.locator('input[type="month"].history-filter-input').first().fill('2024-01');
+  test('clear button restores all cards', async ({ page }) => {
+    await page.locator('.hist-filter-input').first().fill(monthOffset(2));
     await page.click('button:has-text("Clear")');
-    await expect(page.locator('.history-card')).toHaveCount(2);
+    await expect(page.locator('.hist-card')).toHaveCount(2);
   });
 
-  test('clicking a history card navigates to editor', async ({ page }) => {
-    await page.locator('.history-card').first().click();
-    await expect(page.locator('.snapshot-editor')).toBeVisible();
+  test('search matches notes and months', async ({ page }) => {
+    await page.locator('input[aria-label="Search snapshots"]').fill(monthOffset(2));
+    await expect(page.locator('.hist-card')).toHaveCount(1);
   });
 
-  test('delete button shows destructive confirm dialog', async ({ page }) => {
-    const deleteBtn = page.locator('.history-card__actions .btn-icon.danger').first();
-    await deleteBtn.click();
-    // Confirm dialog should appear with a Delete button
+  test('expanding a card shows the category breakdown', async ({ page }) => {
+    await page.locator('.hist-card-row').first().click();
+    await expect(page.locator('.hist-breakdown')).toBeVisible();
+  });
+
+  test('edit button navigates to the editor', async ({ page }) => {
+    await page.locator('button[aria-label^="Edit"]').first().click();
+    await expect(page.locator('.editor-page')).toBeVisible();
+  });
+
+  test('delete shows a destructive confirm dialog', async ({ page }) => {
+    await page.locator('button[aria-label^="Delete"]').first().click();
     await expect(page.locator('.confirm-dialog')).toBeVisible();
     await expect(page.locator('.btn-destructive')).toBeVisible();
-    // Cancel it
     await page.click('.confirm-dialog button:has-text("Cancel")');
+    await expect(page.locator('.hist-card')).toHaveCount(2);
   });
 
-  test('compare selector appears when 2 snapshots selected', async ({ page }) => {
-    const checkboxes = page.locator('.history-compare-group input[type="checkbox"], .compare-checkbox');
-    if (await checkboxes.count() > 0) {
-      await checkboxes.nth(0).check();
-      await checkboxes.nth(1).check();
-    }
-    // If there's a compare button
+  test('comparing two snapshots opens the compare modal', async ({ page }) => {
+    const selects = page.locator('.hist-select');
+    await selects.first().selectOption({ index: 1 });
+    await selects.last().selectOption({ index: 2 });
     const compareBtn = page.locator('button:has-text("Compare")');
-    if (await compareBtn.count() > 0) {
-      await expect(compareBtn).toBeEnabled();
-    }
+    await expect(compareBtn).toBeEnabled();
+    await compareBtn.click();
+    await expect(page.locator('.compare-modal')).toBeVisible();
+    await page.locator('.compare-modal button[aria-label="Close"]').click();
+    await expect(page.locator('.compare-modal')).toHaveCount(0);
   });
 });
