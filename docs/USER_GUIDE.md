@@ -224,10 +224,10 @@ By default WealthPulse ships with standard asset and liability categories. You c
 |---|---|
 | **Download JSON** | Exports your full database as a portable JSON file |
 | **Import JSON** | Restores data from a previously exported file |
-| **Import from Excel** | Load historical snapshots from a structured Excel file |
+| **Import from CSV / Excel** | Load line items from any bank, broker, or WealthPulse export (`.csv` or `.xlsx`). A column mapper opens: columns are auto-detected (including WealthPulse's own export headers), you pick the snapshot month, and unknown categories are created rather than skipped. Mappings can be saved and reused. |
 | **Auto-Backup** | Toggle rolling in-browser backups; view and restore from backup history |
 
-> **Important:** Import replaces all current data. WealthPulse automatically downloads a safety backup before any import completes.
+> **Important:** Restoring a JSON backup replaces all current data — WealthPulse automatically downloads a safety backup first. CSV/Excel imports are additive: they create a new snapshot for the month you choose and never touch existing months.
 
 ### Cloud Sync
 

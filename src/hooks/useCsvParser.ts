@@ -26,6 +26,13 @@ const FIELD_ALIASES: Record<CsvField, string[]> = {
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
+/** True when the file is an Excel workbook rather than a text CSV. */
+export function isExcelFile(file: File): boolean {
+  return /\.xlsx?$/i.test(file.name)
+    || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    || file.type === 'application/vnd.ms-excel';
+}
+
 export function normalize(s: string): string {
   return s.toLowerCase().replace(/[\s_()\-.]/g, '');
 }
@@ -52,11 +59,15 @@ export function useCsvParser(file: File) {
       setParseError('File is too large (max 5 MB). Export a smaller date range and try again.');
       return;
     }
+    const excel = isExcelFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const text = e.target?.result as string;
-        const wb = XLSX.read(text, { type: 'string' });
+        // Excel workbooks are binary and must be read as an ArrayBuffer;
+        // CSVs are plain text. XLSX.read handles both given the right type.
+        const wb = excel
+          ? XLSX.read(new Uint8Array(e.target?.result as ArrayBuffer), { type: 'array' })
+          : XLSX.read(e.target?.result as string, { type: 'string' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const parsed = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
         if (parsed.length === 0) { setParseError('No data rows found in this file.'); return; }
@@ -66,11 +77,12 @@ export function useCsvParser(file: File) {
         setHeaders(hdrs);
         setRows(parsed);
       } catch {
-        setParseError('Could not parse this file. Make sure it is a valid CSV.');
+        setParseError('Could not parse this file. Make sure it is a valid CSV or Excel file.');
       }
     };
     reader.onerror = () => setParseError('Could not read file.');
-    reader.readAsText(file);
+    if (excel) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
   }, [file]);
 
   const autoDetectMapping = (hdrs: string[] = headers): CsvFieldMapping => autoDetect(hdrs);

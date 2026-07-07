@@ -316,29 +316,3 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
   const today = new Date().toISOString().split('T')[0];
   XLSX.writeFile(wb, `wealthpulse-history-${today}.xlsx`);
 }
-
-/**
- * Very basic Excel parser for a predefined format to import a snapshot.
- * Extracted rows are loosely mapped.
- */
-export async function parseExcelToSnapshotItems(file: File): Promise<ExcelRow[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        // Convert sheet to JSON array
-        const json = XLSX.utils.sheet_to_json(worksheet);
-        resolve(json as ExcelRow[]);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  });
-}

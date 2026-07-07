@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
-import { exportToJSON, parseBackupJSON, downloadFile, parseExcelToSnapshotItems, exportAllToExcel } from '../../utils/importExport';
+import { exportToJSON, parseBackupJSON, downloadFile, exportAllToExcel } from '../../utils/importExport';
 import { AutoBackupRecord, AutoBackupConfig, BackupCadence } from '../../types';
 import { isFsaSupported, pickBackupFolder, getSavedFolderHandle, clearBackupFolder } from '../../utils/fsAccessBackup';
 import { MAX_BACKUPS } from '../../utils/autoBackup';
@@ -13,12 +13,10 @@ import { CsvImportModal } from './CsvImportModal';
 
 export const DataBackupSection: React.FC = () => {
   const { preferences, updatePreferences, snapshots, goals, restoreBackup,
-    restoreAutoBackup, listAutoBackups, deleteAutoBackup, manualBackup,
-    createNewSnapshot, saveSnapshot } = useApp();
-  const { success, error, warning, confirm } = useToast();
+    restoreAutoBackup, listAutoBackups, deleteAutoBackup, manualBackup } = useApp();
+  const { success, error, confirm } = useToast();
 
   const fileInputRef  = useRef<HTMLInputElement>(null);
-  const excelInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef   = useRef<HTMLInputElement>(null);
 
   const [csvImportFile, setCsvImportFile]     = useState<File | null>(null);
@@ -84,41 +82,10 @@ export const DataBackupSection: React.FC = () => {
     reader.readAsText(file);
   };
 
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    const validMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    if (!file || !file.name.endsWith('.xlsx') || (file.type && file.type !== validMime)) {
-      warning('Please upload a valid .xlsx Excel file.');
-      if (excelInputRef.current) excelInputRef.current.value = '';
-      return;
-    }
-    try {
-      const rows = await parseExcelToSnapshotItems(file);
-      const newSnap = createNewSnapshot();
-      rows.forEach(row => {
-        if (typeof row !== 'object' || !row) return;
-        const catName = String(row['Category'] || 'Cash & Bank');
-        const targetCat = newSnap.categories.find(c => c.name.toLowerCase() === catName.toLowerCase());
-        if (targetCat) {
-          targetCat.items.push({
-            id: crypto.randomUUID(),
-            name: String(row['Asset Name'] || row['Name'] || 'Imported Item'),
-            currency: String(row['Currency'] || preferences.baseCurrency),
-            amount: parseFloat(String(row['Amount'])) || 0,
-            excludeFromNetWorth: row['Excluded'] === 'Yes' || row['Excluded'] === true,
-            excludeFromGoals: row['GoalExcluded'] === 'Yes' || row['GoalExcluded'] === true
-          });
-        }
-      });
-      await saveSnapshot(newSnap);
-      success('Excel data imported as a new Snapshot for the current month!');
-    } catch (err) {
-      error('Failed to parse Excel file.');
-      console.error(err);
-    }
-    if (excelInputRef.current) excelInputRef.current.value = '';
-  };
-
+  // CSV and Excel share one path: both go through the column-mapper modal,
+  // which auto-detects the app's own export headers (Item Name/Category/…),
+  // creates missing categories instead of dropping rows, and lets the user
+  // pick the target month.
   const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -224,23 +191,12 @@ export const DataBackupSection: React.FC = () => {
         <div className="data-action-card">
           <div className="data-action-card__info">
             <h3 className="text-h3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FileSpreadsheet size={18} className="text-blue" /> Import from Excel
+              <FileText size={18} className="text-blue" /> Import from CSV / Excel
             </h3>
-            <p className="text-muted text-sm">Import line items from an `.xlsx` file into a new Snapshot.</p>
+            <p className="text-muted text-sm">Import line items from any bank, broker, or WealthPulse export (.csv or .xlsx). Map columns visually, pick the snapshot month, then review before saving.</p>
           </div>
-          <input type="file" accept=".xlsx" style={{ display: 'none' }} ref={excelInputRef} onChange={handleImportExcel} />
-          <button className="btn btn-outline" onClick={() => excelInputRef.current?.click()}>Upload XLSX</button>
-        </div>
-
-        <div className="data-action-card">
-          <div className="data-action-card__info">
-            <h3 className="text-h3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FileText size={18} className="text-blue" /> Import from CSV
-            </h3>
-            <p className="text-muted text-sm">Import from any bank or broker CSV export. Map columns visually before importing.</p>
-          </div>
-          <input type="file" accept=".csv" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
-          <button className="btn btn-outline" onClick={() => csvInputRef.current?.click()}>Upload CSV</button>
+          <input type="file" accept=".csv,.xlsx" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
+          <button className="btn btn-outline" onClick={() => csvInputRef.current?.click()}>Upload file</button>
         </div>
 
         <h2 className="settings-h2" style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
