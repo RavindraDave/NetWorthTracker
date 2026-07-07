@@ -6,7 +6,7 @@ import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { ScopeToggle } from './ScopeToggle';
 import { InfoTooltip } from '../common/InfoTooltip';
 import { HELP } from '../common/dashboardHelp';
-import { resolveNumberLocale } from '../../utils/currencies';
+import { resolveNumberLocale, getCurrencySymbol } from '../../utils/currencies';
 import './NetWorthHero.css';
 
 function useCountUp(target: number, duration = 1200) {
@@ -77,7 +77,7 @@ export const NetWorthHero: React.FC = () => {
           <InfoTooltip body={HELP.netWorth} />
         </div>
         <div className="hero-num">
-          <span className="hero-curr">{baseCurrency === 'INR' ? '₹' : baseCurrency === 'USD' ? '$' : ''}</span>
+          <span className="hero-curr">{getCurrencySymbol(baseCurrency)}</span>
           <span>{animatedNW.toLocaleString(numberLocale)}</span>
         </div>
         <div className="hero-meta">

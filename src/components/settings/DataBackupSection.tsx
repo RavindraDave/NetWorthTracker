@@ -4,6 +4,7 @@ import { useToast } from '../common/Toast';
 import { exportToJSON, parseBackupJSON, downloadFile, parseExcelToSnapshotItems, exportAllToExcel } from '../../utils/importExport';
 import { AutoBackupRecord, AutoBackupConfig, BackupCadence } from '../../types';
 import { isFsaSupported, pickBackupFolder, getSavedFolderHandle, clearBackupFolder } from '../../utils/fsAccessBackup';
+import { MAX_BACKUPS } from '../../utils/autoBackup';
 import { Download, Upload, FileSpreadsheet, FileText, AlertTriangle, Archive, History, RefreshCw, Trash2, FolderOpen, FolderX } from 'lucide-react';
 import { StorageStatusCard } from './StorageStatusCard';
 import { InstallPwaCard } from '../common/InstallPwaCard';
@@ -246,7 +247,7 @@ export const DataBackupSection: React.FC = () => {
           <Archive size={18} /> Auto-Backup
         </h2>
         <p className="settings-hint" style={{ marginBottom: '1rem' }}>
-          WealthPulse automatically saves up to 30 recovery points. You can also schedule periodic file exports.
+          WealthPulse automatically saves up to {MAX_BACKUPS} recovery points. You can also schedule periodic file exports.
         </p>
 
         <div className="data-action-card" style={{ flexWrap: 'wrap', gap: '1rem' }}>
@@ -307,7 +308,7 @@ export const DataBackupSection: React.FC = () => {
             <h3 className="text-h3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <History size={16} /> Recovery History
             </h3>
-            <p className="text-muted text-sm">Up to 30 auto-saved recovery points. Restore, download, or delete any entry.</p>
+            <p className="text-muted text-sm">Up to {MAX_BACKUPS} auto-saved recovery points. Restore, download, or delete any entry.</p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-outline" onClick={handleManualBackup}>Save Now</button>

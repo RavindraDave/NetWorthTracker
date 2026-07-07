@@ -6,6 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { buildTrendData, buildCategoryTrendData } from '../../utils/calculations';
 import { formatCompactNumber } from '../../utils/numberFormat';
+import { resolveNumberLocale } from '../../utils/currencies';
 import { ChartTooltip } from './ChartTooltip';
 import './TrendChart.css';
 
@@ -16,6 +17,7 @@ const CAT_COLOR   = '#8b5cf6';
 export const TrendChart: React.FC = () => {
   const { snapshots, preferences, viewMode, currentSnapshot } = useApp();
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
+  const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
 
   const categories = currentSnapshot?.categories ?? [];
@@ -34,8 +36,11 @@ export const TrendChart: React.FC = () => {
 
   const data = selectedCatId ? catData : overallData;
 
+  // Annualised *net-worth growth* — includes savings contributions, so it is
+  // NOT an investment return. Labelled "Growth p.a." and suppressed below 6
+  // data points, where annualising extrapolates too aggressively to be honest.
   const overallCagr = useMemo(() => {
-    if (overallData.length < 2) return null;
+    if (overallData.length < 6) return null;
     const first = overallData[0].netWorth;
     const last  = overallData[overallData.length - 1].netWorth;
     if (first <= 0 || last / first < 0) return null;
@@ -44,7 +49,7 @@ export const TrendChart: React.FC = () => {
   }, [overallData]);
 
   const catCagr = useMemo(() => {
-    if (catData.length < 2) return null;
+    if (catData.length < 6) return null;
     const first = catData[0].value;
     const last  = catData[catData.length - 1].value;
     if (first <= 0 || last / first < 0) return null;
@@ -116,7 +121,9 @@ export const TrendChart: React.FC = () => {
             </select>
           )}
           {cagr !== null && (
-            <span className="cagr-badge">CAGR · {cagr >= 0 ? '+' : ''}{cagr.toFixed(1)}%</span>
+            <span className="cagr-badge" title="Annualised growth of the plotted value — includes savings you added, so it is not an investment return">
+              Growth p.a. · {cagr >= 0 ? '+' : ''}{cagr.toFixed(1)}%
+            </span>
           )}
         </div>
       </div>
@@ -132,7 +139,7 @@ export const TrendChart: React.FC = () => {
             </defs>
             <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
             <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={formatCompactNumber} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} width={55} />
+            <YAxis tickFormatter={(v: number) => formatCompactNumber(v, numberLocale)} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} width={55} />
             <Tooltip content={<ChartTooltip />} />
             <Area type="monotone" dataKey="value" name={selectedCat?.name ?? 'Category'} stroke={CAT_COLOR} strokeWidth={2} fill="url(#trendCat)" dot={false} />
           </AreaChart>
@@ -150,7 +157,7 @@ export const TrendChart: React.FC = () => {
             </defs>
             <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
             <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={formatCompactNumber} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} width={55} />
+            <YAxis tickFormatter={(v: number) => formatCompactNumber(v, numberLocale)} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} width={55} />
             <Tooltip content={<ChartTooltip />} />
             <Area type="monotone" dataKey="assets"   name="Assets"    stroke={ASSET_COLOR} strokeWidth={1.5} strokeDasharray="4 3" fill="url(#trendAssets)" dot={false} />
             <Area type="monotone" dataKey="netWorth" name="Net Worth" stroke={NW_COLOR}    strokeWidth={2}   fill="url(#trendNW)"    dot={false} />

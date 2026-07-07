@@ -280,8 +280,8 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
     }
   }
 
-  // --- Detail sheets: up to 30 snapshots (oldest first) ---
-  const detailSnaps = sorted.slice(0, 30);
+  // --- Detail sheets: up to 30 most-recent snapshots ---
+  const detailSnaps = sorted.slice(-30);
   for (const snap of detailSnaps) {
     const hasItems = snap.categories.some(cat => cat.items.length > 0);
     if (!hasItems) continue;

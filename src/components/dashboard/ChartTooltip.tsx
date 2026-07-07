@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { TooltipProps } from 'recharts';
 import { formatCompactNumber } from '../../utils/numberFormat';
+import { resolveNumberLocale } from '../../utils/currencies';
+import { AppContext } from '../../context/AppContext';
 
 interface ChartTooltipProps extends TooltipProps<number, string> {
   showPercentage?: boolean;
@@ -16,6 +18,8 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
   usePayloadName = false,
   showSign = false,
 }) => {
+  const ctx = useContext(AppContext);
+  const numberLocale = resolveNumberLocale(ctx?.preferences?.baseCurrency ?? 'INR', ctx?.preferences?.numberFormat);
   if (!active || !payload?.length) return null;
   const tooltipLabel = usePayloadName ? payload[0]?.payload?.fullName ?? payload[0]?.payload?.name : label;
   return (
@@ -27,7 +31,7 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
         return (
           <p key={i} style={{ color: p.color ?? (p.fill as string) }} className="chart-tooltip__value">
             {p.name ? `${p.name}: ` : ''}
-            {prefix}{formatCompactNumber(val)}
+            {prefix}{formatCompactNumber(val, numberLocale)}
             {showPercentage && p.payload?.percentage != null
               ? ` (${(p.payload.percentage as number).toFixed(1)}%)`
               : ''}

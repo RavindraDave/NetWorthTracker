@@ -2,7 +2,7 @@ import { db } from '../db/database';
 import { AutoBackupRecord, Snapshot, Goal, UserPreferences, BackupCadence } from '../types';
 import { getSessionDEK, encryptWithDEK, decryptWithDEK } from './cloudSync/keyVault';
 
-const MAX_BACKUPS = 90;
+export const MAX_BACKUPS = 90;
 
 interface BackupPayload {
   snapshots: Snapshot[];

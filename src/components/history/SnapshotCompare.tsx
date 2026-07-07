@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Snapshot } from '../../types';
-import { calcNetWorth, convertToBase } from '../../utils/calculations';
+import { calcNetWorth, calcCategoryTotal } from '../../utils/calculations';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import './SnapshotCompare.css';
@@ -21,27 +21,25 @@ export const SnapshotCompare: React.FC<SnapshotCompareProps> = ({ snapA, snapB, 
   const nwDelta   = nwLater.netWorth - nwEarlier.netWorth;
 
   const rows = useMemo(() => {
-    // Build a unified set of category names
-    const catNames = new Set([
-      ...earlier.categories.map(c => c.name),
-      ...later.categories.map(c => c.name),
-    ]);
-
-    return Array.from(catNames).map(catName => {
-      const catA = earlier.categories.find(c => c.name === catName);
-      const catB = later.categories.find(c => c.name === catName);
-
-      const totalA = (catA?.items ?? []).reduce(
-        (sum, item) => sum + convertToBase(item.amount, item.currency, baseCurrency, earlier.exchangeRates), 0
-      );
-      const totalB = (catB?.items ?? []).reduce(
-        (sum, item) => sum + convertToBase(item.amount, item.currency, baseCurrency, later.exchangeRates), 0
-      );
-      const delta = totalB - totalA;
-      const type  = catA?.type ?? catB?.type ?? 'asset';
-
-      return { catName, totalA, totalB, delta, type };
-    }).filter(r => r.totalA !== 0 || r.totalB !== 0);
+    // Match categories by id first, then by name+type (renames keep their id;
+    // imported categories may share only a name). Totals go through
+    // calcCategoryTotal so exclusions are respected — the compared figures
+    // agree with the net-worth numbers shown everywhere else.
+    const matchedB = new Set<string>();
+    const rows = earlier.categories.map(catA => {
+      const catB = later.categories.find(c => c.id === catA.id)
+                ?? later.categories.find(c => c.name === catA.name && c.type === catA.type && !matchedB.has(c.id));
+      if (catB) matchedB.add(catB.id);
+      const totalA = calcCategoryTotal(catA, baseCurrency, earlier.exchangeRates);
+      const totalB = catB ? calcCategoryTotal(catB, baseCurrency, later.exchangeRates) : 0;
+      return { key: catA.id, catName: catB?.name ?? catA.name, totalA, totalB, delta: totalB - totalA, type: catA.type };
+    });
+    for (const catB of later.categories) {
+      if (matchedB.has(catB.id) || earlier.categories.some(c => c.id === catB.id)) continue;
+      const totalB = calcCategoryTotal(catB, baseCurrency, later.exchangeRates);
+      rows.push({ key: catB.id, catName: catB.name, totalA: 0, totalB, delta: totalB, type: catB.type });
+    }
+    return rows.filter(r => r.totalA !== 0 || r.totalB !== 0);
   }, [earlier, later, baseCurrency]);
 
   const fmtMonth = (m: string) =>
@@ -85,7 +83,7 @@ export const SnapshotCompare: React.FC<SnapshotCompareProps> = ({ snapA, snapB, 
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.catName} data-type={r.type}>
+                <tr key={r.key} data-type={r.type}>
                   <td>{r.catName}</td>
                   <td className="text-right">
                     <CurrencyDisplay amount={r.totalA} currency={baseCurrency} abbreviated />

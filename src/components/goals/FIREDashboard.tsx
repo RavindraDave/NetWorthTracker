@@ -329,7 +329,7 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
             <div className="fire-tax-row fire-tax-row--sub">
               <span>
                 Equity LTCG ({goal.taxParams.ltcgPct}% of {goal.taxParams.equityPct}%)
-                &ensp;→&ensp;{goal.taxParams.ltcgRate}% above ₹{(goal.taxParams.ltcgExemption / 100_000).toFixed(2)}L
+                &ensp;→&ensp;{goal.taxParams.ltcgRate}% above <CurrencyDisplay amount={goal.taxParams.ltcgExemption} currency={baseCurrency} abbreviated />
               </span>
               <span className="fire-tax-amount">
                 –&thinsp;<CurrencyDisplay amount={taxBreakdown.ltcgTax} currency={baseCurrency} abbreviated />
