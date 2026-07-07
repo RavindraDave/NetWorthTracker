@@ -118,7 +118,7 @@ Horizontal bars show month-over-month percentage change for recent months — a 
 
 ### Recent Activity
 
-A ledger below the charts shows your latest snapshot changes with category-level tags.
+A **Monthly Cash Flow** panel below the charts tracks the income and expenses you record on each snapshot, with your savings-rate trend on a strip underneath — the core FIRE health metric at a glance.
 
 ---
 
