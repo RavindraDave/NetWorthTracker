@@ -1,79 +1,64 @@
-import { test, expect } from '@playwright/test';
-import { clearAppData, createFirstSnapshot, saveAndGoHome } from './helpers';
-import path from 'path';
+import { test } from '@playwright/test';
+import { clearAppData, createFirstSnapshot, addLineItem, saveAndGoHome, setSnapshotMonth, monthOffset } from './helpers';
+
+/**
+ * Documentation tooling, not a test gate: regenerates the user-guide
+ * screenshots in docs/screenshots/. Run on demand with
+ *   SCREENSHOTS=1 npx playwright test e2e/screenshots.spec.ts
+ * Skipped by default so the CI/verification run stays fast and doesn't
+ * churn binary files.
+ */
+test.skip(!process.env.SCREENSHOTS, 'Set SCREENSHOTS=1 to regenerate docs screenshots');
 
 const SS = (name: string) => `docs/screenshots/${name}.png`;
+
+/** Seed a past + current month so charts and banners have data. */
+async function seedTwoMonths(page: import('@playwright/test').Page) {
+  await clearAppData(page);
+  await createFirstSnapshot(page);
+  await setSnapshotMonth(page, monthOffset(1));
+  await addLineItem(page, 'Savings Account', '500000');
+  await addLineItem(page, 'Index Funds', '1200000');
+  await saveAndGoHome(page);
+  await page.getByRole('button', { name: 'Create snapshot' }).click();
+  await page.waitForSelector('.editor-page');
+  await page.locator('input[aria-label^="Monthly income"]').fill('250000');
+  await page.locator('input[aria-label^="Monthly expenses"]').fill('140000');
+  await page.keyboard.press('Tab');
+  await saveAndGoHome(page);
+}
 
 test.describe('Screenshots', () => {
   test('01 - welcome screen', async ({ page }) => {
     await clearAppData(page);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.screenshot({ path: SS('01-welcome'), fullPage: true });
   });
 
   test('02 - snapshot editor empty', async ({ page }) => {
     await clearAppData(page);
-    await page.goto('/');
-    await page.click('button:has-text("Create First Snapshot")');
-    await page.waitForSelector('.snapshot-editor', { timeout: 8000 });
+    await createFirstSnapshot(page);
     await page.screenshot({ path: SS('02-snapshot-editor-empty'), fullPage: true });
   });
 
   test('03 - snapshot editor with data', async ({ page }) => {
     await clearAppData(page);
-    await page.goto('/');
-    await page.click('button:has-text("Create First Snapshot")');
-    await page.waitForSelector('.snapshot-editor', { timeout: 8000 });
-    // Fill in some data
-    const addBtns = page.locator('.category-section__add-btn');
-    await addBtns.first().click();
-    await page.locator('.line-item-input.name-input').last().fill('Savings Account');
-    await page.locator('.line-item-input.amount-input').last().fill('500000');
-    await addBtns.first().click();
-    await page.locator('.line-item-input.name-input').last().fill('Index Funds');
-    await page.locator('.line-item-input.amount-input').last().fill('1200000');
-    // Add a liability
-    await addBtns.last().click();
-    await page.locator('.line-item-input.name-input').last().fill('Home Loan');
-    await page.locator('.line-item-input.amount-input').last().fill('2500000');
+    await createFirstSnapshot(page);
+    await addLineItem(page, 'Savings Account', '500000');
+    await addLineItem(page, 'Index Funds', '1200000');
     await page.screenshot({ path: SS('03-snapshot-editor-filled'), fullPage: true });
   });
 
   test('04 - dashboard', async ({ page }) => {
-    await clearAppData(page);
-    await createFirstSnapshot(page);
-    // Add meaningful data
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.name-input').last().fill('Savings Account');
-    await page.locator('.line-item-input.amount-input').last().fill('500000');
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.name-input').last().fill('Index Funds');
-    await page.locator('.line-item-input.amount-input').last().fill('1200000');
-    await saveAndGoHome(page);
-    // Create second month for charts
-    await page.click('button:has-text("New Month")');
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('600000');
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('1300000');
-    await saveAndGoHome(page);
-    await page.waitForTimeout(800);
+    await seedTwoMonths(page);
+    await page.waitForTimeout(1600); // count-up + chart animations
     await page.screenshot({ path: SS('04-dashboard'), fullPage: true });
   });
 
   test('05 - history page', async ({ page }) => {
-    await clearAppData(page);
-    await createFirstSnapshot(page);
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('500000');
-    await saveAndGoHome(page);
-    await page.click('button:has-text("New Month")');
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('600000');
-    await saveAndGoHome(page);
+    await seedTwoMonths(page);
     await page.goto('/history');
-    await page.waitForSelector('.history-card');
+    await page.waitForSelector('.hist-card');
     await page.screenshot({ path: SS('05-history'), fullPage: true });
   });
 
@@ -82,18 +67,17 @@ test.describe('Screenshots', () => {
     await createFirstSnapshot(page);
     await saveAndGoHome(page);
     await page.goto('/goals');
-    await page.waitForSelector('.goals-page, .goals');
+    await page.waitForSelector('.goals-page');
     await page.screenshot({ path: SS('06-goals-empty'), fullPage: true });
   });
 
   test('07 - goals with FIRE goal', async ({ page }) => {
     await clearAppData(page);
     await createFirstSnapshot(page);
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('1500000');
+    await addLineItem(page, 'Index Funds', '1500000');
     await saveAndGoHome(page);
     await page.goto('/goals');
-    await page.click('button:has-text("Add Goal"), button:has-text("New Goal"), button:has-text("Create")');
+    await page.click('button:has-text("Create First Goal")');
     await page.fill('#goal-name', 'Early Retirement');
     await page.fill('#goal-expenses', '1200000');
     await page.click('button:has-text("Save Goal")');
@@ -105,9 +89,7 @@ test.describe('Screenshots', () => {
   test('08 - portfolio page', async ({ page }) => {
     await clearAppData(page);
     await createFirstSnapshot(page);
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.name-input').last().fill('Nifty 50 Index');
-    await page.locator('.line-item-input.amount-input').last().fill('1200000');
+    await addLineItem(page, 'Nifty 50 Index', '1200000');
     await saveAndGoHome(page);
     await page.goto('/portfolio');
     await page.waitForSelector('.portfolio-page');
@@ -123,14 +105,14 @@ test.describe('Screenshots', () => {
     await page.screenshot({ path: SS('09-settings'), fullPage: true });
   });
 
-  test('10 - settings data management', async ({ page }) => {
+  test('10 - settings data & backup', async ({ page }) => {
     await clearAppData(page);
     await createFirstSnapshot(page);
     await saveAndGoHome(page);
     await page.goto('/settings');
     await page.waitForSelector('.settings-page');
-    // Scroll to data management section
-    await page.locator('h2:has-text("Data Management")').scrollIntoViewIfNeeded();
+    await page.locator('.settings-nav-btn:has-text("Data & Backup")').click();
+    await page.locator('h2:has-text("Data & Backup")').scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     await page.screenshot({ path: SS('10-settings-data'), fullPage: false });
   });
@@ -139,8 +121,7 @@ test.describe('Screenshots', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await clearAppData(page);
     await createFirstSnapshot(page);
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('1500000');
+    await addLineItem(page, 'Index Funds', '1500000');
     await saveAndGoHome(page);
     await page.waitForTimeout(500);
     await page.screenshot({ path: SS('11-mobile-dashboard'), fullPage: true });
@@ -152,7 +133,6 @@ test.describe('Screenshots', () => {
     await createFirstSnapshot(page);
     await saveAndGoHome(page);
     await page.waitForTimeout(300);
-    // Scroll to bottom to show mobile nav
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(300);
     await page.screenshot({ path: SS('12-mobile-nav'), fullPage: false });
@@ -161,36 +141,25 @@ test.describe('Screenshots', () => {
   test('13 - light mode dashboard', async ({ page }) => {
     await clearAppData(page);
     await createFirstSnapshot(page);
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('1500000');
+    await addLineItem(page, 'Index Funds', '1500000');
     await saveAndGoHome(page);
-    // Switch to light mode
     await page.goto('/settings');
-    await page.click('button:has-text("Light")');
+    await page.locator('.theme-toggle-btn:has-text("Light")').click();
     await page.goto('/');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
     await page.screenshot({ path: SS('13-light-mode'), fullPage: true });
   });
 
   test('14 - history compare', async ({ page }) => {
-    await clearAppData(page);
-    await createFirstSnapshot(page);
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('500000');
-    await saveAndGoHome(page);
-    await page.click('button:has-text("New Month")');
-    await page.locator('.category-section__add-btn').first().click();
-    await page.locator('.line-item-input.amount-input').last().fill('700000');
-    await saveAndGoHome(page);
+    await seedTwoMonths(page);
     await page.goto('/history');
-    await page.waitForSelector('.history-card');
-    // Try to select checkboxes for compare
-    const checkboxes = page.locator('.history-compare-group input[type="checkbox"], .compare-checkbox');
-    if (await checkboxes.count() >= 2) {
-      await checkboxes.nth(0).check();
-      await checkboxes.nth(1).check();
-      await page.waitForTimeout(300);
-    }
+    await page.waitForSelector('.hist-card');
+    const selects = page.locator('.hist-select');
+    await selects.first().selectOption({ index: 1 });
+    await selects.last().selectOption({ index: 2 });
+    await page.click('button:has-text("Compare")');
+    await page.waitForSelector('.compare-modal');
+    await page.waitForTimeout(300);
     await page.screenshot({ path: SS('14-history-compare'), fullPage: true });
   });
 });

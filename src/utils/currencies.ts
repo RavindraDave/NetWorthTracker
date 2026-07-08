@@ -136,7 +136,7 @@ export const formatCurrency = (
   const sign = showSign ? (isNeg ? '−' : '+') : (isNeg ? '−' : '');
 
   if (compact) {
-    return sign + getCurrencySymbol(currencyCode) + formatCompactNumber(abs);
+    return sign + getCurrencySymbol(currencyCode) + formatCompactNumber(abs, locale);
   }
 
   try {

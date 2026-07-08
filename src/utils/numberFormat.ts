@@ -1,8 +1,20 @@
-export function formatCompactNumber(value: number): string {
+/**
+ * Compact digit-grouped abbreviation. The locale decides the notation:
+ * 'en-IN' (lakh/crore preference) → L/Cr, anything else → K/M/B.
+ * Pass the locale from `resolveNumberLocale` so charts follow the user's
+ * number-format preference; defaults to 'en-IN' for back-compat.
+ */
+export function formatCompactNumber(value: number, locale: string = 'en-IN'): string {
   const abs = Math.abs(value);
-  if (abs >= 1_00_00_000) return `${(value / 1_00_00_000).toFixed(1)}Cr`;
-  if (abs >= 1_00_000)    return `${(value / 1_00_000).toFixed(1)}L`;
-  if (abs >= 1_000)       return `${(value / 1_000).toFixed(0)}K`;
+  if (locale === 'en-IN') {
+    if (abs >= 1_00_00_000) return `${(value / 1_00_00_000).toFixed(1)}Cr`;
+    if (abs >= 1_00_000)    return `${(value / 1_00_000).toFixed(1)}L`;
+    if (abs >= 1_000)       return `${(value / 1_000).toFixed(0)}K`;
+    return String(Math.round(value));
+  }
+  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000)     return `${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000)         return `${(value / 1_000).toFixed(0)}K`;
   return String(Math.round(value));
 }
 

@@ -25,6 +25,20 @@ describe('formatCompactNumber', () => {
   it('handles negative values', () => {
     expect(formatCompactNumber(-1_00_000)).toBe('-1.0L');
   });
+
+  it('uses K/M/B notation for non-lakh locales', () => {
+    expect(formatCompactNumber(1_500_000_000, 'en-US')).toBe('1.5B');
+    expect(formatCompactNumber(2_500_000, 'en-US')).toBe('2.5M');
+    expect(formatCompactNumber(1_250_000, 'en-US')).toBe('1.3M');
+    expect(formatCompactNumber(5_000, 'en-US')).toBe('5K');
+    expect(formatCompactNumber(500, 'en-US')).toBe('500');
+    expect(formatCompactNumber(-2_500_000, 'en-US')).toBe('-2.5M');
+  });
+
+  it('keeps lakh/crore notation when locale is en-IN', () => {
+    expect(formatCompactNumber(12_50_000, 'en-IN')).toBe('12.5L');
+    expect(formatCompactNumber(2_50_00_000, 'en-IN')).toBe('2.5Cr');
+  });
 });
 
 describe('parseAmount', () => {

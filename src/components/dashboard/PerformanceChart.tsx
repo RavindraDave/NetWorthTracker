@@ -2,25 +2,28 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { calcCategoryTotal } from '../../utils/calculations';
 import { formatCompactNumber } from '../../utils/numberFormat';
+import { resolveNumberLocale } from '../../utils/currencies';
 import './PerformanceChart.css';
 
 export const PerformanceChart: React.FC = () => {
   const { currentSnapshot, previousSnapshot, preferences } = useApp();
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
+  const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
 
   const data = useMemo(() => {
     if (!currentSnapshot || !previousSnapshot) return [];
     return currentSnapshot.categories
-      .filter(c => c.type === 'asset')
       .map(cat => {
         const curr = calcCategoryTotal(cat, baseCurrency, currentSnapshot.exchangeRates);
         const prevCat = previousSnapshot.categories.find(
           c => c.id === cat.id || (c.name === cat.name && c.type === cat.type)
         );
         const prev = prevCat ? calcCategoryTotal(prevCat, baseCurrency, previousSnapshot.exchangeRates) : 0;
+        // Liabilities are inverted so paying down debt shows as a positive bar
+        const sign = cat.type === 'liability' ? -1 : 1;
         return {
           name: cat.name.length > 22 ? cat.name.slice(0, 20) + '…' : cat.name,
-          value: curr - prev,
+          value: (curr - prev) * sign,
         };
       })
       .filter(d => d.value !== 0)
@@ -61,7 +64,7 @@ export const PerformanceChart: React.FC = () => {
       <div className="chart-head">
         <div>
           <div className="section-label">Monthly Performance</div>
-          <div className="section-sub">Per-category change vs {prevMonth}</div>
+          <div className="section-sub">Per-category change vs {prevMonth} · debt paydown counts as positive</div>
         </div>
         {currentSnapshot?.month && (
           <span className="muted-chip">
@@ -91,7 +94,7 @@ export const PerformanceChart: React.FC = () => {
                 />
               </div>
               <div className={`perf-val${isPos ? ' pos' : ' neg'}`}>
-                {isPos ? '+' : '−'}{formatCompactNumber(Math.abs(item.value))}
+                {isPos ? '+' : '−'}{formatCompactNumber(Math.abs(item.value), numberLocale)}
               </div>
             </div>
           );

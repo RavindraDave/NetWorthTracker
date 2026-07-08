@@ -296,3 +296,24 @@ export function calcSavingsRate(income: number, expenses: number): number {
   if (income <= 0) return 0;
   return ((income - expenses) / income) * 100;
 }
+
+/**
+ * Average monthly income/expenses over the last `windowMonths` snapshots that
+ * actually carry cash-flow data (a bonus month or a forgotten field would
+ * otherwise skew a FIRE projection built on a single month). Returns null
+ * when no snapshot has cash-flow data.
+ */
+export function avgMonthlyCashflow(
+  snapshots: Snapshot[],
+  windowMonths: number
+): { income: number; expenses: number } | null {
+  const recent = [...snapshots]
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .filter(s => (s.monthlyIncome ?? 0) > 0 || (s.monthlyExpenses ?? 0) > 0)
+    .slice(-Math.max(1, windowMonths));
+  if (recent.length === 0) return null;
+  return {
+    income:   recent.reduce((sum, s) => sum + (s.monthlyIncome   ?? 0), 0) / recent.length,
+    expenses: recent.reduce((sum, s) => sum + (s.monthlyExpenses ?? 0), 0) / recent.length,
+  };
+}

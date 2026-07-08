@@ -5,7 +5,7 @@ import { MetricCards } from '../components/dashboard/MetricCards';
 import { TrendChart } from '../components/dashboard/TrendChart';
 import { PerformanceChart } from '../components/dashboard/PerformanceChart';
 import { DonutChart } from '../components/dashboard/DonutChart';
-import { LedgerActivity } from '../components/dashboard/LedgerActivity';
+import { CashflowChart } from '../components/dashboard/CashflowChart';
 import { GoalCard } from '../components/goals/GoalCard';
 import { useAppBase } from '../hooks/useAppBase';
 import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
@@ -36,7 +36,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="wp-page">
+    <div className="wp-page dashboard-page">
       <StaleBackupBanner />
       <MissingSnapshotBanner />
       <MissingRateBanner />
@@ -75,7 +75,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <PerformanceChart />
-          <LedgerActivity />
+          <CashflowChart />
 
           {goals.length > 0 && (
             <div className="goals-section">

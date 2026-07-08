@@ -6,7 +6,7 @@ import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { ScopeToggle } from './ScopeToggle';
 import { InfoTooltip } from '../common/InfoTooltip';
 import { HELP } from '../common/dashboardHelp';
-import { resolveNumberLocale } from '../../utils/currencies';
+import { resolveNumberLocale, getCurrencySymbol } from '../../utils/currencies';
 import './NetWorthHero.css';
 
 function useCountUp(target: number, duration = 1200) {
@@ -37,7 +37,7 @@ function useCountUp(target: number, duration = 1200) {
 }
 
 export const NetWorthHero: React.FC = () => {
-  const { currentSnapshot, previousSnapshot, preferences, viewMode, goals } = useApp();
+  const { currentSnapshot, previousSnapshot, preferences, viewMode, goals, snapshots } = useApp();
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
 
   const breakdown = currentSnapshot
@@ -65,8 +65,8 @@ export const NetWorthHero: React.FC = () => {
   const fireMetrics = useMemo(() => {
     const fireGoal = goals.find(g => g.type === 'fire');
     if (!fireGoal || !currentSnapshot) return null;
-    return calcFIREMetrics(fireGoal, currentSnapshot, baseCurrency);
-  }, [goals, currentSnapshot, baseCurrency]);
+    return calcFIREMetrics(fireGoal, currentSnapshot, baseCurrency, snapshots);
+  }, [goals, currentSnapshot, baseCurrency, snapshots]);
 
   return (
     <div className="hero-card">
@@ -77,7 +77,7 @@ export const NetWorthHero: React.FC = () => {
           <InfoTooltip body={HELP.netWorth} />
         </div>
         <div className="hero-num">
-          <span className="hero-curr">{baseCurrency === 'INR' ? '₹' : baseCurrency === 'USD' ? '$' : ''}</span>
+          <span className="hero-curr">{getCurrencySymbol(baseCurrency)}</span>
           <span>{animatedNW.toLocaleString(numberLocale)}</span>
         </div>
         <div className="hero-meta">

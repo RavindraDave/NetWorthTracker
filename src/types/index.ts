@@ -83,6 +83,12 @@ export interface Goal {
   excludedCategoryIds?: string[];
   // E3 — tax-aware withdrawal planning; absent means tax section is hidden
   taxParams?: TaxParams;
+  /**
+   * Cash-flow basis for FIRE projections: average monthly income/expenses
+   * over the last N snapshots that have cash-flow data. 1 (or absent) =
+   * current snapshot only — the original behaviour.
+   */
+  cashflowWindow?: number;
 }
 
 export interface FlattenedItem extends LineItem {

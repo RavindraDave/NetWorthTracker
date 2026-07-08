@@ -50,18 +50,30 @@ https://www.notion.so/37394476928181f9bdfbf3d90f86c155
 - **Product Roadmap — Phased Enhancements** — 5-phase roadmap (A→E) derived from June 2026 codebase review. Priority matrix and "what not to build" included:
   https://www.notion.so/37394476928181e6b1d6c395dbbdc99b
 
-  **Roadmap quick-ref (status as of 2026-06-29 — see Notion for full detail):**
-  - **Phase 0 (stabilise), A, B, C, D, and backlog BL-4/BL-5 — all shipped.** This
+  **Roadmap quick-ref (status as of 2026-07-07 — see Notion for full detail):**
+  - **Phase 0 (stabilise), A, B, C, D, backlog BL-4/BL-5, E3, and E4 — all shipped.** This
     includes: cadence-aware stale-backup (A1), npm-pinned xlsx (A2), loan amortisation
     (A3), FIRE investable-scope tooltip (A4), YoY history compare (A5), hosted Drive OAuth
     via Vercel (B1), CSV column-mapper (B2), snapshot reminders (B3), cost basis +
     CAGR/`xirr.ts` (C1–C2), category trends (C3), FIRE "what if" modeller (C4), currency
     donut toggle (C5), AES-GCM encrypted Drive backups (D1), canonical sync + three-way
-    merge (D2).
-  - **Phase E — not started (next buildable):** E3 tax-aware withdrawal planning, then
-    E4 monthly summary/savings-rate chart (scope-limited), then E1 tax-lot tracking.
-    E2 broker integrations = "reconsider fit" (conflicts with local-first identity).
-  - **Latest pass (2026-06-29):** backup retention 30→90 (local + Drive); first-run UX —
+    merge (D2), tax-aware withdrawal planning (E3 — `taxCalculator.ts` + FIREDashboard tax
+    panel), monthly cash-flow/savings-rate chart (E4 — `CashflowChart.tsx`).
+  - **Phase E remainder:** next buildable is E1 tax-lot tracking. E2 broker
+    integrations = "reconsider fit" (conflicts with local-first identity).
+  - **Latest pass (2026-07-07, from the full functionality review):** Excel import unified
+    with the CSV column-mapper (legacy path dropped rows and lost item names); chart
+    abbreviations follow the number-format preference (K/M/B vs L/Cr); hero symbol for any
+    base currency; trend badge relabelled "Growth p.a." and suppressed <6 points; Monthly
+    Performance includes liabilities (debt paydown = positive bar); Snapshot Compare
+    respects exclusion chips + id-first category matching; FIRE cash-flow averaging
+    (`Goal.cashflowWindow` 1/3/6); `LedgerActivity` replaced by `CashflowChart` (E4);
+    Excel history export keeps the most-recent 30 detail sheets; backup copy interpolates
+    `MAX_BACKUPS`. Follow-up same day: the Playwright e2e suite (helpers + 8 specs) was
+    rewritten against the current UI — 60 tests green; `screenshots.spec.ts` is docs
+    tooling gated behind `SCREENSHOTS=1`. Page roots now carry `dashboard-page` /
+    `history-page` / `portfolio-page` classes for stable test hooks.
+  - **Earlier pass (2026-06-29):** backup retention 30→90 (local + Drive); first-run UX —
     deferred the exchange-rate error wall until a foreign-currency item exists, explicit
     "+ Add item" button, stale-backup grace period, trend-chart pluralization, "Goals NW"
     tooltip, friendlier Live Rates error, offline-safe brand logo, softer Cloud Sync copy.
@@ -96,3 +108,6 @@ Persistent knowledge lives in `.claude/memory/` — always read these at session
 - `src/components/common/StaleBackupBanner.tsx` — cadence-aware nag with new-user grace period
 - `src/hooks/useAutoBackup.ts` — local auto-backup tick (extended to call cloud sync)
 - `src/utils/printReport.ts` — print report HTML generator (raw string, not React)
+- `src/utils/taxCalculator.ts` — E3 withdrawal-tax model (`calcWithdrawalTax`; India Budget-2024 defaults, all configurable via `TaxParams`)
+- `src/components/dashboard/CashflowChart.tsx` — E4 income/expenses bars + savings-rate strip (two stacked panels sharing the month axis — never dual-axis)
+- `src/hooks/useCsvParser.ts` — shared CSV **and** Excel import parsing (`isExcelFile`); both formats feed `CsvImportModal`

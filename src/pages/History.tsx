@@ -99,7 +99,7 @@ export const History: React.FC = () => {
 
   if (snapshots.length === 0) {
     return (
-      <div className="wp-page">
+      <div className="wp-page history-page">
         <div className="wp-card empty-state">
           <Calendar size={48} className="empty-state__icon" style={{ opacity: 0.5 }} />
           <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>No history yet</h2>
@@ -110,7 +110,7 @@ export const History: React.FC = () => {
   }
 
   return (
-    <div className="wp-page">
+    <div className="wp-page history-page">
       {/* Timeline Chart */}
       <div className="wp-card hist-timeline">
         <div className="chart-head" style={{ marginBottom: 16 }}>

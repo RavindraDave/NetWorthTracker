@@ -7,6 +7,7 @@ import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { Badge } from '../components/common/Badge';
 import { DonutChart } from '../components/dashboard/DonutChart';
 import { InfoTooltip } from '../components/common/InfoTooltip';
+import { MissingRateBanner } from '../components/common/MissingRateBanner';
 import { LayoutGrid } from 'lucide-react';
 import './Portfolio.css';
 
@@ -42,7 +43,7 @@ export const Portfolio: React.FC = () => {
 
   if (!currentSnapshot || !breakdown) {
     return (
-      <div className="wp-page">
+      <div className="wp-page portfolio-page">
         <div className="wp-card empty-state">
           <LayoutGrid size={48} className="empty-state__icon" style={{ opacity: 0.5 }} />
           <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>No portfolio data yet</h2>
@@ -54,7 +55,8 @@ export const Portfolio: React.FC = () => {
   }
 
   return (
-    <div className="wp-page">
+    <div className="wp-page portfolio-page">
+      <MissingRateBanner />
       <div>
         <div className="section-label" style={{ marginBottom: 2 }}>Portfolio Allocation</div>
         <div className="section-sub">Detailed view of your current holdings.</div>
@@ -123,7 +125,7 @@ export const Portfolio: React.FC = () => {
       {liabilities.length > 0 && (
         <div className="portfolio-table-section wp-card">
           <div className="portfolio-table-header">
-            <h2 className="text-h2">Holdings</h2>
+            <h2 className="text-h2">Outstanding Debt</h2>
             <Badge variant="negative">Liabilities</Badge>
           </div>
           

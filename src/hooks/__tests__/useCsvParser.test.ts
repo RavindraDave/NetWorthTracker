@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalize, autoDetect, CSV_FIELDS, CSV_FIELD_HINTS } from '../useCsvParser';
+import * as XLSX from 'xlsx';
+import { normalize, autoDetect, isExcelFile, CSV_FIELDS, CSV_FIELD_HINTS } from '../useCsvParser';
 
 // ---------------------------------------------------------------------------
 // normalize
@@ -82,6 +83,54 @@ describe('autoDetect', () => {
 
   it('returns empty mapping for empty headers', () => {
     expect(autoDetect([])).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isExcelFile + Excel round-trip through the shared import path
+// ---------------------------------------------------------------------------
+
+describe('isExcelFile', () => {
+  it('detects .xlsx by extension regardless of MIME', () => {
+    expect(isExcelFile(new File([''], 'snapshot-2026-07.xlsx'))).toBe(true);
+    expect(isExcelFile(new File([''], 'DATA.XLSX'))).toBe(true);
+  });
+
+  it('detects Excel by MIME type', () => {
+    const f = new File([''], 'export', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    expect(isExcelFile(f)).toBe(true);
+  });
+
+  it('treats .csv files as non-Excel', () => {
+    expect(isExcelFile(new File([''], 'statement.csv', { type: 'text/csv' }))).toBe(false);
+  });
+});
+
+describe("Excel import round-trip of the app's own export headers", () => {
+  it('parses an xlsx workbook (array type) and auto-detects the export columns', () => {
+    // Same headers exportSnapshotToExcel writes to the Items sheet
+    const rows = [
+      { 'Category': 'Cash & Bank', 'Type': 'Asset', 'Item Name': 'HDFC Savings', 'Currency': 'INR', 'Amount': 250000 },
+      { 'Category': 'Loans', 'Type': 'Liability', 'Item Name': 'Home Loan', 'Currency': 'INR', 'Amount': 4200000 },
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Items');
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+
+    // Mirror the hook's Excel branch: Uint8Array + type 'array'
+    const parsedWb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+    const parsed = XLSX.utils.sheet_to_json<Record<string, string>>(parsedWb.Sheets[parsedWb.SheetNames[0]], { defval: '' });
+
+    expect(parsed).toHaveLength(2);
+    expect(String(parsed[0]['Item Name'])).toBe('HDFC Savings');
+
+    const mapping = autoDetect(Object.keys(parsed[0]));
+    expect(mapping['Item Name']).toBe('Item Name');
+    expect(mapping['Category']).toBe('Category');
+    expect(mapping['Amount']).toBe('Amount');
+    expect(mapping['Currency']).toBe('Currency');
+    expect(mapping['Type']).toBe('Type');
   });
 });
 

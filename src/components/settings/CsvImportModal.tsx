@@ -7,7 +7,7 @@ import { X, Save, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Category, CsvFieldMapping } from '../../types';
 import { parseAmount } from '../../utils/numberFormat';
-import { useCsvParser, CSV_FIELDS, CSV_FIELD_HINTS } from '../../hooks/useCsvParser';
+import { useCsvParser, isExcelFile, CSV_FIELDS, CSV_FIELD_HINTS } from '../../hooks/useCsvParser';
 
 /** Returns the first month >= `from` that has no existing snapshot. */
 function findNextEmptyMonth(existingMonths: Set<string>, from: string): string {
@@ -47,6 +47,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [headers]);
 
+  const fileKind    = isExcelFile(file) ? 'Excel' : 'CSV';
   const isValid     = !!mapping['Item Name'] && !!mapping['Amount'];
   const monthConflict = snapshots.some(s => s.month === targetMonth);
   const previewRows = rows.slice(0, 5);
@@ -122,12 +123,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
   return (
     <Modal
       onClose={onClose}
-      aria-label="Import CSV"
+      aria-label={`Import ${fileKind}`}
       contentStyle={{ maxWidth: 640, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '0.5rem' }}>
         <div style={{ minWidth: 0 }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Import CSV</h3>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Import {fileKind}</h3>
           <span className="text-muted" style={{ fontSize: TEXT.base, wordBreak: 'break-all' }}>{file.name}</span>
         </div>
         <button className="btn-icon" onClick={onClose} aria-label="Close" style={{ flexShrink: 0 }}>

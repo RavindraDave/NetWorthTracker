@@ -331,3 +331,48 @@ describe('calcFIREMetrics — real return & projections', () => {
     expect(metrics.monthlyPassiveIncome).toBeCloseTo(expected);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cash-flow averaging (cashflowWindow)
+// ---------------------------------------------------------------------------
+
+describe('calcFIREMetrics — cashflowWindow averaging', () => {
+  const history = [
+    makeSnapshot({ id: 'a', month: '2024-11', monthlyIncome: 100_000, monthlyExpenses: 50_000 }),
+    makeSnapshot({ id: 'b', month: '2024-12', monthlyIncome: 400_000, monthlyExpenses: 50_000 }), // bonus month
+    makeSnapshot({ id: 'c', month: '2025-01', monthlyIncome: 100_000, monthlyExpenses: 50_000 }),
+  ];
+  const current = history[2];
+
+  it('defaults to the current snapshot (window 1 / absent)', () => {
+    const metrics = calcFIREMetrics(makeGoal(), current, 'INR', history);
+    expect(metrics.monthlyIncome).toBe(100_000);
+    expect(metrics.monthlySavings).toBe(50_000);
+  });
+
+  it('averages income and expenses over the window', () => {
+    const metrics = calcFIREMetrics(makeGoal({ cashflowWindow: 3 }), current, 'INR', history);
+    expect(metrics.monthlyIncome).toBeCloseTo(200_000); // (100k + 400k + 100k) / 3
+    expect(metrics.monthlySavings).toBeCloseTo(150_000);
+  });
+
+  it('skips snapshots without cash-flow data instead of averaging in zeros', () => {
+    const withGap = [
+      ...history,
+      makeSnapshot({ id: 'd', month: '2025-02', monthlyIncome: 0, monthlyExpenses: 0 }),
+    ];
+    const metrics = calcFIREMetrics(makeGoal({ cashflowWindow: 3 }), withGap[3], 'INR', withGap);
+    expect(metrics.monthlyIncome).toBeCloseTo(200_000); // gap month excluded from window
+  });
+
+  it('falls back to current snapshot when no snapshots are passed', () => {
+    const metrics = calcFIREMetrics(makeGoal({ cashflowWindow: 3 }), current, 'INR');
+    expect(metrics.monthlyIncome).toBe(100_000);
+  });
+
+  it('averaging changes yearsToFI accordingly', () => {
+    const single = calcFIREMetrics(makeGoal(), current, 'INR', history);
+    const averaged = calcFIREMetrics(makeGoal({ cashflowWindow: 3 }), current, 'INR', history);
+    expect(averaged.yearsToFI!).toBeLessThan(single.yearsToFI!); // higher avg savings → sooner FI
+  });
+});
