@@ -12,16 +12,22 @@ test.skip(!process.env.SCREENSHOTS, 'Set SCREENSHOTS=1 to regenerate docs screen
 
 const SS = (name: string) => `docs/screenshots/${name}.png`;
 
-/** Seed a past + current month so charts and banners have data. */
+/** Seed a past + current month with items and cash flow so charts show a healthy story. */
 async function seedTwoMonths(page: import('@playwright/test').Page) {
   await clearAppData(page);
   await createFirstSnapshot(page);
   await setSnapshotMonth(page, monthOffset(1));
   await addLineItem(page, 'Savings Account', '500000');
   await addLineItem(page, 'Index Funds', '1200000');
+  await page.locator('input[aria-label^="Monthly income"]').fill('200000');
+  await page.locator('input[aria-label^="Monthly expenses"]').fill('120000');
+  await page.keyboard.press('Tab');
   await saveAndGoHome(page);
+  // The banner creates a blank snapshot for the current month — populate it
   await page.getByRole('button', { name: 'Create snapshot' }).click();
   await page.waitForSelector('.editor-page');
+  await addLineItem(page, 'Savings Account', '550000');
+  await addLineItem(page, 'Index Funds', '1310000');
   await page.locator('input[aria-label^="Monthly income"]').fill('250000');
   await page.locator('input[aria-label^="Monthly expenses"]').fill('140000');
   await page.keyboard.press('Tab');
