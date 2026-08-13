@@ -2,6 +2,7 @@ import { Snapshot, Goal, UserPreferences, BackupData, Category, LineItem } from 
 import * as XLSX from 'xlsx';
 import { calcNetWorth, convertToBase, calcSavingsRate, anchorRate } from './calculations';
 import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
+import { subCategoryName, groupItemsBySubCategory } from './subCategories';
 
 /**
  * Generates a JSON string representing the full state of the user's data.
@@ -93,12 +94,15 @@ export function csvSafeCell(value: string): string {
  * Quick CSV export for a snapshot's line items.
  */
 export function exportSnapshotToCSV(snapshot: Snapshot) {
-  let csv = 'Category,Type,Item Name,Currency,Amount,Excluded,GoalExcluded\n';
+  let csv = 'Category,Sub-Category,Type,Item Name,Currency,Amount,Excluded,GoalExcluded\n';
   snapshot.categories.forEach(cat => {
     cat.items.forEach(item => {
       const safeCatName  = csvSafeCell(cat.name);
+      // Group names are user-supplied and go through the same formula-injection
+      // guard as category and item names.
+      const safeSubName  = csvSafeCell(subCategoryName(cat, item.subCategoryId) ?? '');
       const safeItemName = csvSafeCell(item.name);
-      csv += `"${safeCatName}","${cat.type}","${safeItemName}",${item.currency},${item.amount},${item.excludeFromNetWorth ? 'Yes' : 'No'},${item.excludeFromGoals ? 'Yes' : 'No'}\n`;
+      csv += `"${safeCatName}","${safeSubName}","${cat.type}","${safeItemName}",${item.currency},${item.amount},${item.excludeFromNetWorth ? 'Yes' : 'No'},${item.excludeFromGoals ? 'Yes' : 'No'}\n`;
     });
   });
   return csv;
@@ -156,6 +160,8 @@ export function buildItemRow(
   const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
   return {
     'Category': cat.name,
+    // Always emitted, blank when ungrouped — see the key-order note above.
+    'Sub-Category': subCategoryName(cat, item.subCategoryId) ?? '',
     'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
     'Item Name': item.name,
     'Currency': item.currency,
@@ -200,6 +206,19 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
       [`Total (${baseCurrency})`]: catTotal,
       'Items': itemCount,
     });
+
+    // Sub-group breakdown as indented rows under the category, reusing the same
+    // four keys. A fifth column would also have to be carried by the blank
+    // separator and the three grand-total rows below, for a mostly-empty column.
+    for (const group of groupItemsBySubCategory(cat, baseCurrency, snapshot.exchangeRates)) {
+      if (group.id === null) continue; // ungrouped items are already in the category row
+      summaryRows.push({
+        'Category': `    ↳ ${group.name}`,
+        'Type': '',
+        [`Total (${baseCurrency})`]: Math.round(group.total),
+        'Items': group.items.filter(i => !i.excludeFromNetWorth).length,
+      });
+    }
   }
   // Blank separator row
   summaryRows.push({ 'Category': '', 'Type': '', [`Total (${baseCurrency})`]: undefined, 'Items': undefined });
@@ -270,6 +289,9 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
   if (latest) {
     const returnRows: ExcelRow[] = buildAccountReturns(latest, baseCurrency).map(r => ({
       'Category': r.category,
+      // The one sheet where an adviser genuinely cannot tell two funds apart
+      // without knowing which sleeve each sits in.
+      'Sub-Category': r.subCategory ?? '',
       'Account': r.account,
       'Currency': r.currency,
       [`Current Value (${baseCurrency})`]: r.currentValueBase,

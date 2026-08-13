@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { csvSafeCell, exportSnapshotToCSV, parseBackupJSON, buildExchangeRateRows } from '../importExport';
+import { csvSafeCell, exportSnapshotToCSV, parseBackupJSON, buildExchangeRateRows, buildItemRow } from '../importExport';
 import type { Snapshot } from '../../types';
 
 describe('csvSafeCell — formula injection guard', () => {
@@ -51,8 +51,78 @@ describe('exportSnapshotToCSV', () => {
 
   it('keeps the header row and ordinary rows intact', () => {
     const csv = exportSnapshotToCSV(snap('Salary', 'Cash'));
-    expect(csv.split('\n')[0]).toBe('Category,Type,Item Name,Currency,Amount,Excluded,GoalExcluded');
-    expect(csv).toContain('"Cash","asset","Salary",INR,1000,No,No');
+    expect(csv.split('\n')[0])
+      .toBe('Category,Sub-Category,Type,Item Name,Currency,Amount,Excluded,GoalExcluded');
+    // Ungrouped items leave the sub-category cell empty rather than inventing a name.
+    expect(csv).toContain('"Cash","","asset","Salary",INR,1000,No,No');
+  });
+
+  it('writes the sub-category name for a grouped item', () => {
+    const s = snap('Parag Parikh', 'Investments');
+    s.categories[0].subCategories = [{ id: 'sub-mf', name: 'Mutual Funds' }];
+    s.categories[0].items[0].subCategoryId = 'sub-mf';
+
+    const csv = exportSnapshotToCSV(s);
+    expect(csv).toContain('"Investments","Mutual Funds","asset","Parag Parikh",INR,1000,No,No');
+  });
+
+  it('neutralises a formula-injection sub-category name', () => {
+    const s = snap('Salary', 'Cash');
+    s.categories[0].subCategories = [{ id: 'sub-x', name: '=cmd|calc' }];
+    s.categories[0].items[0].subCategoryId = 'sub-x';
+
+    const csv = exportSnapshotToCSV(s);
+    expect(csv).toContain('"\'=cmd|calc"');
+    expect(csv).not.toContain('"=cmd|calc"');
+  });
+
+  it('leaves the sub-category blank when the reference is orphaned', () => {
+    const s = snap('Salary', 'Cash');
+    s.categories[0].items[0].subCategoryId = 'sub-deleted';
+
+    const csv = exportSnapshotToCSV(s);
+    expect(csv).toContain('"Cash","","asset","Salary"');
+  });
+});
+
+describe('buildItemRow', () => {
+  function snapWithGroup(): Snapshot {
+    return {
+      id: 's1', month: '2026-01',
+      createdAt: '', updatedAt: '', exchangeRates: {},
+      categories: [{
+        id: 'c1', name: 'Investments', type: 'asset', icon: '📈',
+        isLiquid: true, isInvestable: true,
+        subCategories: [{ id: 'sub-mf', name: 'Mutual Funds' }],
+        items: [
+          { id: 'i1', name: 'Fund A', amount: 1000, currency: 'INR', subCategoryId: 'sub-mf' },
+          { id: 'i2', name: 'Loose', amount: 500, currency: 'INR' },
+        ],
+      }],
+    };
+  }
+
+  /**
+   * `json_to_sheet` derives the header row from key insertion order, so a key that
+   * is only present on some rows shifts those rows' columns.
+   */
+  it('always emits the Sub-Category key, blank when ungrouped', () => {
+    const snap = snapWithGroup();
+    const cat = snap.categories[0];
+    const asOf = new Date('2026-01-31');
+
+    const grouped = buildItemRow(cat, cat.items[0], snap, 'INR', asOf);
+    const ungrouped = buildItemRow(cat, cat.items[1], snap, 'INR', asOf);
+
+    expect(Object.keys(grouped)).toEqual(Object.keys(ungrouped));
+    expect(grouped['Sub-Category']).toBe('Mutual Funds');
+    expect(ungrouped['Sub-Category']).toBe('');
+  });
+
+  it('places Sub-Category directly after Category', () => {
+    const snap = snapWithGroup();
+    const row = buildItemRow(snap.categories[0], snap.categories[0].items[0], snap, 'INR', new Date('2026-01-31'));
+    expect(Object.keys(row).slice(0, 3)).toEqual(['Category', 'Sub-Category', 'Type']);
   });
 });
 

@@ -1,6 +1,7 @@
-import { Snapshot, UserPreferences, Category } from '../types';
+import { Snapshot, UserPreferences, Category, LineItem } from '../types';
 import { calcNetWorth, convertToBase, calcSavingsRate, anchorRate } from './calculations';
 import { resolveNumberLocale, formatCurrency } from './currencies';
+import { groupItemsBySubCategory } from './subCategories';
 
 /** Format a summary/aggregate amount — whole numbers, no cents. */
 function fmtSummary(amount: number, currency: string, locale: string): string {
@@ -44,16 +45,48 @@ export function buildCategoryRows(cats: Category[], ctx: CategoryRowsContext): s
   return cats.map(cat => {
     const catTotal = categoryTotals[cat.id] ?? 0;
     const visibleItems = cat.items.filter(i => !i.excludeFromNetWorth);
-    const itemRows = visibleItems.map(item => {
+
+    const itemRow = (item: LineItem, indented: boolean) => {
       const baseVal = convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates);
+      // Indent via padding on the first cell only. The colgroup fixes the column
+      // width, so the indent eats into the cell rather than shifting the columns.
+      const namePad = indented ? '5px 8px 5px 28px' : '5px 8px';
       return `
         <tr>
-          <td style="padding:5px 8px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(item.name)}</td>
+          <td style="padding:${namePad};color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(item.name)}</td>
           <td style="padding:5px 8px;color:#6b7280;text-align:center;">${escHtml(item.currency)}</td>
           <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtItem(item.amount, item.currency, locale)}</td>
           <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtSummary(baseVal, baseCurrency, locale)}</td>
         </tr>`;
-    }).join('');
+    };
+
+    /**
+     * Group headers are ordinary rows spanning the first three columns — NOT a
+     * nested table. Nesting a table inside a cell would reintroduce
+     * `table-layout:auto` and misalign every category block against the others.
+     */
+    const groupHeaderRow = (name: string, total: number) => `
+        <tr>
+          <td colspan="3" style="padding:5px 8px;font-weight:600;color:#374151;background:#fafafa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(name)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600;color:#374151;background:#fafafa;white-space:nowrap;">${fmtSummary(total, baseCurrency, locale)}</td>
+        </tr>`;
+
+    const groups = groupItemsBySubCategory(cat, baseCurrency, snapshot.exchangeRates);
+    const namedGroups = groups.filter(g => g.id !== null);
+
+    let itemRows: string;
+    if (namedGroups.length === 0) {
+      itemRows = visibleItems.map(item => itemRow(item, false)).join('');
+    } else {
+      itemRows = groups.map(group => {
+        const rows = group.items.filter(i => !i.excludeFromNetWorth);
+        if (rows.length === 0) return '';
+        // Ungrouped items print under "Other" only because named groups exist to
+        // contrast against; with no groups at all they'd print bare (branch above).
+        const header = groupHeaderRow(group.id === null ? 'Other' : group.name, group.total);
+        return header + rows.map(item => itemRow(item, true)).join('');
+      }).join('');
+    }
 
     return `
       <div style="margin-bottom:16px;">
