@@ -1,4 +1,4 @@
-import { Snapshot, UserPreferences } from '../types';
+import { Snapshot, UserPreferences, Category } from '../types';
 import { calcNetWorth, convertToBase, calcSavingsRate, anchorRate } from './calculations';
 import { resolveNumberLocale, formatCurrency } from './currencies';
 
@@ -17,6 +17,70 @@ function monthLabel(month: string): string {
   const [year, mon] = month.split('-');
   const d = new Date(Number(year), Number(mon) - 1);
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+/** Everything `buildCategoryRows` needs that isn't the category list itself. */
+export interface CategoryRowsContext {
+  categoryTotals: Record<string, number>;
+  snapshot: Snapshot;
+  baseCurrency: string;
+  locale: string;
+}
+
+/**
+ * Render one bordered block per category: a header strip with the category total,
+ * then a fixed-layout table of its included line items.
+ *
+ * Module-level and pure so the table structure can be unit-tested — a colgroup
+ * misalignment shipped from this function once, and `window.print()` fires
+ * immediately, so the HTML is never seen during a normal UX pass.
+ *
+ * The 50/10/20/20 colgroup with `table-layout:fixed` is load-bearing: it is what
+ * keeps columns aligned across categories with differing content widths. Never
+ * nest a table inside a cell here — that reintroduces `table-layout:auto`.
+ */
+export function buildCategoryRows(cats: Category[], ctx: CategoryRowsContext): string {
+  const { categoryTotals, snapshot, baseCurrency, locale } = ctx;
+  return cats.map(cat => {
+    const catTotal = categoryTotals[cat.id] ?? 0;
+    const visibleItems = cat.items.filter(i => !i.excludeFromNetWorth);
+    const itemRows = visibleItems.map(item => {
+      const baseVal = convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates);
+      return `
+        <tr>
+          <td style="padding:5px 8px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(item.name)}</td>
+          <td style="padding:5px 8px;color:#6b7280;text-align:center;">${escHtml(item.currency)}</td>
+          <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtItem(item.amount, item.currency, locale)}</td>
+          <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtSummary(baseVal, baseCurrency, locale)}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border-left:3px solid #10b981;padding:6px 10px;margin-bottom:4px;">
+          <span style="font-weight:600;color:#111827;">${escHtml(cat.name)}</span>
+          <span style="font-weight:600;color:#111827;">${fmtSummary(catTotal, baseCurrency, locale)}</span>
+        </div>
+        ${visibleItems.length > 0 ? `
+        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+          <colgroup>
+            <col style="width:50%;" />
+            <col style="width:10%;" />
+            <col style="width:20%;" />
+            <col style="width:20%;" />
+          </colgroup>
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="padding:4px 8px;text-align:left;color:#6b7280;font-weight:500;">Item</th>
+              <th style="padding:4px 8px;text-align:center;color:#6b7280;font-weight:500;">Currency</th>
+              <th style="padding:4px 8px;text-align:right;color:#6b7280;font-weight:500;">Amount</th>
+              <th style="padding:4px 8px;text-align:right;color:#6b7280;font-weight:500;">Value (${escHtml(baseCurrency)})</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>` : '<p style="font-size:12px;color:#9ca3af;margin:4px 8px;">No items in this category.</p>'}
+      </div>`;
+  }).join('');
 }
 
 /**
@@ -48,48 +112,7 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
     cat => cat.type === 'liability' && (categoryTotals[cat.id] ?? 0) > 0
   );
 
-  function buildCategoryRows(cats: typeof assetCats): string {
-    return cats.map(cat => {
-      const catTotal = categoryTotals[cat.id] ?? 0;
-      const visibleItems = cat.items.filter(i => !i.excludeFromNetWorth);
-      const itemRows = visibleItems.map(item => {
-        const baseVal = convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates);
-        return `
-        <tr>
-          <td style="padding:5px 8px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(item.name)}</td>
-          <td style="padding:5px 8px;color:#6b7280;text-align:center;">${escHtml(item.currency)}</td>
-          <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtItem(item.amount, item.currency, locale)}</td>
-          <td style="padding:5px 8px;color:#374151;text-align:right;white-space:nowrap;">${fmtSummary(baseVal, baseCurrency, locale)}</td>
-        </tr>`;
-      }).join('');
-
-      return `
-      <div style="margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border-left:3px solid #10b981;padding:6px 10px;margin-bottom:4px;">
-          <span style="font-weight:600;color:#111827;">${escHtml(cat.name)}</span>
-          <span style="font-weight:600;color:#111827;">${fmtSummary(catTotal, baseCurrency, locale)}</span>
-        </div>
-        ${visibleItems.length > 0 ? `
-        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
-          <colgroup>
-            <col style="width:50%;" />
-            <col style="width:10%;" />
-            <col style="width:20%;" />
-            <col style="width:20%;" />
-          </colgroup>
-          <thead>
-            <tr style="background:#f3f4f6;">
-              <th style="padding:4px 8px;text-align:left;color:#6b7280;font-weight:500;">Item</th>
-              <th style="padding:4px 8px;text-align:center;color:#6b7280;font-weight:500;">Currency</th>
-              <th style="padding:4px 8px;text-align:right;color:#6b7280;font-weight:500;">Amount</th>
-              <th style="padding:4px 8px;text-align:right;color:#6b7280;font-weight:500;">Value (${escHtml(baseCurrency)})</th>
-            </tr>
-          </thead>
-          <tbody>${itemRows}</tbody>
-        </table>` : '<p style="font-size:12px;color:#9ca3af;margin:4px 8px;">No items in this category.</p>'}
-      </div>`;
-    }).join('');
-  }
+  const rowsCtx: CategoryRowsContext = { categoryTotals, snapshot, baseCurrency, locale };
 
   const cashFlowHtml = hasCashFlow ? `
   <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
@@ -213,8 +236,8 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
 
   ${cashFlowHtml}
 
-  ${assetCats.length > 0 ? `<h2>Assets</h2>${buildCategoryRows(assetCats)}` : ''}
-  ${liabilityCats.length > 0 ? `<h2>Liabilities</h2>${buildCategoryRows(liabilityCats)}` : ''}
+  ${assetCats.length > 0 ? `<h2>Assets</h2>${buildCategoryRows(assetCats, rowsCtx)}` : ''}
+  ${liabilityCats.length > 0 ? `<h2>Liabilities</h2>${buildCategoryRows(liabilityCats, rowsCtx)}` : ''}
 
   ${exchangeRatesHtml}
   ${notesHtml}

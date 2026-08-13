@@ -1,4 +1,4 @@
-import { Snapshot, Goal, UserPreferences, BackupData } from '../types';
+import { Snapshot, Goal, UserPreferences, BackupData, Category, LineItem } from '../types';
 import * as XLSX from 'xlsx';
 import { calcNetWorth, convertToBase, calcSavingsRate, anchorRate } from './calculations';
 import { buildAccountReturns, itemReturnPct, monthEndDate } from './returns';
@@ -138,6 +138,37 @@ export function buildExchangeRateRows(snapshot: Snapshot, baseCurrency: string):
 }
 
 /**
+ * One row of the item-level detail layout, shared by the single-snapshot "Items"
+ * sheet and the per-month detail sheets in the history workbook. Both used to carry
+ * their own copy of this object literal; keep it in one place so a column added here
+ * lands in both sheets.
+ *
+ * Every key is emitted unconditionally — `json_to_sheet` derives the header row from
+ * key insertion order, so a conditionally-omitted key shifts that row's columns.
+ */
+export function buildItemRow(
+  cat: Category,
+  item: LineItem,
+  snapshot: Snapshot,
+  baseCurrency: string,
+  asOf: Date,
+): ExcelRow {
+  const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
+  return {
+    'Category': cat.name,
+    'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
+    'Item Name': item.name,
+    'Currency': item.currency,
+    'Amount': item.amount,
+    [`Value (${baseCurrency})`]: baseValue,
+    'Return % p.a.': itemReturnPct(item, asOf),
+    'In Net Worth': item.excludeFromNetWorth ? 'No' : 'Yes',
+    'In Goals': (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes',
+    'Notes': item.notes ?? '',
+  };
+}
+
+/**
  * Export a single snapshot to a three-sheet Excel workbook.
  * Sheet "Items": one row per line item with base-currency values.
  * Sheet "Summary": category totals + grand totals.
@@ -152,21 +183,7 @@ export function exportSnapshotToExcel(snapshot: Snapshot, baseCurrency: string):
   const itemRows: ExcelRow[] = [];
   for (const cat of snapshot.categories) {
     for (const item of cat.items) {
-      const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
-      const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
-      const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
-      itemRows.push({
-        'Category': cat.name,
-        'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
-        'Item Name': item.name,
-        'Currency': item.currency,
-        'Amount': item.amount,
-        [`Value (${baseCurrency})`]: baseValue,
-        'Return % p.a.': itemReturnPct(item, asOf),
-        'In Net Worth': inNetWorth,
-        'In Goals': inGoals,
-        'Notes': item.notes ?? '',
-      });
+      itemRows.push(buildItemRow(cat, item, snapshot, baseCurrency, asOf));
     }
   }
   const wsItems = XLSX.utils.json_to_sheet(itemRows);
@@ -290,21 +307,7 @@ export function exportAllToExcel(snapshots: Snapshot[], baseCurrency: string): v
     const itemRows: ExcelRow[] = [];
     for (const cat of snap.categories) {
       for (const item of cat.items) {
-        const baseValue = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snap.exchangeRates));
-        const inNetWorth = item.excludeFromNetWorth ? 'No' : 'Yes';
-        const inGoals = (item.excludeFromNetWorth || item.excludeFromGoals) ? 'No' : 'Yes';
-        itemRows.push({
-          'Category': cat.name,
-          'Type': cat.type === 'asset' ? 'Asset' : 'Liability',
-          'Item Name': item.name,
-          'Currency': item.currency,
-          'Amount': item.amount,
-          [`Value (${baseCurrency})`]: baseValue,
-          'Return % p.a.': itemReturnPct(item, asOf),
-          'In Net Worth': inNetWorth,
-          'In Goals': inGoals,
-          'Notes': item.notes ?? '',
-        });
+        itemRows.push(buildItemRow(cat, item, snap, baseCurrency, asOf));
       }
     }
 
