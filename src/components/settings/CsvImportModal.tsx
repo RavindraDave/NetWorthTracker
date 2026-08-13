@@ -7,6 +7,7 @@ import { X, Save, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Category, CsvFieldMapping } from '../../types';
 import { parseAmount } from '../../utils/numberFormat';
+import { findSubCategoryIdByName } from '../../utils/subCategories';
 import { useCsvParser, isExcelFile, CSV_FIELDS, CSV_FIELD_HINTS } from '../../hooks/useCsvParser';
 
 /** Returns the first month >= `from` that has no existing snapshot. */
@@ -93,12 +94,30 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
           targetCat = newCat;
         }
 
+        // Find-or-create the sub-group by case-insensitive name, mirroring the
+        // category handling above. Never skip a row because its group didn't
+        // match something that already exists — that is how the old Excel path
+        // silently dropped data. A blank or unmapped cell simply leaves the item
+        // ungrouped; we do not invent an "Uncategorised" group to clean up later.
+        let subCategoryId: string | undefined;
+        const subName = mapping['Sub-Category']
+          ? String(row[mapping['Sub-Category']] ?? '').trim()
+          : '';
+        if (subName) {
+          subCategoryId = findSubCategoryIdByName(targetCat, subName);
+          if (!subCategoryId) {
+            subCategoryId = crypto.randomUUID();
+            targetCat.subCategories = [...(targetCat.subCategories ?? []), { id: subCategoryId, name: subName }];
+          }
+        }
+
         targetCat.items.push({
           id: crypto.randomUUID(),
           name: itemName,
           amount,
           currency,
           excludeFromNetWorth: false,
+          ...(subCategoryId ? { subCategoryId } : {}),
         });
       }
 

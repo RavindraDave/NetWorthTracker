@@ -139,8 +139,8 @@ describe("Excel import round-trip of the app's own export headers", () => {
 // ---------------------------------------------------------------------------
 
 describe('CSV_FIELDS', () => {
-  it('contains the five expected field names', () => {
-    expect(CSV_FIELDS).toEqual(['Item Name', 'Category', 'Amount', 'Currency', 'Type']);
+  it('contains the six expected field names', () => {
+    expect(CSV_FIELDS).toEqual(['Item Name', 'Category', 'Sub-Category', 'Amount', 'Currency', 'Type']);
   });
 });
 
@@ -150,9 +150,45 @@ describe('CSV_FIELD_HINTS', () => {
     expect(CSV_FIELD_HINTS['Amount']).toBe('required');
   });
 
-  it('marks Category, Currency, and Type as optional', () => {
+  it('marks Category, Sub-Category, Currency, and Type as optional', () => {
     expect(CSV_FIELD_HINTS['Category']).toBe('optional');
+    expect(CSV_FIELD_HINTS['Sub-Category']).toBe('optional');
     expect(CSV_FIELD_HINTS['Currency']).toBe('optional');
     expect(CSV_FIELD_HINTS['Type']).toBe('optional');
+  });
+});
+
+describe('autoDetect — Sub-Category', () => {
+  it('round-trips our own export header', () => {
+    // exportSnapshotToCSV writes "Sub-Category"; normalize() makes it 'subcategory'.
+    const m = autoDetect(['Category', 'Sub-Category', 'Item Name', 'Amount']);
+    expect(m['Sub-Category']).toBe('Sub-Category');
+    expect(m['Category']).toBe('Category');
+  });
+
+  it('accepts common spellings', () => {
+    expect(autoDetect(['Sub Category'])['Sub-Category']).toBe('Sub Category');
+    expect(autoDetect(['sub_group'])['Sub-Category']).toBe('sub_group');
+    expect(autoDetect(['SubType'])['Sub-Category']).toBe('SubType');
+  });
+
+  it('does not confuse Group with Sub-Group', () => {
+    const m = autoDetect(['Group', 'Sub Group']);
+    expect(m['Category']).toBe('Group');
+    expect(m['Sub-Category']).toBe('Sub Group');
+  });
+
+  /**
+   * In a broker or mutual-fund statement these name the individual HOLDING, not a
+   * grouping. Claiming them would file every item name into the group column.
+   */
+  it('never claims holding-name headers like Scheme Name or Fund Name', () => {
+    expect(autoDetect(['Scheme Name'])['Sub-Category']).toBeUndefined();
+    expect(autoDetect(['Fund Name'])['Sub-Category']).toBeUndefined();
+    expect(autoDetect(['Instrument'])['Sub-Category']).toBeUndefined();
+  });
+
+  it('leaves Sub-Category unmapped when no such column exists', () => {
+    expect(autoDetect(['Name', 'Amount', 'Currency'])['Sub-Category']).toBeUndefined();
   });
 });

@@ -6,11 +6,12 @@ import { CsvFieldName, CsvFieldMapping } from '../types';
 
 type CsvField = CsvFieldName;
 
-export const CSV_FIELDS: CsvField[] = ['Item Name', 'Category', 'Amount', 'Currency', 'Type'];
+export const CSV_FIELDS: CsvField[] = ['Item Name', 'Category', 'Sub-Category', 'Amount', 'Currency', 'Type'];
 
 export const CSV_FIELD_HINTS: Record<CsvField, string> = {
   'Item Name': 'required',
   'Category':  'optional',
+  'Sub-Category': 'optional',
   'Amount':    'required',
   'Currency':  'optional',
   'Type':      'optional',
@@ -19,6 +20,14 @@ export const CSV_FIELD_HINTS: Record<CsvField, string> = {
 const FIELD_ALIASES: Record<CsvField, string[]> = {
   'Item Name': ['itemname', 'name', 'assetname', 'description', 'desc', 'item', 'particulars', 'narration'],
   'Category':  ['category', 'cat', 'group', 'section', 'accounttype', 'accountcategory'],
+  // normalize() strips [\s_()\-.] and lowercases, so our own "Sub-Category"
+  // export header round-trips as 'subcategory'.
+  //
+  // Deliberately only unambiguous "sub-something" headers. Tempting aliases like
+  // 'scheme', 'fund' or 'instrument' are wrong: in a broker or mutual-fund
+  // statement those name the individual HOLDING, so claiming them here would
+  // quietly file every item name into the group column.
+  'Sub-Category': ['subcategory', 'subcat', 'subgroup', 'subsection', 'subtype', 'subclass'],
   'Amount':    ['amount', 'value', 'balance', 'closingbalance', 'amt', 'currentvalue', 'marketvalue'],
   'Currency':  ['currency', 'ccy', 'curr', 'currencycode', 'iso'],
   'Type':      ['type', 'assettype', 'liabilitytype', 'kind', 'assetliability'],

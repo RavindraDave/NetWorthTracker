@@ -1,10 +1,13 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { CsvImportModal } from '../CsvImportModal';
-import type { Snapshot, UserPreferences } from '../../../types';
+import type { Snapshot, UserPreferences, Category } from '../../../types';
 
 // ── Top-level mocks ────────────────────────────────────────────────────────
+
+// Hoisted so tests can inspect what the import actually persisted.
+const mocks = vi.hoisted(() => ({ saveSnapshot: vi.fn() }));
 
 vi.mock('../../../context/AppContext', () => ({
   useApp: () => ({
@@ -21,7 +24,7 @@ vi.mock('../../../context/AppContext', () => ({
       exchangeRates: {},
       updatedAt: new Date().toISOString(),
     }),
-    saveSnapshot: vi.fn(),
+    saveSnapshot: mocks.saveSnapshot,
     updatePreferences: vi.fn(),
   }),
 }));
@@ -118,5 +121,92 @@ describe('CsvImportModal — column auto-detection', () => {
     renderModal([{ Foo: 'bar' }]);
     const importBtn = screen.getByRole('button', { name: /import/i });
     expect(importBtn).toBeDisabled();
+  });
+});
+
+// ── Sub-category import ────────────────────────────────────────────────────
+
+describe('CsvImportModal — sub-categories', () => {
+  beforeEach(() => {
+    sheetRows.current = [];
+    mocks.saveSnapshot.mockClear();
+  });
+
+  /** Run the import and return the snapshot that was persisted. */
+  async function importRows(rows: Record<string, string>[]) {
+    renderModal(rows);
+    const importBtn = await screen.findByRole('button', { name: /import/i });
+    await waitFor(() => expect(importBtn).not.toBeDisabled());
+    fireEvent.click(importBtn);
+    await waitFor(() => expect(mocks.saveSnapshot).toHaveBeenCalled());
+    return mocks.saveSnapshot.mock.calls[0][0] as Snapshot;
+  }
+
+  const findCat = (snap: Snapshot, name: string) =>
+    snap.categories.find(c => c.name === name) as Category;
+
+  /**
+   * The round-trip that matters: exportSnapshotToCSV writes these exact headers,
+   * so a file this app produced must import back with its grouping intact.
+   */
+  it('round-trips our own export headers, creating groups and filing items', async () => {
+    const snap = await importRows([
+      { 'Category': 'Investments', 'Sub-Category': 'Mutual Funds', 'Item Name': 'Fund A', 'Amount': '1000', 'Currency': 'INR' },
+      { 'Category': 'Investments', 'Sub-Category': 'Mutual Funds', 'Item Name': 'Fund B', 'Amount': '2000', 'Currency': 'INR' },
+      { 'Category': 'Investments', 'Sub-Category': 'Stocks', 'Item Name': 'Reliance', 'Amount': '500', 'Currency': 'INR' },
+    ]);
+
+    const inv = findCat(snap, 'Investments');
+    expect(inv.subCategories?.map(s => s.name)).toEqual(['Mutual Funds', 'Stocks']);
+
+    const mfId = inv.subCategories!.find(s => s.name === 'Mutual Funds')!.id;
+    expect(inv.items.filter(i => i.subCategoryId === mfId)).toHaveLength(2);
+    expect(inv.items).toHaveLength(3);
+  });
+
+  it('reuses one group for names differing only by case or spacing', async () => {
+    const snap = await importRows([
+      { 'Category': 'Investments', 'Sub-Category': 'Mutual Funds', 'Item Name': 'Fund A', 'Amount': '1000' },
+      { 'Category': 'Investments', 'Sub-Category': '  mutual   FUNDS ', 'Item Name': 'Fund B', 'Amount': '2000' },
+    ]);
+
+    const inv = findCat(snap, 'Investments');
+    expect(inv.subCategories).toHaveLength(1);
+    expect(inv.items.every(i => i.subCategoryId === inv.subCategories![0].id)).toBe(true);
+  });
+
+  /** The sin the old Excel path committed: dropping rows that didn't match. */
+  it('imports every row, blank sub-category or not, and never invents a group', async () => {
+    const snap = await importRows([
+      { 'Category': 'Investments', 'Sub-Category': 'Mutual Funds', 'Item Name': 'Fund A', 'Amount': '1000' },
+      { 'Category': 'Investments', 'Sub-Category': '', 'Item Name': 'Loose holding', 'Amount': '300' },
+      { 'Category': 'Investments', 'Sub-Category': '   ', 'Item Name': 'Another loose', 'Amount': '200' },
+    ]);
+
+    const inv = findCat(snap, 'Investments');
+    expect(inv.items).toHaveLength(3);
+    expect(inv.subCategories).toHaveLength(1); // no "Uncategorised" invented
+    expect(inv.items.filter(i => !i.subCategoryId)).toHaveLength(2);
+  });
+
+  it('keeps same-named groups separate across different categories', async () => {
+    const snap = await importRows([
+      { 'Category': 'Investments', 'Sub-Category': 'Bonds', 'Item Name': 'SGB', 'Amount': '1000' },
+      { 'Category': 'Retirement', 'Sub-Category': 'Bonds', 'Item Name': 'NPS-G', 'Amount': '2000' },
+    ]);
+
+    const inv = findCat(snap, 'Investments');
+    const ret = findCat(snap, 'Retirement');
+    expect(inv.subCategories![0].id).not.toBe(ret.subCategories![0].id);
+  });
+
+  it('leaves items ungrouped when the column is not mapped at all', async () => {
+    const snap = await importRows([
+      { 'Category': 'Investments', 'Item Name': 'Fund A', 'Amount': '1000' },
+    ]);
+
+    const inv = findCat(snap, 'Investments');
+    expect(inv.subCategories).toBeUndefined();
+    expect(inv.items[0].subCategoryId).toBeUndefined();
   });
 });
