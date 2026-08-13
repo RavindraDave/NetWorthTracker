@@ -83,3 +83,66 @@
     gap: 6px;
   }
 }
+
+/* ── Sub-group drill-down ─────────────────────────────────────────────────── */
+
+.donut-crumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.donut-crumb-sep {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+.donut-crumb-current {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.donut-crumb-close {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 2px;
+  margin-left: 2px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.donut-crumb-close:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+
+/* A drillable legend row is a real button; reset the UA styling so it still
+   matches the plain rows exactly. */
+button.alloc-leg-row {
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.alloc-leg-row:hover { background: rgba(255,255,255,0.06); }
+button.alloc-leg-row:hover .alloc-leg-name { color: var(--text); }
+
+.alloc-leg-chevron {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+[data-theme="light"] .donut-crumb-close:hover,
+[data-theme="light"] button.alloc-leg-row:hover { background: rgba(0,0,0,0.05); }

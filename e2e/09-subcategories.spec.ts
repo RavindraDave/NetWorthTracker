@@ -123,6 +123,27 @@ test.describe('Sub-categories', () => {
       .toHaveValue('Parag Parikh Flexi Cap');
   });
 
+  test('Portfolio shows the sub-group beside the category, and nothing extra when ungrouped', async ({ page }) => {
+    await seedGroups(page);
+    await addLineItem(page, 'Parag Parikh Flexi Cap', '250000', { group: 'Mutual Funds' });
+
+    const re = page.locator('.category-section', { hasText: 'Real Estate' });
+    await addLineItem(page, 'Apartment', '9000000', { within: re });
+    await saveAndGoHome(page);
+
+    await page.goto('/portfolio');
+    await page.waitForSelector('.portfolio-page');
+
+    const grouped = page.locator('tr', { hasText: 'Parag Parikh Flexi Cap' });
+    await expect(grouped.locator('.portfolio-cat-cell')).toContainText('Investments');
+    await expect(grouped.locator('.portfolio-cat-cell__sub')).toHaveText('Mutual Funds');
+
+    // An ungrouped holding gets the category badge only — no empty second badge.
+    const ungrouped = page.locator('tr', { hasText: 'Apartment' });
+    await expect(ungrouped.locator('.portfolio-cat-cell')).toContainText('Real Estate');
+    await expect(ungrouped.locator('.portfolio-cat-cell__sub')).toHaveCount(0);
+  });
+
   test('the category total still equals the sum of its group subtotals', async ({ page }) => {
     await seedGroups(page);
     await addLineItem(page, 'Fund A', '100000', { group: 'Mutual Funds' });

@@ -14,6 +14,7 @@
  */
 import { Category, LineItem, Snapshot, SubCategory } from '../types';
 import { convertToBase } from './calculations';
+import type { AllocationItem } from './calculations';
 
 /**
  * The single dedupe key: trim, collapse internal whitespace, lowercase.
@@ -220,6 +221,62 @@ export function pruneOrphanSubCategoryIds(snap: Snapshot): Snapshot {
   });
 
   return changed ? { ...snap, categories } : snap;
+}
+
+/** Slices past this are folded into a single "Other (N)" entry. */
+export const MAX_ALLOCATION_SLICES = 9;
+
+/**
+ * Sub-group breakdown for ONE category — the donut chart's drill-down level.
+ *
+ * Percentages are relative to that category's total, not to all assets, so the
+ * chart's sub-heading has to say which denominator is in play.
+ *
+ * Unlike the top-level view (which silently truncates past nine slices), the tail
+ * here folds into an explicit "Other (N)": a category can easily hold a dozen
+ * funds, and quietly dropping the twelfth would misstate the split.
+ *
+ * Lives here rather than in `calculations.ts` to keep the dependency one-way —
+ * this module already imports `convertToBase` from there.
+ */
+export function buildSubCategoryAllocationData(
+  snapshot: Snapshot,
+  baseCurrency: string,
+  categoryId: string,
+): AllocationItem[] {
+  const cat = snapshot.categories.find(c => c.id === categoryId);
+  if (!cat) return [];
+
+  const groups = groupItemsBySubCategory(cat, baseCurrency, snapshot.exchangeRates);
+  const total = groups.reduce((sum, g) => sum + g.total, 0);
+  if (total <= 0) return [];
+
+  const slices: AllocationItem[] = groups
+    .filter(g => g.total > 0)
+    .map(g => ({
+      id: g.id ?? '__ungrouped__',
+      name: g.id === null ? 'Ungrouped' : g.name,
+      value: g.total,
+      percentage: (g.total / total) * 100,
+      icon: cat.icon,
+      type: cat.type,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  if (slices.length <= MAX_ALLOCATION_SLICES) return slices;
+
+  const head = slices.slice(0, MAX_ALLOCATION_SLICES - 1);
+  const tail = slices.slice(MAX_ALLOCATION_SLICES - 1);
+  const tailValue = tail.reduce((sum, s) => sum + s.value, 0);
+
+  return [...head, {
+    id: '__other__',
+    name: `Other (${tail.length})`,
+    value: tailValue,
+    percentage: (tailValue / total) * 100,
+    icon: cat.icon,
+    type: cat.type,
+  }];
 }
 
 /** Convenience for the editor: does this category have any groups defined? */

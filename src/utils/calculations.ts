@@ -173,6 +173,9 @@ export function buildTrendData(
  * Portfolio allocation — category breakdown for donut/bar chart.
  */
 export interface AllocationItem {
+  /** Category id, or currency code for the currency view. Lets a clicked slice
+   *  be mapped back to what it represents. */
+  id: string;
   name: string;
   value: number;
   percentage: number;
@@ -200,6 +203,7 @@ export function buildAllocationData(
     if (value <= 0) continue;
     const base = cat.type === 'asset' ? totalAssets : totalLiabilities;
     items.push({
+      id: cat.id,
       name: cat.name,
       value,
       percentage: base > 0 ? (value / base) * 100 : 0,
@@ -237,6 +241,7 @@ export function buildCurrencyAllocationData(
     .filter(([, v]) => v > 0)
     .sort(([, a], [, b]) => b - a)
     .map(([currency, value]) => ({
+      id: currency,
       name: currency,
       value: Math.round(value),
       percentage: totalAssets > 0 ? (value / totalAssets) * 100 : 0,

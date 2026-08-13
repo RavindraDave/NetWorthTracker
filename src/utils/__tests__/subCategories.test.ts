@@ -11,6 +11,8 @@ import {
   moveSubCategory,
   pruneOrphanSubCategoryIds,
   hasSubCategories,
+  buildSubCategoryAllocationData,
+  MAX_ALLOCATION_SLICES,
 } from '../subCategories';
 import { calcCategoryTotal } from '../calculations';
 import { Category, LineItem, Snapshot } from '../../types';
@@ -447,5 +449,84 @@ describe('pruneOrphanSubCategoryIds', () => {
     const next = pruneOrphanSubCategoryIds(snapshot([clean, dirty]));
     expect(next.categories[0]).toBe(clean);
     expect(next.categories[1]).not.toBe(dirty);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSubCategoryAllocationData — the donut drill-down
+// ---------------------------------------------------------------------------
+
+describe('buildSubCategoryAllocationData', () => {
+  it('returns one slice per non-empty group, largest first', () => {
+    const snap = snapshot([mixedCategory()]);
+    const data = buildSubCategoryAllocationData(snap, BASE, 'cat-inv');
+
+    expect(data.map(d => d.name)).toEqual(['Mutual Funds', 'Stocks', 'Ungrouped']);
+    expect(data.map(d => d.value)).toEqual([3000, 500, 250]);
+  });
+
+  it('makes percentages relative to the category, not to all assets', () => {
+    const snap = snapshot([mixedCategory()]);
+    const data = buildSubCategoryAllocationData(snap, BASE, 'cat-inv');
+
+    const sum = data.reduce((n, d) => n + d.percentage, 0);
+    expect(sum).toBeCloseTo(100, 6);
+    expect(data[0].percentage).toBeCloseTo(3000 / 3750 * 100, 6);
+  });
+
+  it('labels the ungrouped bucket and gives it a stable id', () => {
+    const snap = snapshot([mixedCategory()]);
+    const ungrouped = buildSubCategoryAllocationData(snap, BASE, 'cat-inv')
+      .find(d => d.name === 'Ungrouped');
+
+    expect(ungrouped?.id).toBe('__ungrouped__');
+  });
+
+  it('folds the tail into an explicit Other (N) past nine slices', () => {
+    const subs = Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, name: `Fund ${i}` }));
+    const cat = category({
+      subCategories: subs,
+      // Descending so the smallest three are the ones folded away.
+      items: subs.map((s, i) => item({ id: `i${i}`, amount: (12 - i) * 100, subCategoryId: s.id })),
+    });
+
+    const data = buildSubCategoryAllocationData(snapshot([cat]), BASE, 'cat-inv');
+
+    expect(data).toHaveLength(MAX_ALLOCATION_SLICES);
+    expect(data[data.length - 1].name).toBe('Other (4)');
+    // Nothing is silently dropped — the folded slices still count toward 100%.
+    expect(data.reduce((n, d) => n + d.percentage, 0)).toBeCloseTo(100, 6);
+    expect(data.reduce((n, d) => n + d.value, 0))
+      .toBeCloseTo(calcCategoryTotal(cat, BASE, RATES), 6);
+  });
+
+  it('does not fold when there are exactly nine slices', () => {
+    const subs = Array.from({ length: 9 }, (_, i) => ({ id: `s${i}`, name: `Fund ${i}` }));
+    const cat = category({
+      subCategories: subs,
+      items: subs.map((s, i) => item({ id: `i${i}`, amount: 100, subCategoryId: s.id })),
+    });
+
+    const data = buildSubCategoryAllocationData(snapshot([cat]), BASE, 'cat-inv');
+    expect(data).toHaveLength(9);
+    expect(data.some(d => d.name.startsWith('Other'))).toBe(false);
+  });
+
+  it('returns [] for an unknown category or one with no value', () => {
+    expect(buildSubCategoryAllocationData(snapshot([mixedCategory()]), BASE, 'nope')).toEqual([]);
+    expect(buildSubCategoryAllocationData(snapshot([category()]), BASE, 'cat-inv')).toEqual([]);
+  });
+
+  it('excludes excluded items from the slices', () => {
+    const cat = category({
+      subCategories: [{ id: 'sub-mf', name: 'Mutual Funds' }],
+      items: [
+        item({ id: 'a', amount: 1000, subCategoryId: 'sub-mf' }),
+        item({ id: 'b', amount: 9999, subCategoryId: 'sub-mf', excludeFromNetWorth: true }),
+      ],
+    });
+
+    const data = buildSubCategoryAllocationData(snapshot([cat]), BASE, 'cat-inv');
+    expect(data[0].value).toBeCloseTo(1000, 6);
   });
 });

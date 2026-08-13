@@ -78,3 +78,21 @@
     padding: 14px 12px;
   }
 }
+
+/* Category cell: "Investments › Mutual Funds". Wraps rather than widening the
+   column, so the amount columns keep their alignment on narrow screens. */
+.portfolio-cat-cell {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.portfolio-cat-cell__sep {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+.portfolio-cat-cell__sub {
+  opacity: 0.85;
+}
