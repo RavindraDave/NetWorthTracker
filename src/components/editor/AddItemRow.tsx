@@ -10,9 +10,19 @@ interface AddItemRowProps {
   baseCurrency: string;
   enabledCurrencies: string[];
   onAdd: (item: LineItem) => void;
+  /** Group the new item is filed into. Absent = ungrouped. */
+  subCategoryId?: string;
+  /**
+   * Group name, used only to disambiguate the aria-labels when a category shows
+   * several add rows. Absent for the ungrouped bucket, which deliberately keeps the
+   * plain labels so existing selectors (and the e2e helpers) still resolve.
+   */
+  subCategoryName?: string;
 }
 
-export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCurrencies, onAdd }) => {
+export const AddItemRow: React.FC<AddItemRowProps> = ({
+  baseCurrency, enabledCurrencies, onAdd, subCategoryId, subCategoryName,
+}) => {
   const { preferences } = useApp();
   const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
   const [name, setName] = useState('');
@@ -33,16 +43,31 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
     setName('');
     setAmount(0);
     amountRef.current = 0;
+    // Clear the visible text too. `amount` goes 120000 -> 0 within one batch, so
+    // the hook's value-changed resync never fires and the typed figure would linger
+    // on screen while the next commit would actually use 0.
+    amountInput.reset(0);
     setCurrency(baseCurrency);
   };
 
   const commit = () => {
     const trimmed = name.trim();
     if (!trimmed) { reset(); return; }
-    onAdd({ id: crypto.randomUUID(), name: trimmed, amount: amountRef.current, currency, excludeFromNetWorth: false });
+    onAdd({
+      id: crypto.randomUUID(),
+      name: trimmed,
+      amount: amountRef.current,
+      currency,
+      excludeFromNetWorth: false,
+      ...(subCategoryId ? { subCategoryId } : {}),
+    });
     reset();
     nameRef.current?.focus();
   };
+
+  // Suffix only named groups. The ungrouped bucket keeps "New item name" / "Add item"
+  // so selectors written before sub-categories existed still match exactly one row.
+  const inGroup = subCategoryName ? ` in ${subCategoryName}` : '';
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -64,14 +89,14 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
           onChange={e => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="+ Add item"
-          aria-label="New item name"
+          aria-label={`New item name${inGroup}`}
         />
 
         <select
           className="line-item-select"
           value={currency}
           onChange={e => setCurrency(e.target.value)}
-          aria-label="New item currency"
+          aria-label={`New item currency${inGroup}`}
         >
           {enabledCurrencies.map(c => (
             <option key={c} value={c}>{c}</option>
@@ -82,7 +107,7 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
           {...amountInput.inputProps}
           className="line-item-input amount-input"
           placeholder="0.00"
-          aria-label={`New item amount in ${currency}`}
+          aria-label={`New item amount in ${currency}${inGroup}`}
           onKeyDown={handleKeyDown}
           onBlur={() => { amountInput.inputProps.onBlur(); if (name.trim()) commit(); }}
         />
@@ -92,8 +117,8 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
           className="add-item-btn"
           onClick={commit}
           disabled={!name.trim()}
-          aria-label="Add item"
-          title="Add item"
+          aria-label={subCategoryName ? `Add item to ${subCategoryName}` : 'Add item'}
+          title={subCategoryName ? `Add item to ${subCategoryName}` : 'Add item'}
         >
           <Plus size={16} />
         </button>

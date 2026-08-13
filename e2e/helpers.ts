@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 
 /**
  * Clears ALL app data (IndexedDB + localStorage) so each test starts fresh.
@@ -36,10 +36,26 @@ export async function createFirstSnapshot(page: Page) {
  * The add-row inputs have unique aria-labels ("New item …"), distinct from
  * saved rows ("Item name" / "Amount in …").
  */
-export async function addLineItem(page: Page, name: string, amount: string) {
-  await page.locator('input[aria-label="New item name"]').first().fill(name);
-  await page.locator('input[aria-label^="New item amount"]').first().fill(amount);
-  await page.locator('button[aria-label="Add item"]').first().click();
+export async function addLineItem(
+  page: Page,
+  name: string,
+  amount: string,
+  opts: { group?: string; within?: Locator } = {},
+) {
+  const suffix = opts.group ? ` in ${opts.group}` : '';
+  const nameSel = `input[aria-label="New item name${suffix}"]`;
+  // Resolve all three fields inside ONE row container. Three independent .first()
+  // lookups can land on different rows once a category renders several add rows —
+  // the amount label is a prefix match — filling the name in one row and the amount
+  // in another, which commits an item with amount 0.
+  // `within` scopes to a category; without it the ungrouped label is ambiguous
+  // across categories and .first() silently picks the topmost one.
+  const root = opts.within ?? page;
+  const row = root.locator('.add-item-row').filter({ has: page.locator(nameSel) }).first();
+
+  await row.locator(nameSel).fill(name);
+  await row.locator('input[aria-label^="New item amount"]').fill(amount);
+  await row.locator('button.add-item-btn').click();
   // The committed row appears as a regular line item
   await page.locator(`input[aria-label="Item name"][value="${name}"]`).waitFor({ timeout: 5000 });
 }

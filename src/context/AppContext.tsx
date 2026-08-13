@@ -409,6 +409,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createNewSnapshot = (): Snapshot => {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Deliberately NOT seeded with suggested sub-groups. Pre-filing every category
+    // into empty groups would greet a brand-new user with ~30 empty group headers
+    // and add rows before they have typed a single balance — the same "forced group
+    // chrome" regression the editor's zero-change path exists to avoid. The curated
+    // default names are still one click away per category, via "Suggest groups".
     const categories = getEnabledTemplates().map(buildCategoryFromTemplate);
     return {
       id: crypto.randomUUID(),
