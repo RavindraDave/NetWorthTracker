@@ -104,47 +104,85 @@ export function findSubCategoryIdByName(cat: Category, rawName: string): string 
  * Immutable find-or-create. `created: false` means a case-insensitive match already
  * existed and was reused — typing "mutual funds" converges on "Mutual Funds" rather
  * than adding a near-duplicate.
+ *
+ * `description` is applied only when creating; see the note inside.
  */
 export function ensureSubCategory(
   cat: Category,
   rawName: string,
+  description?: string,
 ): { category: Category; id: string; created: boolean } {
   const name = rawName.trim().replace(/\s+/g, ' ');
   const existing = findSubCategoryIdByName(cat, name);
+  // Reuse never touches the description: the group may already carry one the user
+  // has edited, and a seeded suggestion must not overwrite it.
   if (existing) return { category: cat, id: existing, created: false };
 
   const id = crypto.randomUUID();
+  const def: SubCategory = description?.trim()
+    ? { id, name, description: description.trim() }
+    : { id, name };
   return {
-    category: { ...cat, subCategories: [...(cat.subCategories ?? []), { id, name }] },
+    category: { ...cat, subCategories: [...(cat.subCategories ?? []), def] },
     id,
     created: true,
   };
 }
 
 /**
- * Rename a group. On a case-insensitive collision with a *different* group this
- * returns `collidesWith` and leaves the category untouched, so the caller can offer
- * a merge instead of silently creating a duplicate.
+ * Edit a group's name and/or description in ONE transform.
+ *
+ * Both fields move together because the header edits them together, and two
+ * separate `onChange` calls in the same tick would each read the same stale
+ * category prop — the second silently discarding the first.
+ *
+ * On a case-insensitive name collision with a *different* group this returns
+ * `collidesWith` and leaves the category untouched, so the caller can offer a merge
+ * instead of silently creating a duplicate.
  */
+export function updateSubCategory(
+  cat: Category,
+  id: string,
+  patch: { name?: string; description?: string },
+): { category: Category; collidesWith?: string } {
+  const name = patch.name?.trim().replace(/\s+/g, ' ');
+  // An empty name is a no-op rather than an error: blurring a cleared field should
+  // leave the group alone, not destroy its name.
+  if (patch.name !== undefined && !name) return { category: cat };
+
+  if (name) {
+    const clash = cat.subCategories?.find(
+      s => s.id !== id && normalizeSubName(s.name) === normalizeSubName(name),
+    );
+    if (clash) return { category: cat, collidesWith: clash.id };
+  }
+
+  return {
+    category: {
+      ...cat,
+      subCategories: (cat.subCategories ?? []).map(s => {
+        if (s.id !== id) return s;
+        const next: SubCategory = { ...s, ...(name ? { name } : {}) };
+        if (patch.description !== undefined) {
+          const desc = patch.description.trim();
+          // Clearing the field removes the key rather than storing an empty string,
+          // so "has a description" stays a simple truthiness check everywhere.
+          if (desc) next.description = desc;
+          else delete next.description;
+        }
+        return next;
+      }),
+    },
+  };
+}
+
+/** Name-only convenience over `updateSubCategory`. */
 export function renameSubCategory(
   cat: Category,
   id: string,
   rawName: string,
 ): { category: Category; collidesWith?: string } {
-  const name = rawName.trim().replace(/\s+/g, ' ');
-  if (!name) return { category: cat };
-
-  const clash = cat.subCategories?.find(
-    s => s.id !== id && normalizeSubName(s.name) === normalizeSubName(name),
-  );
-  if (clash) return { category: cat, collidesWith: clash.id };
-
-  return {
-    category: {
-      ...cat,
-      subCategories: (cat.subCategories ?? []).map(s => (s.id === id ? { ...s, name } : s)),
-    },
-  };
+  return updateSubCategory(cat, id, { name: rawName });
 }
 
 /**

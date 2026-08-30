@@ -5,13 +5,15 @@ import { calcCategoryTotal } from '../../utils/calculations';
 import {
   groupItemsBySubCategory,
   ensureSubCategory,
-  renameSubCategory,
+  updateSubCategory,
   deleteSubCategory,
   mergeSubCategories,
   moveSubCategory,
   hasSubCategories,
+  findSubCategoryIdByName,
 } from '../../utils/subCategories';
-import { suggestedSubCategories } from '../../utils/defaultSubCategories';
+import { suggestedSubCategories, SubCategorySuggestion } from '../../utils/defaultSubCategories';
+import { SuggestGroupsModal } from './SuggestGroupsModal';
 import { LineItemRow } from './LineItemRow';
 import { AddItemRow } from './AddItemRow';
 import { SubCategoryGroupHeader } from './SubCategoryGroupHeader';
@@ -36,10 +38,14 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const total = calcCategoryTotal(category, baseCurrency, exchangeRates);
   const grouped = hasSubCategories(category);
   const suggestions = suggestedSubCategories(category.id);
+  // The trigger stays available once a category already has groups, so the picker
+  // can be used to top up later — it just hides when nothing is left to add.
+  const unusedSuggestions = suggestions.filter(s => !findSubCategoryIdByName(category, s.name));
   const countedItems = category.items.filter(i => !i.excludeFromNetWorth).length;
 
   const handleAddItem = useCallback((item: LineItem) => {
@@ -90,14 +96,22 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
     if (created) onChange(next);
   }, [newGroupName, category, onChange]);
 
-  const applySuggestions = useCallback(() => {
+  /**
+   * Every accepted suggestion is folded into ONE onChange over an accumulator.
+   * Calling onChange per group would have each call read the same stale `category`
+   * prop, so only the last would survive.
+   */
+  const applySelected = useCallback((chosen: SubCategorySuggestion[]) => {
     let next = category;
-    for (const name of suggestions) next = ensureSubCategory(next, name).category;
-    onChange(next);
-  }, [category, suggestions, onChange]);
+    for (const s of chosen) next = ensureSubCategory(next, s.name, s.description).category;
+    if (next !== category) onChange(next);
+  }, [category, onChange]);
 
-  const handleRenameGroup = useCallback(async (id: string, name: string) => {
-    const { category: next, collidesWith } = renameSubCategory(category, id, name);
+  const handleEditGroup = useCallback(async (
+    id: string,
+    patch: { name: string; description: string },
+  ) => {
+    const { category: next, collidesWith } = updateSubCategory(category, id, patch);
     if (!collidesWith) { onChange(next); return; }
 
     // A rename that collides is almost always the user trying to unify two groups
@@ -178,12 +192,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
           >
             <FolderPlus size={13} /> Sub-group
           </button>
-          {!grouped && suggestions.length > 0 && (
+          {unusedSuggestions.length > 0 && (
             <button
               type="button"
               className="subcat-add__btn"
-              onClick={applySuggestions}
-              title={suggestions.join(' · ')}
+              onClick={() => setPickerOpen(true)}
               aria-label={`Add suggested sub-groups to ${category.name}`}
             >
               <Sparkles size={13} /> Suggest groups
@@ -262,7 +275,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
                         siblings={namedGroups.filter(s => s.id !== group.id)}
                         isFirst={groupIdx === 0}
                         isLast={groupIdx === namedGroups.length - 1}
-                        onRename={name => handleRenameGroup(group.id!, name)}
+                        description={namedGroups.find(sc => sc.id === group.id)?.description}
+                        onEdit={patch => handleEditGroup(group.id!, patch)}
                         onMove={delta => onChange(moveSubCategory(category, group.id!, delta))}
                         onMerge={intoId => onChange(mergeSubCategories(category, group.id!, intoId))}
                         onDelete={() => handleDeleteGroup(group.id!)}
@@ -291,6 +305,15 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
           </div>
         )}
       </div>
+
+      {pickerOpen && (
+        <SuggestGroupsModal
+          category={category}
+          suggestions={suggestions}
+          onClose={() => setPickerOpen(false)}
+          onAdd={applySelected}
+        />
+      )}
     </>
   );
 };

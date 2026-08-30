@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pencil, MoreHorizontal, ArrowUp, ArrowDown, Trash2, Merge } from 'lucide-react';
 import { SubCategory } from '../../types';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
+import { InfoTooltip } from '../common/InfoTooltip';
 import './SubCategoryGroupHeader.css';
 
 interface SubCategoryGroupHeaderProps {
@@ -17,18 +18,21 @@ interface SubCategoryGroupHeaderProps {
   siblings: SubCategory[];
   isFirst: boolean;
   isLast: boolean;
-  onRename: (name: string) => void;
+  description?: string;
+  /** Name and description are saved together — see updateSubCategory. */
+  onEdit: (patch: { name: string; description: string }) => void;
   onMove: (delta: -1 | 1) => void;
   onMerge: (intoId: string) => void;
   onDelete: () => void;
 }
 
 export const SubCategoryGroupHeader: React.FC<SubCategoryGroupHeaderProps> = ({
-  id, name, itemCount, total, baseCurrency, collapsed, onToggleCollapse,
-  siblings, isFirst, isLast, onRename, onMove, onMerge, onDelete,
+  id, name, description, itemCount, total, baseCurrency, collapsed, onToggleCollapse,
+  siblings, isFirst, isLast, onEdit, onMove, onMerge, onDelete,
 }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
+  const [descDraft, setDescDraft] = useState(description ?? '');
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -50,17 +54,35 @@ export const SubCategoryGroupHeader: React.FC<SubCategoryGroupHeaderProps> = ({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [menuOpen]);
 
-  const startEdit = () => { setDraft(name); setEditing(true); };
+  const startEdit = () => {
+    setDraft(name);
+    setDescDraft(description ?? '');
+    setEditing(true);
+  };
 
   const commitEdit = () => {
     setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== name) onRename(trimmed);
+    const trimmedName = draft.trim();
+    const trimmedDesc = descDraft.trim();
+    if (!trimmedName) return;
+    if (trimmedName === name && trimmedDesc === (description ?? '')) return;
+    onEdit({ name: trimmedName, description: trimmedDesc });
+  };
+
+  // Blur fires when moving between the two fields, which must not commit-and-close
+  // mid-edit. Only a blur that leaves the editor entirely counts.
+  const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
+    if (e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) return;
+    commitEdit();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') commitEdit();
-    else if (e.key === 'Escape') { setDraft(name); setEditing(false); }
+    else if (e.key === 'Escape') {
+      setDraft(name);
+      setDescDraft(description ?? '');
+      setEditing(false);
+    }
   };
 
   return (
@@ -76,20 +98,33 @@ export const SubCategoryGroupHeader: React.FC<SubCategoryGroupHeaderProps> = ({
       </button>
 
       {editing ? (
-        <input
-          ref={inputRef}
-          className="subcat-header__input"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={handleKeyDown}
-          aria-label={`Rename ${name}`}
-        />
+        <span className="subcat-header__edit">
+          <input
+            ref={inputRef}
+            className="subcat-header__input"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            aria-label={`Rename ${name}`}
+          />
+          <input
+            className="subcat-header__input subcat-header__input--desc"
+            value={descDraft}
+            onChange={e => setDescDraft(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            placeholder="What belongs in this group? (optional)"
+            aria-label={`Description for ${name}`}
+          />
+        </span>
       ) : (
         <span className={`subcat-header__name${isUngrouped ? ' subcat-header__name--muted' : ''}`}>
           {isUngrouped ? 'Ungrouped' : name}
         </span>
       )}
+
+      {!isUngrouped && !editing && description && <InfoTooltip body={description} />}
 
       <span className="subcat-header__count">
         {itemCount} {itemCount === 1 ? 'item' : 'items'}

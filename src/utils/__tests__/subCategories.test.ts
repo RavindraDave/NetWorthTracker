@@ -9,6 +9,7 @@ import {
   deleteSubCategory,
   mergeSubCategories,
   moveSubCategory,
+  updateSubCategory,
   pruneOrphanSubCategoryIds,
   hasSubCategories,
   buildSubCategoryAllocationData,
@@ -263,6 +264,30 @@ describe('ensureSubCategory', () => {
   it('normalises the stored name but preserves the original casing', () => {
     const { category: next, id } = ensureSubCategory(category(), '  Fixed   Deposits  ');
     expect(next.subCategories?.find(s => s.id === id)?.name).toBe('Fixed Deposits');
+  });
+
+  it('stores a description when creating', () => {
+    const { category: next, id } = ensureSubCategory(category(), 'Mutual Funds', 'Equity and debt schemes.');
+    expect(next.subCategories?.find(s => s.id === id)?.description).toBe('Equity and debt schemes.');
+  });
+
+  /** A seeded suggestion must never clobber a description the user has edited. */
+  it('does NOT overwrite the description when reusing an existing group', () => {
+    const cat = category({
+      subCategories: [{ id: 'sub-mf', name: 'Mutual Funds', description: 'My own words.' }],
+    });
+    const { category: next, created } = ensureSubCategory(cat, 'mutual funds', 'Catalogue wording.');
+
+    expect(created).toBe(false);
+    expect(next).toBe(cat);
+    expect(next.subCategories?.[0].description).toBe('My own words.');
+  });
+
+  it('omits the description key entirely when none is given or it is blank', () => {
+    const a = ensureSubCategory(category(), 'Stocks');
+    expect('description' in a.category.subCategories![0]).toBe(false);
+    const b = ensureSubCategory(category(), 'Stocks', '   ');
+    expect('description' in b.category.subCategories![0]).toBe(false);
   });
 
   it('creates the subCategories array on a category that had none', () => {
@@ -528,5 +553,67 @@ describe('buildSubCategoryAllocationData', () => {
 
     const data = buildSubCategoryAllocationData(snapshot([cat]), BASE, 'cat-inv');
     expect(data[0].value).toBeCloseTo(1000, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateSubCategory — name and description together
+// ---------------------------------------------------------------------------
+
+describe('updateSubCategory', () => {
+  const withDesc = () => category({
+    subCategories: [
+      { id: 'sub-mf', name: 'Mutual Funds', description: 'Equity and debt schemes.' },
+      { id: 'sub-stocks', name: 'Stocks' },
+    ],
+    items: [item({ id: 'a', subCategoryId: 'sub-mf' })],
+  });
+
+  it('changes name and description in one transform', () => {
+    const { category: next } = updateSubCategory(withDesc(), 'sub-mf', {
+      name: 'MF Portfolio', description: 'Only equity now.',
+    });
+    expect(next.subCategories?.[0]).toMatchObject({
+      name: 'MF Portfolio', description: 'Only equity now.',
+    });
+  });
+
+  it('adds a description to a group that had none', () => {
+    const { category: next } = updateSubCategory(withDesc(), 'sub-stocks', {
+      name: 'Stocks', description: 'Direct equity.',
+    });
+    expect(next.subCategories?.[1].description).toBe('Direct equity.');
+  });
+
+  it('removes the key when the description is cleared', () => {
+    const { category: next } = updateSubCategory(withDesc(), 'sub-mf', {
+      name: 'Mutual Funds', description: '   ',
+    });
+    expect('description' in next.subCategories![0]).toBe(false);
+  });
+
+  it('leaves the description alone when the patch omits it', () => {
+    const { category: next } = updateSubCategory(withDesc(), 'sub-mf', { name: 'MF' });
+    expect(next.subCategories?.[0].description).toBe('Equity and debt schemes.');
+  });
+
+  it('reports a name collision without changing anything', () => {
+    const cat = withDesc();
+    const { category: next, collidesWith } = updateSubCategory(cat, 'sub-stocks', {
+      name: 'mutual funds', description: 'x',
+    });
+    expect(collidesWith).toBe('sub-mf');
+    expect(next).toBe(cat);
+  });
+
+  it('ignores an empty name rather than destroying it', () => {
+    const cat = withDesc();
+    expect(updateSubCategory(cat, 'sub-mf', { name: '   ' }).category).toBe(cat);
+  });
+
+  it('keeps renameSubCategory working as a name-only wrapper', () => {
+    const { category: next } = renameSubCategory(withDesc(), 'sub-mf', 'MF Portfolio');
+    expect(next.subCategories?.[0].name).toBe('MF Portfolio');
+    expect(next.subCategories?.[0].description).toBe('Equity and debt schemes.');
   });
 });

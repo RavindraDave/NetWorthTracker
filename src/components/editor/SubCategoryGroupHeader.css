@@ -219,3 +219,20 @@
 @media (max-width: 640px) {
   .subcat-group__items { padding-left: 8px; }
 }
+
+/* Two-field inline editor (name + optional description). Takes the row's free
+   space so the subtotal stays pinned right. */
+.subcat-header__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.subcat-header__input--desc {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  width: 100%;
+}

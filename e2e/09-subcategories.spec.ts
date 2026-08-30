@@ -23,11 +23,19 @@ const group = (page: Page, name: string) =>
     has: page.locator('.subcat-header__name', { hasText: new RegExp(`^${name}$`) }),
   });
 
-/** Add the suggested groups to Investments (Mutual Funds, Stocks, ETFs, Bonds). */
-async function seedGroups(page: Page) {
+/** Open the suggestion picker for Investments. */
+async function openPicker(page: Page) {
   await investments(page)
     .locator('button[aria-label="Add suggested sub-groups to Investments"]')
     .click();
+  await expect(page.locator('.suggest-list')).toBeVisible();
+}
+
+/** Accept every suggested group for Investments via the picker. */
+async function seedGroups(page: Page) {
+  await openPicker(page);
+  await page.getByRole('button', { name: 'Select all' }).click();
+  await page.getByRole('button', { name: /^Add \d+ groups?$/ }).click();
   await expect(group(page, 'Mutual Funds')).toBeVisible();
 }
 
@@ -48,7 +56,8 @@ test.describe('Sub-categories', () => {
     await seedGroups(page);
 
     const names = investments(page).locator('.subcat-header__name');
-    await expect(names).toHaveText(['Mutual Funds', 'Stocks', 'ETFs', 'Bonds', 'Ungrouped']);
+    await expect(names).toHaveText(
+      ['Mutual Funds', 'Stocks', 'ETFs', 'Bonds', 'RSUs & ESOPs', 'Crypto', 'Ungrouped']);
 
     // A different category is untouched.
     await expect(
@@ -154,5 +163,60 @@ test.describe('Sub-categories', () => {
     await expect(group(page, 'Mutual Funds').locator('.subcat-header__total')).toContainText('1,00,000');
     await expect(group(page, 'Stocks').locator('.subcat-header__total')).toContainText('50,000');
     await expect(group(page, 'Ungrouped').locator('.subcat-header__total')).toContainText('25,000');
+  });
+
+  test('the picker adds only the groups that were ticked', async ({ page }) => {
+    await openPicker(page);
+    await page.getByRole('checkbox', { name: 'Mutual Funds' }).check();
+    await page.getByRole('checkbox', { name: 'Bonds' }).check();
+    await page.getByRole('button', { name: 'Add 2 groups' }).click();
+
+    await expect(investments(page).locator('.subcat-header__name'))
+      .toHaveText(['Mutual Funds', 'Bonds', 'Ungrouped']);
+  });
+
+  test('descriptions are shown in the picker and kept on the group', async ({ page }) => {
+    await openPicker(page);
+    await expect(page.locator('.suggest-desc').first()).toContainText(/schemes|equity/i);
+
+    await page.getByRole('checkbox', { name: 'Mutual Funds' }).check();
+    await page.getByRole('button', { name: 'Add 1 group' }).click();
+
+    // The seeded description surfaces through the header's info tooltip.
+    await group(page, 'Mutual Funds').locator('.info-tooltip-trigger').click();
+    await expect(page.locator('.info-tooltip-popover')).toContainText(/schemes/i);
+  });
+
+  test('reopening the picker shows what has already been added', async ({ page }) => {
+    await openPicker(page);
+    await page.getByRole('checkbox', { name: 'Mutual Funds' }).check();
+    await page.getByRole('button', { name: 'Add 1 group' }).click();
+
+    await openPicker(page);
+    const mf = page.getByRole('checkbox', { name: 'Mutual Funds' });
+    await expect(mf).toBeChecked();
+    await expect(mf).toBeDisabled();
+    await expect(page.getByRole('checkbox', { name: 'Stocks' })).toBeEnabled();
+  });
+
+  test('a group description can be edited and persists across a save', async ({ page }) => {
+    await seedGroups(page);
+
+    await group(page, 'Mutual Funds')
+      .locator('button[aria-label="Rename group Mutual Funds"]').click();
+
+    // Scoped to the page, not through group(): editing replaces the
+    // .subcat-header__name span that group() matches on, so a group-scoped
+    // locator resolves to nothing while the editor is open.
+    const desc = page.locator('input[aria-label="Description for Mutual Funds"]');
+    await desc.fill('Only my SIPs.');
+    await desc.press('Enter');
+
+    await addLineItem(page, 'Parag Parikh Flexi Cap', '250000', { group: 'Mutual Funds' });
+    await saveAndGoHome(page);
+    await openSnapshotEditor(page);
+
+    await group(page, 'Mutual Funds').locator('.info-tooltip-trigger').click();
+    await expect(page.locator('.info-tooltip-popover')).toContainText('Only my SIPs.');
   });
 });

@@ -91,18 +91,43 @@ describe('CategorySection without sub-categories', () => {
     expect(screen.getByLabelText('Add item')).toBeInTheDocument();
   });
 
-  it('offers suggested groups for a category that has defaults', () => {
+  it('opens the picker rather than adding every suggestion at once', () => {
     const onChange = vi.fn();
     render(<CategorySection {...baseProps} category={category()} onChange={onChange} />);
 
     fireEvent.click(screen.getByLabelText('Add suggested sub-groups to Investments'));
 
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('adds only the picked groups, with their descriptions, in one onChange', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={category()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Add suggested sub-groups to Investments'));
+    fireEvent.click(screen.getByLabelText('Mutual Funds'));
+    fireEvent.click(screen.getByLabelText('Bonds'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add 2 groups' }));
+
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].subCategories.map((s: { name: string }) => s.name))
-      .toEqual(['Mutual Funds', 'Stocks', 'ETFs', 'Bonds']);
+    const added = onChange.mock.calls[0][0].subCategories;
+    expect(added.map((s: { name: string }) => s.name)).toEqual(['Mutual Funds', 'Bonds']);
+    expect(added[0].description).toMatch(/schemes/i);
   });
 
   it('offers no suggestions for a category we have no opinion about', () => {
+    render(
+      <CategorySection
+        {...baseProps}
+        category={category({ id: crypto.randomUUID(), name: 'My Custom Category' })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByLabelText(/Add suggested sub-groups/)).toBeNull();
+  });
+
+  it('now covers the categories that previously had no suggestions', () => {
     render(
       <CategorySection
         {...baseProps}
@@ -110,7 +135,7 @@ describe('CategorySection without sub-categories', () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.queryByLabelText(/Add suggested sub-groups/)).toBeNull();
+    expect(screen.getByLabelText('Add suggested sub-groups to Business')).toBeInTheDocument();
   });
 });
 
@@ -370,5 +395,100 @@ describe('CategorySection with sub-categories', () => {
     const next: Category = onChange.mock.calls[0][0];
     expect(next.items).toHaveLength(3);
     expect(next.items.filter(i => i.subCategoryId === 'sub-mf')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Descriptions
+// ---------------------------------------------------------------------------
+
+describe('CategorySection group descriptions', () => {
+  const described = () => category({
+    subCategories: [
+      { id: 'sub-mf', name: 'Mutual Funds', description: 'Equity and debt schemes.' },
+      { id: 'sub-stocks', name: 'Stocks' },
+    ],
+    items: [item({ id: 'a', subCategoryId: 'sub-mf' })],
+  });
+
+  it('offers the tooltip only for groups that have a description', () => {
+    const { container } = render(
+      <CategorySection {...baseProps} category={described()} onChange={vi.fn()} />,
+    );
+
+    // Exactly one trigger across all three headers — Mutual Funds has a description,
+    // Stocks and the Ungrouped bucket do not.
+    const triggers = container.querySelectorAll('.subcat-header .info-tooltip-trigger');
+    expect(triggers).toHaveLength(1);
+
+    const mfHeader = container.querySelector('.subcat-group .subcat-header')!;
+    expect(mfHeader.querySelector('.subcat-header__name')?.textContent).toBe('Mutual Funds');
+    expect(mfHeader.querySelector('.info-tooltip-trigger')).not.toBeNull();
+  });
+
+  it('reveals the description text when the tooltip is opened', () => {
+    const { container } = render(
+      <CategorySection {...baseProps} category={described()} onChange={vi.fn()} />,
+    );
+
+    expect(screen.queryByText('Equity and debt schemes.')).toBeNull();
+    fireEvent.click(container.querySelector('.subcat-header .info-tooltip-trigger')!);
+    expect(screen.getByText('Equity and debt schemes.')).toBeInTheDocument();
+  });
+
+  it('edits name and description together in one onChange', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={described()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Rename group Mutual Funds'));
+    fireEvent.change(screen.getByLabelText('Rename Mutual Funds'), {
+      target: { value: 'MF Portfolio' },
+    });
+    fireEvent.change(screen.getByLabelText('Description for Mutual Funds'), {
+      target: { value: 'Only equity now.' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('Description for Mutual Funds'), { key: 'Enter' });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0].subCategories[0]).toMatchObject({
+      name: 'MF Portfolio', description: 'Only equity now.',
+    });
+  });
+
+  it('adds a description to a group that had none', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={described()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Rename group Stocks'));
+    fireEvent.change(screen.getByLabelText('Description for Stocks'), {
+      target: { value: 'Direct equity.' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('Description for Stocks'), { key: 'Enter' });
+
+    expect(onChange.mock.calls[0][0].subCategories[1].description).toBe('Direct equity.');
+  });
+
+  it('clearing the description drops the key', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={described()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Rename group Mutual Funds'));
+    fireEvent.change(screen.getByLabelText('Description for Mutual Funds'), {
+      target: { value: '  ' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('Description for Mutual Funds'), { key: 'Enter' });
+
+    expect('description' in onChange.mock.calls[0][0].subCategories[0]).toBe(false);
+  });
+
+  it('Escape abandons both fields', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={described()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Rename group Mutual Funds'));
+    fireEvent.change(screen.getByLabelText('Rename Mutual Funds'), { target: { value: 'Nope' } });
+    fireEvent.keyDown(screen.getByLabelText('Rename Mutual Funds'), { key: 'Escape' });
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

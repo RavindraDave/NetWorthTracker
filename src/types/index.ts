@@ -26,6 +26,11 @@ export interface Snapshot {
 export interface SubCategory {
   id: string;
   name: string;
+  /**
+   * What belongs in this group. Seeded from the suggestion catalogue when the user
+   * accepts one in the picker, then freely editable. Absent is normal.
+   */
+  description?: string;
 }
 
 export interface Category {
