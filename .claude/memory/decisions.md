@@ -113,3 +113,45 @@ Cash & Bank, Savings / Cash / NRE-NRO". Shipped in five phases; all five are mer
   names, so a text filter for "Stocks" also matches the Mutual Funds group.
 - aria-labels suffix only *named* groups ("New item name in Mutual Funds"); the
   ungrouped bucket keeps the plain labels so pre-existing selectors still resolve.
+
+### Suggested sub-groups + descriptions (August 2026)
+- **All 12 built-in categories carry suggestions.** The original "a wrong default is
+  worse than none" call for Personal Property / Business / Foreign Holdings / Tax /
+  Other was reversed: suggestions are opt-in per category, so a mediocre one costs a
+  glance rather than a cleanup.
+- **Descriptions are stored per group** (`SubCategory.description`), not looked up from
+  the catalogue at render. That survives renames and syncs, and keeps the text inside
+  the encrypted snapshot instead of plaintext preferences. Still additive — no Dexie
+  bump, no migration, `BackupData.version` stays 1.
+- **`ensureSubCategory` applies a description only on create.** Reusing an existing
+  group must never overwrite wording the user edited.
+- **`updateSubCategory` edits name + description in one transform**, because the header
+  edits them together and two `onChange` calls in a tick each read the same stale
+  category prop. `renameSubCategory` is now a wrapper over it. Clearing the field
+  deletes the key rather than storing `''`, so "has a description" stays a truthiness
+  check.
+- **The picker ticks nothing by default.** Pre-ticking would make the checklist behave
+  like the add-all button it replaced and re-create the empty-group clutter it exists
+  to prevent. Already-present groups render ticked+disabled, matched case-insensitively.
+- **Descriptions are deliberately absent from CSV/Excel/print** — metadata about the
+  grouping, not about money, and it would repeat on every item row. Also no auto-fill
+  on import: the picker seeds a description with the user looking at it; a bulk import
+  does not.
+- **e2e gotcha:** `group()` matches a group via `.subcat-header__name`, but opening the
+  header editor *replaces* that span with inputs — so a group-scoped locator resolves to
+  nothing mid-edit. Use page-scoped locators for the edit fields.
+
+### Merging main's full-app audit (August 2026)
+Ten conflicts, nearly all "both sides added here". Worth remembering:
+- `printReport.buildCategoryRows` had been lifted to module scope on this branch and
+  was still a closure on main — keep the lifted one, carry main's wording across. With
+  main's `cat.items.length > 0` filter, the empty branch means "all items excluded",
+  so the old "No items in this category" copy was wrong.
+- `DonutChart` legend must use the builder's own `percentage`, never one recomputed over
+  the truncated array — recomputing is exactly what made a truncated legend still sum
+  to 100%.
+- Two e2e failures arrived with main and were fixed here (verified against a scratch
+  worktree at origin/main, so neither was merge damage): the remove-item spec did not
+  know about main's new destructive confirm, and `MissingSnapshotBanner` advertised the
+  *current* month but called `cloneLatestSnapshot()`, which returns *latest + 1* — they
+  agree only when the user is exactly one month behind.

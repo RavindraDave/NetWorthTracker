@@ -67,6 +67,10 @@ https://www.notion.so/37394476928181f9bdfbf3d90f86c155
     chart and the sync merge were untouched. Editor grouping + subtotals,
     rename/reorder/merge/delete on the group header, donut drill-down,
     Portfolio badge, CSV/Excel/print columns, and CSV/Excel import.
+    Follow-up: all 12 categories now ship suggested groups, each with a stored,
+    editable description (`SubCategory.description`), chosen through a checklist
+    picker rather than an add-all button. Descriptions are deliberately kept out
+    of CSV/Excel/print.
   - **Phase E remainder:** next buildable is E1 tax-lot tracking. E2 broker
     integrations = "reconsider fit" (conflicts with local-first identity).
   - **Latest pass (2026-07-07, from the full functionality review):** Excel import unified
@@ -123,6 +127,8 @@ Persistent knowledge lives in `.claude/memory/` — always read these at session
   conservation invariants), `ensureSubCategory` (case-insensitive dedupe), rename/merge/
   delete/move, `pruneOrphanSubCategoryIds`, `buildSubCategoryAllocationData`. All immutable —
   `cloneLatestSnapshot` reuses category object references between months
-- `src/utils/defaultSubCategories.ts` — suggested group names per built-in category; applied
-  only via the "Suggest groups" button, never automatically
+- `src/utils/defaultSubCategories.ts` — suggested `{name, description}` per built-in
+  category (all 12); applied only through the picker, never automatically
+- `src/components/editor/SuggestGroupsModal.tsx` — the checklist picker (nothing ticked
+  by default; already-present groups shown ticked + disabled)
 - `src/components/editor/SubCategoryGroupHeader.tsx` — group header (subtotal, rename, ⋯ menu)
