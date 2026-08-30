@@ -33,7 +33,7 @@ function rehydrateFlags(snaps: Snapshot[], templates: CategoryTemplate[]): Snaps
     ...s,
     categories: s.categories.map(c => {
       const t = byId.get(c.id) ?? byNameType.get(`${c.name}::${c.type}`);
-      return t ? { ...c, isLiquid: t.isLiquid, isInvestable: t.isInvestable } : c;
+      return t ? { ...c, name: t.name, isLiquid: t.isLiquid, isInvestable: t.isInvestable } : c;
     }),
   }));
 }
@@ -62,7 +62,7 @@ interface AppContextType {
   pullFromCloud: () => Promise<PullOutcome>;
   syncConflicts: SyncConflictState | null;
   resolveConflicts: (resolutions: Map<string, 'local' | 'remote'>) => Promise<void>;
-  dismissSyncConflicts: () => void;
+  dismissSyncConflicts: () => Promise<void>;
   isLoading: boolean;
   // ── App lock ──
   isLocked: boolean;

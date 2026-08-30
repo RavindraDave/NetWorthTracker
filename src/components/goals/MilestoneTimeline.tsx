@@ -13,10 +13,12 @@ interface MilestoneTimelineProps {
 }
 
 export const MilestoneTimeline: React.FC<MilestoneTimelineProps> = ({ goals, currentSnapshot, baseCurrency }) => {
+  const fireMetrics = (goal: Goal) => calcFIREMetrics(goal, currentSnapshot, baseCurrency);
+
   // Sort goals by target amount
   const sortedGoals = [...goals].sort((a, b) => {
-    const targetA = a.type === 'fire' ? (a.annualExpenses || 0) * (a.multiplier || 25) : a.targetAmount;
-    const targetB = b.type === 'fire' ? (b.annualExpenses || 0) * (b.multiplier || 25) : b.targetAmount;
+    const targetA = a.type === 'fire' ? fireMetrics(a).fiNumber : a.targetAmount;
+    const targetB = b.type === 'fire' ? fireMetrics(b).fiNumber : b.targetAmount;
     return targetA - targetB;
   });
 
@@ -27,11 +29,12 @@ export const MilestoneTimeline: React.FC<MilestoneTimelineProps> = ({ goals, cur
       <h3 className="section-label" style={{ marginBottom: '1.25rem' }}>Milestone Journey</h3>
       <div className="timeline-container">
         {sortedGoals.map((goal, idx) => {
-          const target = goal.type === 'fire' ? (goal.annualExpenses || 0) * (goal.multiplier || 25) : goal.targetAmount;
           // FIRE goals: use the same metric as FIREDashboard (investable NW + exclusions)
           // Other goals: use overall NW minus any per-goal exclusions
-          const isAchieved = goal.type === 'fire'
-            ? calcFIREMetrics(goal, currentSnapshot, baseCurrency).isFI
+          const metrics = goal.type === 'fire' ? fireMetrics(goal) : null;
+          const target = metrics ? metrics.fiNumber : goal.targetAmount;
+          const isAchieved = metrics
+            ? metrics.isFI
             : (currentSnapshot
                 ? calcNetWorthForGoal(currentSnapshot, baseCurrency, goal.excludedCategoryIds ?? []) >= target && target > 0
                 : false);

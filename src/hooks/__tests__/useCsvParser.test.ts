@@ -139,8 +139,8 @@ describe("Excel import round-trip of the app's own export headers", () => {
 // ---------------------------------------------------------------------------
 
 describe('CSV_FIELDS', () => {
-  it('contains the five expected field names', () => {
-    expect(CSV_FIELDS).toEqual(['Item Name', 'Category', 'Amount', 'Currency', 'Type']);
+  it('contains the six expected field names', () => {
+    expect(CSV_FIELDS).toEqual(['Item Name', 'Category', 'Amount', 'Currency', 'Type', 'Notes']);
   });
 });
 

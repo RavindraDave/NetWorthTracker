@@ -15,17 +15,18 @@ export const DonutChart: React.FC = () => {
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
   const [view, setView] = useState<'category' | 'currency'>('category');
 
-  const categoryData = useMemo(() => {
+  const categoryDataAll = useMemo(() => {
     if (!currentSnapshot) return [];
     return buildAllocationData(currentSnapshot, baseCurrency)
-      .filter(d => d.type === 'asset' && d.value > 0)
-      .slice(0, 9);
+      .filter(d => d.type === 'asset' && d.value > 0);
   }, [currentSnapshot, baseCurrency]);
+  const categoryData = useMemo(() => categoryDataAll.slice(0, 9), [categoryDataAll]);
 
-  const currencyData = useMemo(() => {
+  const currencyDataAll = useMemo(() => {
     if (!currentSnapshot) return [];
-    return buildCurrencyAllocationData(currentSnapshot, baseCurrency).slice(0, 9);
+    return buildCurrencyAllocationData(currentSnapshot, baseCurrency);
   }, [currentSnapshot, baseCurrency]);
+  const currencyData = useMemo(() => currencyDataAll.slice(0, 9), [currencyDataAll]);
 
   // Only show toggle when the snapshot contains items in ≥2 distinct currencies
   const showToggle = currencyData.length >= 2;
@@ -36,7 +37,8 @@ export const DonutChart: React.FC = () => {
   }, [showToggle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = view === 'currency' && showToggle ? currencyData : categoryData;
-  const total = data.reduce((s, d) => s + d.value, 0);
+  const dataAll = view === 'currency' && showToggle ? currencyDataAll : categoryDataAll;
+  const hiddenCount = dataAll.length - data.length;
 
   if (categoryData.length === 0) {
     return (
@@ -103,9 +105,14 @@ export const DonutChart: React.FC = () => {
           <div key={i} className="alloc-leg-row">
             <span className="alloc-leg-dot" style={{ background: COLORS[i % COLORS.length] }} />
             <span className="alloc-leg-name">{d.name}</span>
-            <span className="alloc-leg-pct">{total > 0 ? ((d.value / total) * 100).toFixed(1) : 0}%</span>
+            <span className="alloc-leg-pct">{d.percentage.toFixed(1)}%</span>
           </div>
         ))}
+        {hiddenCount > 0 && (
+          <div className="alloc-leg-row" style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>
+            +{hiddenCount} more
+          </div>
+        )}
       </div>
     </div>
   );

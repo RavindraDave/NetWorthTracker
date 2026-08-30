@@ -81,10 +81,16 @@ export const NetWorthHero: React.FC = () => {
           <span>{animatedNW.toLocaleString(numberLocale)}</span>
         </div>
         <div className="hero-meta">
-          <span className={`hero-pill${isPositive ? '' : ' neg'}`}>
-            {isPositive ? '▲' : '▼'} <CurrencyDisplay amount={Math.abs(change)} currency={baseCurrency} /> · {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
-          </span>
-          <span className="hero-meta-text">vs last month</span>
+          {previousSnapshot ? (
+            <>
+              <span className={`hero-pill${isPositive ? '' : ' neg'}`}>
+                {isPositive ? '▲' : '▼'} <CurrencyDisplay amount={Math.abs(change)} currency={baseCurrency} /> · {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
+              </span>
+              <span className="hero-meta-text">vs last month</span>
+            </>
+          ) : (
+            <span className="hero-meta-text">First snapshot</span>
+          )}
           {savingsRate !== null && (
             <>
               <span className="hero-meta-sep" />

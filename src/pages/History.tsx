@@ -20,7 +20,7 @@ function yoyMonth(month: string): string {
 }
 
 export const History: React.FC = () => {
-  const { snapshots, deleteSnapshot, preferences, goals, confirm, baseCurrency } = useAppBase();
+  const { snapshots, deleteSnapshot, preferences, goals, confirm, error: toastError, baseCurrency } = useAppBase();
   const navigate = useNavigate();
   const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
 
@@ -84,6 +84,11 @@ export const History: React.FC = () => {
     return map;
   }, [chronological, breakdownMap]);
 
+  const handlePrint = (snap: typeof snapshots[number]) => {
+    const ok = printSnapshotReport(snap, baseCurrency, preferences?.numberFormat);
+    if (!ok) toastError('Could not open the print preview — check if your browser blocked the popup.');
+  };
+
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     const ok = await confirm('Are you sure you want to delete this snapshot? This action cannot be undone.', 'destructive');
@@ -137,7 +142,12 @@ export const History: React.FC = () => {
               <option value="">Compare B…</option>
               {sortedSnapshots.map(s => <option key={s.id} value={s.id}>{s.month}</option>)}
             </select>
-            <button className="btn btn-outline" disabled={!canCompare} onClick={() => setShowCompare(true)}>
+            <button
+              className="btn btn-outline"
+              disabled={!canCompare}
+              title={canCompare ? undefined : 'Select two different snapshots to compare'}
+              onClick={() => setShowCompare(true)}
+            >
               <GitCompare size={14} /> Compare
             </button>
           </div>
@@ -257,7 +267,7 @@ export const History: React.FC = () => {
                     className="btn-icon"
                     aria-label={`Print report for ${monthLabel}`}
                     title="Print / Save PDF"
-                    onClick={e => { e.stopPropagation(); printSnapshotReport(snap, baseCurrency, preferences?.numberFormat); }}
+                    onClick={e => { e.stopPropagation(); handlePrint(snap); }}
                   >
                     <Printer size={14} />
                   </button>
@@ -323,12 +333,14 @@ export const History: React.FC = () => {
                         >
                           <GitCompare size={12} /> vs last year
                         </button>
-                      ) : chronological.length < 13 && (
+                      ) : (
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
-                          Year-over-year comparison unlocks once you have 12 months of history
+                          {chronological.length < 13
+                            ? 'Year-over-year comparison unlocks once you have 12 months of history'
+                            : `No snapshot for ${yoyMonth(snap.month)} to compare against`}
                         </span>
                       )}
-                      <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => printSnapshotReport(snap, baseCurrency, preferences?.numberFormat)}>
+                      <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => handlePrint(snap)}>
                         <Printer size={12} /> Print
                       </button>
                       <button className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '4px 10px' }} onClick={() => navigate(`/editor/${snap.id}`)}>

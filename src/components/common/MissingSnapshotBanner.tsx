@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Calendar, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,31 +7,30 @@ import { Banner } from './Banner';
 import { TEXT } from './theme';
 
 const SNOOZE_DAYS = 7;
-const SNOOZE_KEY = 'wealthpulse_missingSnapshotSnoozeUntil';
 
-function isSnoozed(): boolean {
-  const val = localStorage.getItem(SNOOZE_KEY);
-  if (!val) return false;
-  return Date.now() < new Date(val).getTime();
+function isSnoozed(snoozeUntil: string | undefined): boolean {
+  if (!snoozeUntil) return false;
+  return Date.now() < new Date(snoozeUntil).getTime();
 }
 
 export const MissingSnapshotBanner: React.FC = () => {
-  const { snapshots, createNewSnapshot, saveSnapshot } = useApp();
+  const { snapshots, preferences, createNewSnapshot, cloneLatestSnapshot, saveSnapshot, updatePreferences } = useApp();
   const navigate = useNavigate();
   const { error: toastError } = useToast();
-  const [snoozed, setSnoozed] = useState(isSnoozed);
+
+  if (!preferences) return null;
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const hasCurrentMonth = snapshots.some(s => s.month === currentMonth);
 
-  if (snapshots.length === 0 || hasCurrentMonth || snoozed) return null;
+  if (snapshots.length === 0 || hasCurrentMonth || isSnoozed(preferences.missingSnapshotSnoozeUntil)) return null;
 
   const [year, mm] = currentMonth.split('-');
   const displayMonth = new Date(Number(year), Number(mm) - 1, 1)
     .toLocaleString('default', { month: 'long', year: 'numeric' });
 
   const handleCreate = async () => {
-    const snap = createNewSnapshot();
+    const snap = snapshots.length > 0 ? cloneLatestSnapshot() : createNewSnapshot();
     const existing = snapshots.find(s => s.month === snap.month);
     if (existing) {
       navigate(`/editor/${existing.id}`);
@@ -45,10 +44,9 @@ export const MissingSnapshotBanner: React.FC = () => {
     }
   };
 
-  const handleSnooze = () => {
+  const handleSnooze = async () => {
     const until = new Date(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    localStorage.setItem(SNOOZE_KEY, until);
-    setSnoozed(true);
+    await updatePreferences({ missingSnapshotSnoozeUntil: until });
   };
 
   return (

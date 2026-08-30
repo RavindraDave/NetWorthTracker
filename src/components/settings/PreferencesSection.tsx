@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sun, Moon, Monitor } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useToast } from '../common/Toast';
 
 export const PreferencesSection: React.FC = () => {
   const { preferences, updatePreferences } = useApp();
+  const { success } = useToast();
+  const [profileName, setProfileName] = useState(preferences?.profileName ?? '');
+  useEffect(() => { setProfileName(preferences?.profileName ?? ''); }, [preferences?.profileName]);
   if (!preferences) return null;
 
   const themeOptions: { value: 'dark' | 'light' | 'system'; label: string; icon: React.ReactNode }[] = [
@@ -25,7 +29,7 @@ export const PreferencesSection: React.FC = () => {
           id="base-currency"
           className="settings-input"
           value={preferences.baseCurrency}
-          onChange={e => updatePreferences({ baseCurrency: e.target.value })}
+          onChange={e => { updatePreferences({ baseCurrency: e.target.value }); success(`Base currency changed to ${e.target.value}.`); }}
         >
           {preferences.enabledCurrencies.map(c => (
             <option key={c} value={c}>{c}</option>
@@ -78,9 +82,10 @@ export const PreferencesSection: React.FC = () => {
           id="profile-name"
           className="settings-input"
           type="text"
-          value={preferences.profileName ?? ''}
+          value={profileName}
           placeholder="Your name"
-          onChange={e => updatePreferences({ profileName: e.target.value })}
+          onChange={e => setProfileName(e.target.value)}
+          onBlur={() => { if (profileName !== (preferences.profileName ?? '')) updatePreferences({ profileName }); }}
         />
       </div>
     </div>

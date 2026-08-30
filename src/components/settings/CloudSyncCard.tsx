@@ -67,6 +67,7 @@ const ClientIdForm: React.FC<ClientIdFormProps> = ({ savedId, onSave, onClear, o
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <input
+          id="gcp-client-id-input"
           type="text"
           className="line-item-input"
           placeholder="xxxxxx.apps.googleusercontent.com"
@@ -87,11 +88,13 @@ const ClientIdForm: React.FC<ClientIdFormProps> = ({ savedId, onSave, onClear, o
 
 interface PassphraseModalProps {
   mode: 'setup' | 'unlock';
+  /** True when this replaces an already-active encryption passphrase, rather than a first-time setup. */
+  isChange?: boolean;
   onSubmit: (passphrase: string) => void;
   onClose: () => void;
 }
 
-const PassphraseModal: React.FC<PassphraseModalProps> = ({ mode, onSubmit, onClose }) => {
+export const PassphraseModal: React.FC<PassphraseModalProps> = ({ mode, isChange, onSubmit, onClose }) => {
   const [pass, setPass] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
@@ -126,6 +129,13 @@ const PassphraseModal: React.FC<PassphraseModalProps> = ({ mode, onSubmit, onClo
           <strong style={{ display: 'block', marginTop: '0.4rem', color: 'var(--rose)' }}>
             If you forget this passphrase, your Drive backups cannot be recovered.
           </strong>
+          This is separate from your App Lock passphrase, if you've set one.
+          {isChange && (
+            <strong style={{ display: 'block', marginTop: '0.4rem', color: 'var(--rose)' }}>
+              Changing your passphrase only re-encrypts new backups — dated backups already on
+              Drive stay encrypted with the old passphrase and won't be readable if you forget it.
+            </strong>
+          )}
         </p>
       ) : (
         <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: '1rem' }}>
@@ -274,8 +284,10 @@ export const CloudSyncCard: React.FC = () => {
   const handlePullNow = async () => {
     setPulling(true);
     try {
-      await pullFromCloud();
-      success('Pulled latest data from Google Drive.');
+      const outcome = await pullFromCloud();
+      if (outcome === 'merged') success('Pulled latest data from Google Drive.');
+      else if (outcome === 'noop') success('Already up to date.');
+      // 'conflicts' — the resolution modal opens itself; no toast needed.
     } catch (err) {
       error(err instanceof Error ? err.message : 'Pull failed. Try signing in again.');
     } finally {
@@ -580,7 +592,16 @@ export const CloudSyncCard: React.FC = () => {
         </div>
       </div>
 
-      {showSetupGuide && <GCPSetupGuide onClose={() => setShowSetupGuide(false)} />}
+      {showSetupGuide && (
+        <GCPSetupGuide onClose={() => {
+          setShowSetupGuide(false);
+          setTimeout(() => {
+            const input = document.getElementById('gcp-client-id-input');
+            input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (input as HTMLInputElement | null)?.focus();
+          }, 0);
+        }} />
+      )}
 
       {showRestoreDialog && (
         <DriveRestoreDialog
@@ -594,6 +615,7 @@ export const CloudSyncCard: React.FC = () => {
       {passphraseModal && (
         <PassphraseModal
           mode={passphraseModal}
+          isChange={passphraseModal === 'setup' && cloudSync.encryptionEnabled}
           onSubmit={handlePassphraseSubmit}
           onClose={() => { setPassphraseModal(null); setPendingRestoreFile(null); }}
         />

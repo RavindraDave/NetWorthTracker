@@ -8,6 +8,8 @@ import { googleDriveProvider, listBackups, downloadBackup } from '../../utils/cl
 import { parseBackupJSON, downloadFile, exportToJSON } from '../../utils/importExport';
 import { formatBytes } from '../../utils/storagePersist';
 import { isClientIdConfigured } from '../../utils/cloudSync/google/gis';
+import { setPassphrase, getPassphrase, isEncryptedEnvelope, decryptJSON } from '../../utils/cloudSync/encryption';
+import { PassphraseModal } from '../settings/CloudSyncCard';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
@@ -18,6 +20,7 @@ export const DriveRestoreButton: React.FC = () => {
   const { success, error, confirm } = useToast();
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<CloudBackupFile[] | null>(null);
+  const [pendingFile, setPendingFile] = useState<CloudBackupFile | null>(null);
 
   // Only show if a client ID is available (either from build env or from user-saved preferences).
   // Note: on a fully cleared browser, the stored clientId is also gone. In that case,
@@ -48,27 +51,53 @@ export const DriveRestoreButton: React.FC = () => {
     }
   };
 
-  const handleRestore = async (file: CloudBackupFile) => {
-    const ok = await confirm(
-      `Restore backup from ${formatDate(file.modifiedTime)}?\n\nThis will replace all current data.`,
-      'destructive',
-    );
-    if (!ok) return;
-
+  const downloadSafetyBackup = async () => {
     if (snapshots.length > 0 || goals.length > 0) {
       const safetyJson = exportToJSON(snapshots, goals, preferences!);
       downloadFile(safetyJson, `wealthpulse-safety-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
       await new Promise(r => setTimeout(r, 600));
     }
+  };
+
+  const handleRestore = async (file: CloudBackupFile) => {
+    const ok = await confirm(
+      `Restore backup from ${formatDate(file.modifiedTime)}?\n\nThis will replace all current data. A safety backup will download first.`,
+      'destructive',
+    );
+    if (!ok) return;
+
+    await downloadSafetyBackup();
 
     try {
-      const json = await downloadBackup(file.id);
+      let json = await downloadBackup(file.id);
+      if (isEncryptedEnvelope(json)) {
+        const pass = getPassphrase();
+        if (!pass) { setPendingFile(file); return; }
+        json = await decryptJSON(json, pass);
+      }
       const data = parseBackupJSON(json);
       await restoreBackup(data);
       setFiles(null);
       success('Backup restored successfully!');
     } catch (err) {
       error(err instanceof Error ? err.message : 'Restore failed.');
+    }
+  };
+
+  const handlePassphraseSubmit = async (passphrase: string) => {
+    const file = pendingFile;
+    setPendingFile(null);
+    if (!file) return;
+    try {
+      const raw = await downloadBackup(file.id);
+      const json = await decryptJSON(raw, passphrase);
+      const data = parseBackupJSON(json);
+      setPassphrase(passphrase);
+      await restoreBackup(data);
+      setFiles(null);
+      success('Backup restored successfully!');
+    } catch (err) {
+      error(err instanceof Error ? err.message : 'Restore failed — check your passphrase.');
     }
   };
 
@@ -123,6 +152,14 @@ export const DriveRestoreButton: React.FC = () => {
             <button className="btn btn-outline" onClick={() => setFiles(null)}>Cancel</button>
           </div>
         </Modal>
+      )}
+
+      {pendingFile && (
+        <PassphraseModal
+          mode="unlock"
+          onSubmit={handlePassphraseSubmit}
+          onClose={() => setPendingFile(null)}
+        />
       )}
     </>
   );

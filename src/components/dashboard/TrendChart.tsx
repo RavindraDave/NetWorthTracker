@@ -61,7 +61,7 @@ export const TrendChart: React.FC = () => {
 
   const catHasNoData = selectedCatId !== null && catData.length > 0 && catData.every(p => p.value === 0);
 
-  if (data.length === 0 && !selectedCatId) {
+  if (data.length < 2 && !selectedCatId) {
     return (
       <div className="wp-card chart-trend">
         <div className="section-label">12-Month Trend</div>

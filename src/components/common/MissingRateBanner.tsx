@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,30 +7,26 @@ import { Banner } from './Banner';
 import { TEXT } from './theme';
 
 const SNOOZE_DAYS = 1;
-const SNOOZE_KEY = 'wealthpulse_missingRateSnoozeUntil';
 
-function isSnoozed(): boolean {
-  const val = localStorage.getItem(SNOOZE_KEY);
-  if (!val) return false;
-  return Date.now() < new Date(val).getTime();
+function isSnoozed(snoozeUntil: string | undefined): boolean {
+  if (!snoozeUntil) return false;
+  return Date.now() < new Date(snoozeUntil).getTime();
 }
 
 export const MissingRateBanner: React.FC = () => {
-  const { currentSnapshot, preferences } = useApp();
+  const { currentSnapshot, preferences, updatePreferences } = useApp();
   const navigate = useNavigate();
-  const [snoozed, setSnoozed] = useState(isSnoozed);
 
-  if (!currentSnapshot || !preferences || snoozed) return null;
+  if (!currentSnapshot || !preferences || isSnoozed(preferences.missingRateSnoozeUntil)) return null;
 
   const baseCurrency = preferences.baseCurrency || 'INR';
   const missingCurrencies = getMissingRateCurrencies(currentSnapshot, baseCurrency);
 
   if (missingCurrencies.length === 0) return null;
 
-  const handleSnooze = () => {
+  const handleSnooze = async () => {
     const until = new Date(Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    localStorage.setItem(SNOOZE_KEY, until);
-    setSnoozed(true);
+    await updatePreferences({ missingRateSnoozeUntil: until });
   };
 
   return (

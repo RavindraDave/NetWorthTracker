@@ -14,6 +14,12 @@ const RECOVERY_FILENAME = 'wealthpulse-recovery.json';
 // Reserved single-purpose files in appDataFolder that must never be pruned as old backups.
 const RESERVED_FILENAMES = new Set([CANONICAL_FILENAME, RECOVERY_FILENAME]);
 
+function driveError(action: string, status: number): Error {
+  if (status === 403) return new Error('Google Drive storage is full — free up space or use a different account.');
+  if (status === 429) return new Error('Google Drive is rate-limiting requests — try again in a few minutes.');
+  return new Error(`Drive ${action} failed: ${status}`);
+}
+
 async function authedFetch(url: string, options: RequestInit, retry = true): Promise<Response> {
   const token = await getToken();
   const res = await fetch(url, {
@@ -36,14 +42,16 @@ export async function listBackups(): Promise<CloudBackupFile[]> {
     fields: 'files(id,name,size,modifiedTime)',
   });
   const res = await authedFetch(`${DRIVE_API}/files?${params}`, { method: 'GET' });
-  if (!res.ok) throw new Error(`Drive list failed: ${res.status}`);
+  if (!res.ok) throw driveError('list', res.status);
   const json = await res.json() as { files: Array<{ id: string; name: string; size?: string; modifiedTime: string }> };
-  return (json.files ?? []).map(f => ({
-    id: f.id,
-    name: f.name,
-    size: f.size ? parseInt(f.size, 10) : undefined,
-    modifiedTime: f.modifiedTime,
-  }));
+  return (json.files ?? [])
+    .filter(f => !RESERVED_FILENAMES.has(f.name))
+    .map(f => ({
+      id: f.id,
+      name: f.name,
+      size: f.size ? parseInt(f.size, 10) : undefined,
+      modifiedTime: f.modifiedTime,
+    }));
 }
 
 export async function uploadBackup(json: string, filename: string): Promise<CloudBackupFile> {
@@ -56,24 +64,24 @@ export async function uploadBackup(json: string, filename: string): Promise<Clou
     method: 'POST',
     body,
   });
-  if (!res.ok) throw new Error(`Drive upload failed: ${res.status}`);
+  if (!res.ok) throw driveError('upload', res.status);
   const f = await res.json() as { id: string; name: string; size?: string; modifiedTime: string };
   return { id: f.id, name: f.name, size: f.size ? parseInt(f.size, 10) : undefined, modifiedTime: f.modifiedTime };
 }
 
 export async function downloadBackup(fileId: string): Promise<string> {
   const res = await authedFetch(`${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`, { method: 'GET' });
-  if (!res.ok) throw new Error(`Drive download failed: ${res.status}`);
+  if (!res.ok) throw driveError('download', res.status);
   return res.text();
 }
 
 export async function deleteBackup(fileId: string): Promise<void> {
   const res = await authedFetch(`${DRIVE_API}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
-  if (!res.ok && res.status !== 404) throw new Error(`Drive delete failed: ${res.status}`);
+  if (!res.ok && res.status !== 404) throw driveError('delete', res.status);
 }
 
 async function pruneOldBackups(): Promise<void> {
-  const files = (await listBackups()).filter(f => !RESERVED_FILENAMES.has(f.name));
+  const files = await listBackups();
   if (files.length > MAX_BACKUPS) {
     const toDelete = files.slice(MAX_BACKUPS);
     await Promise.all(toDelete.map(f => deleteBackup(f.id)));
@@ -114,7 +122,7 @@ async function findFileByName(name: string): Promise<CanonicalMeta | null> {
     pageSize: '1',
   });
   const res = await authedFetch(`${DRIVE_API}/files?${params}`, { method: 'GET' });
-  if (!res.ok) throw new Error(`Drive list failed: ${res.status}`);
+  if (!res.ok) throw driveError('list', res.status);
   const json = await res.json() as { files: Array<{ id: string; version?: string }> };
   const f = json.files?.[0];
   return f ? { id: f.id, version: parseVersion(f.version) } : null;
@@ -133,7 +141,7 @@ async function createCanonicalFile(payload: string): Promise<CanonicalMeta> {
     `${DRIVE_UPLOAD}/files?uploadType=multipart&fields=id,version`,
     { method: 'POST', body },
   );
-  if (!res.ok) throw new Error(`Drive create sync file failed: ${res.status}`);
+  if (!res.ok) throw driveError('create sync file', res.status);
   const f = await res.json() as { id: string; version?: string };
   return { id: f.id, version: parseVersion(f.version) };
 }
@@ -143,7 +151,7 @@ async function updateCanonicalFile(fileId: string, payload: string): Promise<num
     `${DRIVE_UPLOAD}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=version`,
     { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload },
   );
-  if (!res.ok) throw new Error(`Drive update sync file failed: ${res.status}`);
+  if (!res.ok) throw driveError('update sync file', res.status);
   const f = await res.json() as { version?: string };
   return parseVersion(f.version);
 }
@@ -194,7 +202,7 @@ async function createFileNamed(name: string, payload: string): Promise<void> {
   body.append('metadata', new Blob([metadata], { type: 'application/json' }));
   body.append('file', new Blob([payload], { type: 'application/json' }));
   const res = await authedFetch(`${DRIVE_UPLOAD}/files?uploadType=multipart&fields=id`, { method: 'POST', body });
-  if (!res.ok) throw new Error(`Drive create file failed: ${res.status}`);
+  if (!res.ok) throw driveError('create file', res.status);
 }
 
 /** Create or overwrite the recovery file. */

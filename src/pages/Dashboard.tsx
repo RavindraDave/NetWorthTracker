@@ -37,9 +37,9 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="wp-page dashboard-page">
+      <MissingRateBanner />
       <StaleBackupBanner />
       <MissingSnapshotBanner />
-      <MissingRateBanner />
       {!currentSnapshot ? (
         <div className="wp-card empty-state">
           <Rocket size={52} className="empty-state__icon" style={{ color: 'var(--accent)', opacity: 0.7 }} />
@@ -60,7 +60,10 @@ export const Dashboard: React.FC = () => {
             <button
               className="btn btn-outline"
               style={{ fontSize: '0.8rem' }}
-              onClick={() => printSnapshotReport(currentSnapshot!, baseCurrency, preferences?.numberFormat)}
+              onClick={() => {
+                const ok = printSnapshotReport(currentSnapshot!, baseCurrency, preferences?.numberFormat);
+                if (!ok) toastError('Could not open the print preview — check if your browser blocked the popup.');
+              }}
               title="Print or save as PDF"
             >
               <Printer size={14} /> Print Report

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Lock, ShieldCheck, KeyRound, Fingerprint, AlertTriangle, Copy, X } from 'lucide-react';
+import { Lock, ShieldCheck, KeyRound, Fingerprint, AlertTriangle, Copy, X, Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../common/Modal';
+import { Banner } from '../common/Banner';
 import { useToast } from '../common/Toast';
 import { isPlatformAuthenticatorAvailable } from '../../utils/webauthn';
+import { isClientIdConfigured } from '../../utils/cloudSync/google/gis';
 
 const AUTO_LOCK_OPTIONS = [
   { value: 1, label: '1 minute' },
@@ -20,7 +22,7 @@ export const AppLockCard: React.FC = () => {
     enableAppLock, disableAppLock, changeAppLockPassphrase,
     setRecoveryCode, setGoogleEscrow, setPasskey, updatePreferences,
   } = useApp();
-  const { success, error: toastError } = useToast();
+  const { success, error: toastError, confirm } = useToast();
   const lock = preferences?.appLock;
   const enabled = !!lock?.enabled;
 
@@ -47,16 +49,50 @@ export const AppLockCard: React.FC = () => {
   };
 
   const handleToggleRecoveryCode = async (next: boolean) => {
+    if (!next) {
+      const ok = await confirm(
+        'Remove your recovery code? If you forget your passphrase afterward, your data cannot be recovered.',
+        'destructive',
+      );
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       const code = await setRecoveryCode(next);
       if (next && code) setRecoveryCodeValue(code);
-      else if (!next) success('Recovery code removed.');
+      else if (!next) {
+        const otherRecoveryLeft = lock?.recovery.googleEscrow || lock?.webauthnEnabled;
+        success(otherRecoveryLeft ? 'Recovery code removed.' : 'Recovery code removed — no recovery method remains.');
+      }
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Could not update recovery code.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleToggleGoogleEscrow = async (next: boolean) => {
+    if (!next) {
+      const ok = await confirm(
+        'Turn off Google recovery? If you forget your passphrase afterward, your data cannot be recovered.',
+        'destructive',
+      );
+      if (!ok) return;
+    }
+    const otherRecoveryLeft = lock?.recovery.code || lock?.webauthnEnabled;
+    run(() => setGoogleEscrow(next), next ? 'Google recovery on.' : (otherRecoveryLeft ? 'Google recovery off.' : 'Google recovery off — no recovery method remains.'));
+  };
+
+  const handleTogglePasskey = async (next: boolean) => {
+    if (!next) {
+      const ok = await confirm(
+        'Remove passkey unlock? If you forget your passphrase afterward, your data cannot be recovered.',
+        'destructive',
+      );
+      if (!ok) return;
+    }
+    const otherRecoveryLeft = lock?.recovery.code || lock?.recovery.googleEscrow;
+    run(() => setPasskey(next), next ? 'Passkey added.' : (otherRecoveryLeft ? 'Passkey removed.' : 'Passkey removed — no recovery method remains.'));
   };
 
   return (
@@ -87,6 +123,12 @@ export const AppLockCard: React.FC = () => {
 
         {enabled && (
           <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {!lock?.recovery.code && !lock?.recovery.googleEscrow && !lock?.webauthnEnabled && (
+              <Banner variant="warning" icon={<AlertTriangle size={16} />}>
+                No recovery method is set up. If you forget your passphrase, your data cannot be recovered.
+              </Banner>
+            )}
+
             {/* Auto-lock */}
             <div>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Auto-lock</label>
@@ -116,12 +158,15 @@ export const AppLockCard: React.FC = () => {
             {/* Google escrow */}
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.82rem' }}>
               <input type="checkbox" checked={!!lock?.recovery.googleEscrow} disabled={busy}
-                onChange={e => run(() => setGoogleEscrow(e.target.checked), e.target.checked ? 'Google recovery on.' : 'Google recovery off.')} />
+                onChange={e => handleToggleGoogleEscrow(e.target.checked)} />
               <span>
                 <strong>Recover via Google</strong>
                 <span className="text-muted" style={{ display: 'block', fontSize: '0.75rem' }}>
                   Convenient — no code to keep — but <strong>not zero-knowledge</strong>: anyone with
                   access to your Google account could decrypt this data.
+                  {!isClientIdConfigured() && !lock?.recovery.googleEscrow && (
+                    <span style={{ display: 'block', marginTop: 2 }}>Requires Google Drive connected in Settings → Cloud Sync first.</span>
+                  )}
                 </span>
               </span>
             </label>
@@ -130,7 +175,7 @@ export const AppLockCard: React.FC = () => {
             {(passkeySupported || lock?.webauthnEnabled) && (
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.82rem' }}>
                 <input type="checkbox" checked={!!lock?.webauthnEnabled} disabled={busy}
-                  onChange={e => run(() => setPasskey(e.target.checked), e.target.checked ? 'Passkey added.' : 'Passkey removed.')} />
+                  onChange={e => handleTogglePasskey(e.target.checked)} />
                 <span>
                   <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Fingerprint size={13} /> Unlock with passkey</strong>
                   <span className="text-muted" style={{ display: 'block', fontSize: '0.75rem' }}>
@@ -143,7 +188,13 @@ export const AppLockCard: React.FC = () => {
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button className="btn btn-outline" disabled={busy || isLocked} onClick={() => setChangeOpen(true)}>Change passphrase</button>
               <button className="btn btn-outline" style={{ color: 'var(--red, #f87171)' }} disabled={busy}
-                onClick={() => run(() => disableAppLock(), 'App lock disabled — data is now unencrypted.')}>
+                onClick={async () => {
+                  const ok = await confirm(
+                    'Turn off App Lock? Your data will be decrypted and stored as plaintext on this device.',
+                    'destructive',
+                  );
+                  if (ok) run(() => disableAppLock(), 'App lock disabled — data is now unencrypted.');
+                }}>
                 Turn off
               </button>
             </div>
@@ -190,6 +241,7 @@ const SetupModal: React.FC<{
 }> = ({ title = 'Enable App Lock', cta = 'Enable', busy, onClose, onConfirm }) => {
   const [pp, setPp] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
   const mismatch = confirm.length > 0 && pp !== confirm;
   const tooShort = pp.length > 0 && pp.length < 8;
   const valid = pp.length >= 8 && pp === confirm;
@@ -202,11 +254,18 @@ const SetupModal: React.FC<{
       </div>
       <p className="text-muted text-sm" style={{ marginTop: 0 }}>
         Use at least 8 characters. There is no way to reset this except your recovery methods.
+        This is separate from your Cloud Sync encryption passphrase, if you've set one.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-        <input type="password" autoFocus className="line-item-input" placeholder="Passphrase"
-          value={pp} onChange={e => setPp(e.target.value)} disabled={busy} aria-label="Passphrase" />
-        <input type="password" className="line-item-input" placeholder="Confirm passphrase"
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <input type={show ? 'text' : 'password'} autoFocus className="line-item-input" placeholder="Passphrase"
+            style={{ flex: 1 }} value={pp} onChange={e => setPp(e.target.value)} disabled={busy} aria-label="Passphrase" />
+          <button className="btn-icon" type="button" onClick={() => setShow(s => !s)}
+            aria-label={show ? 'Hide passphrase' : 'Show passphrase'} title={show ? 'Hide' : 'Show'}>
+            {show ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+        <input type={show ? 'text' : 'password'} className="line-item-input" placeholder="Confirm passphrase"
           value={confirm} onChange={e => setConfirm(e.target.value)} disabled={busy} aria-label="Confirm passphrase" />
         {tooShort && <p style={{ fontSize: '0.75rem', color: 'var(--amber, #fbbf24)', margin: 0 }}>At least 8 characters.</p>}
         {mismatch && <p style={{ fontSize: '0.75rem', color: 'var(--red, #f87171)', margin: 0 }}>Passphrases don't match.</p>}

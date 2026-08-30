@@ -23,6 +23,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
   const [isExpanded, setIsExpanded] = useState(true);
 
   const total = calcCategoryTotal(category, baseCurrency, exchangeRates);
+  const countedItems = category.items.filter(i => !i.excludeFromNetWorth).length;
 
   const handleAddItem = useCallback((item: LineItem) => {
     onChange({ ...category, items: [...category.items, item] });
@@ -46,7 +47,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
             </span>
             <span className="category-section__name">{category.name}</span>
             <Badge variant={category.type === 'asset' ? 'positive' : 'negative'}>{category.type}</Badge>
-            <span className="category-section__count">{category.items.length} items</span>
+            <span className="category-section__count">
+              {countedItems === category.items.length
+                ? `${category.items.length} item${category.items.length === 1 ? '' : 's'}`
+                : `${countedItems} of ${category.items.length} items counted`}
+            </span>
           </div>
           <div className={`category-section__total ${category.type === 'asset' ? 'positive' : 'negative'}`}>
             <CurrencyDisplay amount={total} currency={baseCurrency} />

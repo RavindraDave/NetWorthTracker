@@ -67,14 +67,18 @@ export const LoanConfigPanel: React.FC<LoanConfigPanelProps> = ({
 
     <div className="loan-config-foot">
       {computedOutstanding !== null && loanSummary ? (
-        <span className="loan-computed">
-          Outstanding ({snapshotMonth}):&nbsp;
-          <CurrencyDisplay amount={computedOutstanding} currency={item.currency} />
-          <span className="loan-summary" title="Equated monthly instalment and total interest over the full tenure, at a fixed rate with no prepayments.">
-            {' · '}EMI&nbsp;<CurrencyDisplay amount={Math.round(loanSummary.emi)} currency={item.currency} />/mo
-            {' · '}Total interest&nbsp;<CurrencyDisplay amount={Math.round(loanSummary.totalInterest)} currency={item.currency} />
+        computedOutstanding === 0 ? (
+          <span className="loan-computed">Loan fully paid off as of {snapshotMonth}.</span>
+        ) : (
+          <span className="loan-computed">
+            Outstanding ({snapshotMonth}):&nbsp;
+            <CurrencyDisplay amount={computedOutstanding} currency={item.currency} />
+            <span className="loan-summary" title="Equated monthly instalment and total interest over the full tenure, at a fixed rate with no prepayments.">
+              {' · '}EMI&nbsp;<CurrencyDisplay amount={Math.round(loanSummary.emi)} currency={item.currency} />/mo
+              {' · '}Total interest&nbsp;<CurrencyDisplay amount={Math.round(loanSummary.totalInterest)} currency={item.currency} />
+            </span>
           </span>
-        </span>
+        )
       ) : (
         <span className="loan-hint">Fill all fields to auto-calculate the outstanding balance.</span>
       )}

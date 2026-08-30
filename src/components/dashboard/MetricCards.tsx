@@ -11,10 +11,12 @@ export const MetricCards: React.FC = () => {
   const curr = currentSnapshot ? calcNetWorth(currentSnapshot, baseCurrency, viewMode) : null;
   const prev = previousSnapshot ? calcNetWorth(previousSnapshot, baseCurrency, viewMode) : null;
 
-  const assetChange = curr && prev ? ((curr.totalAssets - prev.totalAssets) / Math.max(prev.totalAssets, 1)) * 100 : null;
-  const liabChange  = curr && prev ? ((curr.totalLiabilities - prev.totalLiabilities) / Math.max(prev.totalLiabilities, 1)) * 100 : null;
+  const pctChange = (currVal: number, prevVal: number) => prevVal !== 0 ? ((currVal - prevVal) / Math.abs(prevVal)) * 100 : 0;
+
+  const assetChange = curr && prev ? pctChange(curr.totalAssets, prev.totalAssets) : null;
+  const liabChange  = curr && prev ? pctChange(curr.totalLiabilities, prev.totalLiabilities) : null;
   const nwChange    = curr && prev ? curr.netWorth - prev.netWorth : null;
-  const nwChangePct = curr && prev ? ((curr.netWorth - prev.netWorth) / Math.max(Math.abs(prev.netWorth), 1)) * 100 : null;
+  const nwChangePct = curr && prev ? pctChange(curr.netWorth, prev.netWorth) : null;
 
   return (
     <div className="metrics-3">

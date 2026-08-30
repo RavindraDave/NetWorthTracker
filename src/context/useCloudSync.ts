@@ -14,7 +14,7 @@ export interface SyncConflictState {
   remoteVersion?: number;
 }
 
-export type PullOutcome = 'merged' | 'conflicts' | 'noop' | 'error';
+export type PullOutcome = 'merged' | 'conflicts' | 'noop';
 
 interface CloudSyncDeps {
   snapshotsRef: React.MutableRefObject<Snapshot[]>;
@@ -52,7 +52,7 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
   };
 
   // Forward declaration refs so syncToCloud and pullFromCloud can call each other
-  const pullFromCloudRef = useRef<() => Promise<PullOutcome>>(async () => 'noop');
+  const pullFromCloudRef = useRef<(opts?: { background?: boolean }) => Promise<PullOutcome>>(async () => 'noop');
   const debouncedCloudSyncRef = useRef<() => void>(() => {});
 
   const syncToCloud = async () => {
@@ -63,19 +63,21 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
     if (snaps.length === 0) return;
 
     if (!googleDriveProvider.isSignedIn()) {
-      const updated = { ...prefs.cloudSync, lastError: 'Google Drive session expired. Reconnect in Settings → Cloud Sync.' };
+      const msg = 'Google Drive session expired. Reconnect in Settings → Cloud Sync.';
+      const updated = { ...prefs.cloudSync, lastError: msg };
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);
-      return;
+      throw new Error(msg);
     }
 
     if (prefs.cloudSync.encryptionEnabled) {
       const pass = getPassphrase();
       if (!pass) {
-        const updated = { ...prefs.cloudSync, lastError: 'Encryption enabled — enter your passphrase in Settings to sync.' };
+        const msg = 'Encryption enabled — enter your passphrase in Settings to sync.';
+        const updated = { ...prefs.cloudSync, lastError: msg };
         await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
         setPreferences(p => p ? { ...p, cloudSync: updated } : p);
-        return;
+        throw new Error(msg);
       }
     }
 
@@ -94,18 +96,22 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);
     } catch (err) {
       if (err instanceof CanonicalConflictError) {
-        const outcome = await pullFromCloudRef.current();
-        if (outcome === 'merged') debouncedCloudSyncRef.current();
+        // Force merge semantics here, even if the user's pull preference is "override" —
+        // a background write conflict should never silently clobber local data unattended.
+        const outcome = await pullFromCloudRef.current({ background: true });
+        if (outcome === 'merged') { debouncedCloudSyncRef.current(); return; }
+        if (outcome === 'conflicts') throw new Error('Drive has newer changes that conflict with yours — resolve below.');
         return;
       }
       const msg = err instanceof Error ? err.message : 'Cloud sync failed';
       const updated = { ...prefs.cloudSync, lastError: msg };
       await db.preferences.put({ ...(prefs as UserPreferencesRecord), cloudSync: updated, id: 1 });
       setPreferences(p => p ? { ...p, cloudSync: updated } : p);
+      throw err instanceof Error ? err : new Error(msg);
     }
   };
 
-  const pullFromCloud = async (): Promise<PullOutcome> => {
+  const pullFromCloud = async (opts?: { background?: boolean }): Promise<PullOutcome> => {
     const prefs = prefsRef.current;
     if (!prefs?.cloudSync?.enabled || prefs.cloudSync.provider !== 'google') return 'noop';
 
@@ -125,7 +131,9 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
         preferences: prefs,
       };
 
-      const syncMode = prefs.cloudSync.syncMode ?? 'merge';
+      // A background write conflict never honors "override" — that would silently
+      // clobber local data with no user action. Only an explicit user-triggered pull does.
+      const syncMode = opts?.background ? 'merge' : (prefs.cloudSync.syncMode ?? 'merge');
 
       if (syncMode === 'override') {
         await restoreBackup({ ...remote, preferences: local.preferences });
@@ -151,7 +159,7 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
         await db.preferences.put({ ...(prefs as unknown as UserPreferencesRecord), cloudSync: updated, id: 1 });
         setPreferences(p => p ? { ...p, cloudSync: updated } : p);
       }
-      return 'error';
+      throw err instanceof Error ? err : new Error(msg);
     }
   };
 
@@ -164,7 +172,14 @@ export function useCloudSync({ snapshotsRef, goalsRef, prefsRef, setPreferences,
     debouncedCloudSyncRef.current();
   };
 
-  const dismissSyncConflicts = () => setSyncConflicts(null);
+  const dismissSyncConflicts = async () => {
+    if (!syncConflicts) return;
+    // Keep local for still-conflicting records (already the case in `merged`),
+    // but don't discard the auto-merged non-conflicting changes from this pull.
+    await restoreBackup(syncConflicts.result.merged);
+    await storeSyncMeta(syncConflicts.result.merged, syncConflicts.remoteVersion);
+    setSyncConflicts(null);
+  };
 
   const debouncedCloudSync = () => {
     if (cloudSyncTimerRef.current) clearTimeout(cloudSyncTimerRef.current);

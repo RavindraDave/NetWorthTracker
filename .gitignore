@@ -31,6 +31,7 @@ venv/
 # Playwright runtime artifacts
 test-results/
 playwright-report/
+.playwright-mcp/
 
 # Antigravity artifacts
 .gemini

@@ -75,14 +75,32 @@ describe('useDecimalInput — onFocus / onBlur', () => {
     expect(onCommit).toHaveBeenCalledWith(0);
   });
 
-  it('re-formats value after blur', () => {
-    const { result } = renderHook(() =>
-      useDecimalInput({ value: 0, onCommit: vi.fn(), locale: 'en-US' })
+  it('re-formats value after blur once the caller accepts and reflects the new value', () => {
+    // Display resyncs from the `value` prop, not the just-typed text — so this
+    // simulates a real controlled component: onCommit updates state, and the
+    // hook is re-rendered with that new value, like a real parent would.
+    let value = 0;
+    const onCommit = vi.fn((next: number) => { value = next; });
+    const { result, rerender } = renderHook(() =>
+      useDecimalInput({ value, onCommit, locale: 'en-US' })
     );
     act(() => result.current.inputProps.onFocus());
     act(() => result.current.inputProps.onChange(makeChangeEvent('1000')));
     act(() => result.current.inputProps.onBlur());
+    rerender();
     expect(result.current.inputProps.value).toBe('1,000.00');
+  });
+
+  it('snaps display back to the source value when onCommit silently rejects the edit', () => {
+    // e.g. a caller enforcing "rate must be > 0" that no-ops instead of updating state.
+    // The display must not get stuck showing the rejected, uncommitted text.
+    const { result } = renderHook(() =>
+      useDecimalInput({ value: 5, onCommit: (next) => { if (next <= 0) return; }, locale: 'en-US' })
+    );
+    act(() => result.current.inputProps.onFocus());
+    act(() => result.current.inputProps.onChange(makeChangeEvent('')));
+    act(() => result.current.inputProps.onBlur());
+    expect(result.current.inputProps.value).toBe('5.00');
   });
 });
 

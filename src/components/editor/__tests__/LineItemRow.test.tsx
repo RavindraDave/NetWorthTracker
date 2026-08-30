@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LineItemRow } from '../LineItemRow';
 import type { LineItem } from '../../../types';
 
@@ -21,6 +21,20 @@ vi.mock('../../../context/AppContext', async (importOriginal) => {
         baseCurrency: 'INR',
         enabledCurrencies: ['INR', 'USD', 'EUR'],
       },
+    }),
+  };
+});
+
+vi.mock('../../common/Toast', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../common/Toast')>();
+  return {
+    ...actual,
+    useToast: () => ({
+      success: vi.fn(),
+      error: vi.fn(),
+      warning: vi.fn(),
+      info: vi.fn(),
+      confirm: vi.fn().mockResolvedValue(true),
     }),
   };
 });
@@ -121,11 +135,11 @@ describe('LineItemRow', () => {
   });
 
   describe('item actions', () => {
-    it('calls onRemove with item id when delete button clicked', () => {
+    it('calls onRemove with item id when delete button clicked', async () => {
       const item = makeItem();
       render(<LineItemRow item={item} {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /remove item/i }));
-      expect(defaultProps.onRemove).toHaveBeenCalledWith('test-item-1');
+      await waitFor(() => expect(defaultProps.onRemove).toHaveBeenCalledWith('test-item-1'));
     });
 
     it('calls onChange when item name is edited', () => {

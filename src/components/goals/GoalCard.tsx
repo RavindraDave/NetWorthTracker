@@ -3,6 +3,7 @@ import { Goal, Snapshot } from '../../types';
 import { calcNetWorthForGoal } from '../../utils/calculations';
 import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
+import { formatCurrency } from '../../utils/currencies';
 import { Edit2, Trash2 } from 'lucide-react';
 import './GoalCard.css';
 
@@ -82,6 +83,14 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, currentSnapshot, baseC
 
       <div className="goal-progress">
         <div className="goal-progress-fill" style={{ width: `${progressPct}%` }} />
+        {goal.milestones?.map(m => (
+          <div
+            key={m.id}
+            className="goal-progress-milestone"
+            style={{ left: `${Math.min(98, Math.max(2, target > 0 ? (m.targetAmount / target) * 100 : 0))}%` }}
+            title={`${m.label} — ${formatCurrency(m.targetAmount, baseCurrency)}`}
+          />
+        ))}
       </div>
 
       <div className="goal-card-foot">

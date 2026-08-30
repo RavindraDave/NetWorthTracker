@@ -21,6 +21,7 @@ interface UseDecimalInputReturn {
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onFocus: () => void;
     onBlur: () => void;
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   };
 }
 
@@ -82,9 +83,17 @@ export function useDecimalInput({
     const factor = Math.pow(10, precision);
     next = Math.round(next * factor) / factor;
     onCommit(next);
-    const formatted = fmt(next);
-    setDisplay(formatted);
-    rawRef.current = formatted;
+    // Reformat from the source-of-truth `value` prop, not the just-typed `next` — onCommit
+    // may silently reject (e.g. a caller enforcing "> 0"), in which case `value` never
+    // changes and this correctly snaps the display back instead of showing a stale number.
+    // When onCommit does accept, the prop-driven effect above re-corrects this on next render.
+    const resynced = (blankZero && value === 0) ? '' : fmt(value);
+    setDisplay(resynced);
+    rawRef.current = resynced;
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') e.currentTarget.blur();
   };
 
   return {
@@ -95,6 +104,7 @@ export function useDecimalInput({
       onChange,
       onFocus,
       onBlur,
+      onKeyDown,
     },
   };
 }

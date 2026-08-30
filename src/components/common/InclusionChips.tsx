@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import './InclusionChips.css';
 
 export type InclusionValue = 'full' | 'nwOnly' | 'exclude';
@@ -36,29 +36,43 @@ const STATES: InclusionValue[] = ['full', 'nwOnly', 'exclude'];
 interface InclusionChipsProps {
   value: InclusionValue;
   onChange: (next: InclusionValue) => void;
-  size?: 'sm' | 'lg';
 }
 
-export const InclusionChips: React.FC<InclusionChipsProps> = ({ value, onChange, size = 'sm' }) => {
+export const InclusionChips: React.FC<InclusionChipsProps> = ({ value, onChange }) => {
+  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const activeIndex = STATES.indexOf(value);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowDown' && e.key !== 'ArrowLeft' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const dir = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
+    const nextIndex = (index + dir + STATES.length) % STATES.length;
+    onChange(STATES[nextIndex]);
+    btnRefs.current[nextIndex]?.focus();
+  };
+
   return (
     <div
-      className={`incl-chips incl-chips--${size}`}
+      className="incl-chips"
       role="radiogroup"
       aria-label="Inclusion state"
     >
-      {STATES.map(s => {
+      {STATES.map((s, index) => {
         const def = CHIPS[s];
         const active = value === s;
         return (
           <button
             key={s}
+            ref={el => { btnRefs.current[index] = el; }}
             type="button"
             role="radio"
             aria-checked={active}
             aria-label={def.title}
             title={def.title}
+            tabIndex={index === activeIndex ? 0 : -1}
             className={`incl-chip${active ? ` incl-active ${def.colorClass}` : ''}`}
             onClick={() => onChange(s)}
+            onKeyDown={e => handleKeyDown(e, index)}
           >
             {def.glyph}
           </button>

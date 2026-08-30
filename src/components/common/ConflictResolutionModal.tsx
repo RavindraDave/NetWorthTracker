@@ -16,6 +16,17 @@ function formatUpdated(item: Snapshot | Goal): string {
   return new Date(t).toLocaleString();
 }
 
+/** Short "what's different" cue — item count for snapshots, target amount for goals. */
+function summarize(item: Snapshot | Goal, kind: SyncConflict['kind']): string {
+  if (kind === 'snapshot') {
+    const s = item as Snapshot;
+    const itemCount = s.categories.reduce((n, c) => n + c.items.length, 0);
+    return `${itemCount} item${itemCount === 1 ? '' : 's'}`;
+  }
+  const g = item as Goal;
+  return g.targetAmount ? g.targetAmount.toLocaleString() : g.type;
+}
+
 export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve, onDismiss }) => {
   const [choices, setChoices] = useState<Map<string, 'local' | 'remote'>>(() =>
     new Map(conflicts.map(c => [c.id, 'local']))
@@ -87,6 +98,7 @@ export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve,
                         onChange={() => setChoice(c.id, 'local')}
                         aria-label={`Keep local version of ${c.label}`}
                       />
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-2)' }}>{summarize(c.local, c.kind)}</span>
                       {localUpdated && (
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>{localUpdated}</span>
                       )}
@@ -101,6 +113,7 @@ export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve,
                         onChange={() => setChoice(c.id, 'remote')}
                         aria-label={`Keep remote version of ${c.label}`}
                       />
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-2)' }}>{summarize(c.remote, c.kind)}</span>
                       {remoteUpdated && (
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>{remoteUpdated}</span>
                       )}
@@ -114,12 +127,20 @@ export const ConflictResolutionModal: React.FC<Props> = ({ conflicts, onResolve,
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <button className="btn btn-outline" onClick={() => {
-          const all = new Map(conflicts.map(c => [c.id, 'remote' as const]));
-          setChoices(all);
-        }}>
-          Keep all theirs
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn btn-outline" onClick={() => {
+            const all = new Map(conflicts.map(c => [c.id, 'local' as const]));
+            setChoices(all);
+          }}>
+            Keep all mine
+          </button>
+          <button className="btn btn-outline" onClick={() => {
+            const all = new Map(conflicts.map(c => [c.id, 'remote' as const]));
+            setChoices(all);
+          }}>
+            Keep all theirs
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-outline" onClick={onDismiss}>Cancel (keep local)</button>
           <button className="btn btn-primary" onClick={handleResolve}>Apply resolutions</button>
