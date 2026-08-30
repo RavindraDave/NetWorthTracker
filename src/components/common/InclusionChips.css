@@ -8,17 +8,6 @@
   flex-shrink: 0;
 }
 
-.incl-chips--sm .incl-chip {
-  width: 26px;
-  height: 26px;
-}
-
-.incl-chips--lg .incl-chip {
-  width: 36px;
-  height: 36px;
-  font-size: 13px;
-}
-
 .incl-chip {
   width: 26px;
   height: 26px;

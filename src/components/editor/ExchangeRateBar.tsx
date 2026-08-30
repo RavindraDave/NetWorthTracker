@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { fetchAnchorRates } from '../../utils/exchangeRates';
 import { RATE_ANCHOR } from '../../utils/calculations';
@@ -94,6 +94,8 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
   const [fetchState, setFetchState] = useState<FetchState>('idle');
   const [fetchMessage, setFetchMessage] = useState('');
   const [unavailable, setUnavailable] = useState<string[]>([]);
+  const clearMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (clearMessageTimerRef.current) clearTimeout(clearMessageTimerRef.current); }, []);
 
   const displayCurrencies = enabledCurrencies.filter(c => c !== baseCurrency);
   const { isStale, label: staleLabel } = getStaleInfo(ratesLastUpdated);
@@ -165,7 +167,7 @@ export const ExchangeRateBar: React.FC<ExchangeRateBarProps> = ({
       }
       setFetchState('success');
 
-      setTimeout(() => {
+      clearMessageTimerRef.current = setTimeout(() => {
         setFetchState('idle');
         setFetchMessage('');
       }, 5000);

@@ -10,7 +10,7 @@ export const PerformanceChart: React.FC = () => {
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
   const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
 
-  const data = useMemo(() => {
+  const allChanges = useMemo(() => {
     if (!currentSnapshot || !previousSnapshot) return [];
     return currentSnapshot.categories
       .map(cat => {
@@ -27,9 +27,11 @@ export const PerformanceChart: React.FC = () => {
         };
       })
       .filter(d => d.value !== 0)
-      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-      .slice(0, 7);
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
   }, [currentSnapshot, previousSnapshot, baseCurrency]);
+
+  const data = useMemo(() => allChanges.slice(0, 7), [allChanges]);
+  const hiddenCount = allChanges.length - data.length;
 
   const prevMonth = previousSnapshot?.month
     ? new Date(previousSnapshot.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
@@ -100,6 +102,11 @@ export const PerformanceChart: React.FC = () => {
           );
         })}
       </div>
+      {hiddenCount > 0 && (
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontStyle: 'italic', marginTop: 6 }}>
+          +{hiddenCount} more categor{hiddenCount === 1 ? 'y' : 'ies'} changed
+        </div>
+      )}
     </div>
   );
 };

@@ -47,6 +47,7 @@
 .goal-type-debt    { background: var(--amber-soft);   color: var(--amber); }
 
 .goal-progress {
+  position: relative;
   height: 6px;
   background: var(--bg);
   border-radius: 3px;
@@ -59,6 +60,16 @@
   background: var(--accent);
   border-radius: 3px;
   animation: goal-progress 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.goal-progress-milestone {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--bg-card-solid, #fff);
+  opacity: 0.7;
+  transform: translateX(-50%);
 }
 
 @keyframes goal-progress {

@@ -15,11 +15,7 @@ function getDefaultMonth(snapshots: { month: string }[]): string {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
-  const latest = [...snapshots].sort((a, b) => b.month.localeCompare(a.month))[0];
-  const [year, month] = latest.month.split('-').map(Number);
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const nextYear = month === 12 ? year + 1 : year;
-  return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  return [...snapshots].sort((a, b) => b.month.localeCompare(a.month))[0].month;
 }
 
 export const Layout: React.FC = () => {

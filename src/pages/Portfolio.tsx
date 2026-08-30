@@ -8,7 +8,7 @@ import { Badge } from '../components/common/Badge';
 import { DonutChart } from '../components/dashboard/DonutChart';
 import { InfoTooltip } from '../components/common/InfoTooltip';
 import { MissingRateBanner } from '../components/common/MissingRateBanner';
-import { LayoutGrid, ChevronRight } from 'lucide-react';
+import { LayoutGrid, ChevronRight, Edit2 } from 'lucide-react';
 import { subCategoryName } from '../utils/subCategories';
 import './Portfolio.css';
 
@@ -107,13 +107,14 @@ export const Portfolio: React.FC = () => {
                 <th className="text-right">Original Amount</th>
                 <th className="text-right">Value in {baseCurrency}</th>
                 <th className="text-right">% of Assets</th>
+                <th aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {assets.map(asset => {
                 const baseAmt = convertToBase(asset.amount, asset.currency, baseCurrency, currentSnapshot.exchangeRates);
                 const percent = breakdown.totalAssets > 0 ? (baseAmt / breakdown.totalAssets) * 100 : 0;
-                
+
                 return (
                   <tr key={asset.id} className={asset.excludeFromNetWorth ? 'excluded' : ''}>
                     <td>
@@ -142,7 +143,18 @@ export const Portfolio: React.FC = () => {
                     <td className="text-right" style={{ fontWeight: 600 }}>
                       <CurrencyDisplay amount={baseAmt} currency={baseCurrency} />
                     </td>
-                    <td className="text-right text-muted">{percent.toFixed(1)}%</td>
+                    <td className="text-right text-muted">
+                      {asset.excludeFromNetWorth ? '—' : `${percent.toFixed(1)}%`}
+                    </td>
+                    <td className="text-right">
+                      <button
+                        className="btn-icon"
+                        aria-label={`Edit ${asset.name || 'item'}`}
+                        onClick={() => navigate(`/editor/${currentSnapshot.id}`)}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -166,13 +178,14 @@ export const Portfolio: React.FC = () => {
                   <th className="text-right">Original Amount</th>
                   <th className="text-right">Value in {baseCurrency}</th>
                   <th className="text-right">% of Liabilities</th>
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
                 {liabilities.map(liability => {
                   const baseAmt = convertToBase(liability.amount, liability.currency, baseCurrency, currentSnapshot.exchangeRates);
                   const percent = breakdown.totalLiabilities > 0 ? (baseAmt / breakdown.totalLiabilities) * 100 : 0;
-                  
+
                   return (
                     <tr key={liability.id} className={liability.excludeFromNetWorth ? 'excluded' : ''}>
                       <td>
@@ -201,7 +214,18 @@ export const Portfolio: React.FC = () => {
                       <td className="text-right" style={{ fontWeight: 600 }}>
                         <CurrencyDisplay amount={baseAmt} currency={baseCurrency} />
                       </td>
-                      <td className="text-right text-muted">{percent.toFixed(1)}%</td>
+                      <td className="text-right text-muted">
+                        {liability.excludeFromNetWorth ? '—' : `${percent.toFixed(1)}%`}
+                      </td>
+                      <td className="text-right">
+                        <button
+                          className="btn-icon"
+                          aria-label={`Edit ${liability.name || 'item'}`}
+                          onClick={() => navigate(`/editor/${currentSnapshot.id}`)}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

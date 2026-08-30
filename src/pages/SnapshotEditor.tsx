@@ -10,6 +10,7 @@ import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
 import { resolveNumberLocale } from '../utils/currencies';
+import { isLoanConfigComplete } from '../utils/loanCalculator';
 import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer, CheckCircle2, X } from 'lucide-react';
 import { InfoTooltip } from '../components/common/InfoTooltip';
 import { exportSnapshotToCSV, downloadFile, exportSnapshotToExcel } from '../utils/importExport';
@@ -21,13 +22,16 @@ interface ImportSummary {
   categoryCount: number;
   month: string;
   fileName: string;
+  missingNameCount?: number;
+  badAmountCount?: number;
+  unknownCurrencyCount?: number;
 }
 
 export const SnapshotEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { snapshots, saveSnapshot, preferences, confirm, error: toastError, baseCurrency } = useAppBase();
+  const { snapshots, saveSnapshot, preferences, confirm, error: toastError, info: toastInfo, warning: toastWarning, baseCurrency } = useAppBase();
   const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
 
   // Post-import summary banner (BL-5) — read once from navigation state, then clear
@@ -147,7 +151,8 @@ export const SnapshotEditor: React.FC = () => {
 
   const handlePrint = () => {
     if (!snapshot) return;
-    printSnapshotReport(snapshot, baseCurrency, preferences?.numberFormat);
+    const ok = printSnapshotReport(snapshot, baseCurrency, preferences?.numberFormat);
+    if (!ok) toastError('Could not open the print preview — check if your browser blocked the popup.');
   };
 
   // Close export dropdown on outside click
@@ -188,7 +193,10 @@ export const SnapshotEditor: React.FC = () => {
   };
 
   const handleSave = async () => {
-    const monthDisplay = new Date(snapshot.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    // Parsed as local (not `new Date(month + '-01')`, which is UTC midnight and can
+    // roll to the previous month's label west of UTC) since this drives user-facing copy.
+    const [y, m] = snapshot.month.split('-').map(Number);
+    const monthDisplay = new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const duplicate = snapshots.find(s => s.month === snapshot.month && s.id !== snapshot.id);
     if (duplicate) {
       const ok = await confirm(`A snapshot for ${monthDisplay} already exists. Saving will overwrite it. Continue?`);
@@ -259,6 +267,18 @@ export const SnapshotEditor: React.FC = () => {
               onChange={e => {
                 if (!e.target.value) return;
                 isDirtyRef.current = true;
+                const loanItemCount = snapshot.categories.reduce(
+                  (sum, c) => sum + c.items.filter(i =>
+                    isLoanConfigComplete(i.loanPrincipal, i.annualInterestRate, i.tenureMonths, i.loanStartMonth)
+                  ).length,
+                  0
+                );
+                if (loanItemCount > 0) {
+                  toastInfo(`${loanItemCount} loan balance${loanItemCount === 1 ? '' : 's'} will be recalculated for the new month.`);
+                }
+                if (snapshots.some(s => s.month === e.target.value && s.id !== snapshot.id)) {
+                  toastWarning('A snapshot for this month already exists — saving will overwrite it.');
+                }
                 setSnapshot(prev => prev ? { ...prev, month: e.target.value } : prev);
               }}
               title="Click to change month"
@@ -329,6 +349,15 @@ export const SnapshotEditor: React.FC = () => {
             Imported <strong>{importSummary.itemCount}</strong> item{importSummary.itemCount === 1 ? '' : 's'} across{' '}
             <strong>{importSummary.categoryCount}</strong> categor{importSummary.categoryCount === 1 ? 'y' : 'ies'} from{' '}
             <span style={{ wordBreak: 'break-all' }}>{importSummary.fileName}</span>. Review and save below.
+            {(!!importSummary.missingNameCount || !!importSummary.badAmountCount || !!importSummary.unknownCurrencyCount) && (
+              <span style={{ display: 'block', marginTop: '0.3rem', color: 'var(--amber, #f59e0b)' }}>
+                {[
+                  importSummary.missingNameCount ? `${importSummary.missingNameCount} row${importSummary.missingNameCount === 1 ? '' : 's'} had a missing item name (imported as "Imported Item")` : null,
+                  importSummary.badAmountCount ? `${importSummary.badAmountCount} row${importSummary.badAmountCount === 1 ? '' : 's'} had an unreadable amount (imported as 0)` : null,
+                  importSummary.unknownCurrencyCount ? `${importSummary.unknownCurrencyCount} row${importSummary.unknownCurrencyCount === 1 ? '' : 's'} had an unrecognized currency (defaulted to ${baseCurrency})` : null,
+                ].filter(Boolean).join('; ')}.
+              </span>
+            )}
           </span>
           <button className="btn-icon" aria-label="Dismiss import summary" onClick={() => setImportSummary(null)}>
             <X size={14} />
@@ -352,18 +381,25 @@ export const SnapshotEditor: React.FC = () => {
           />
         </button>
         {noteOpen && (
-          <textarea
-            id="note-textarea"
-            className="note-textarea"
-            placeholder="What changed this month? (e.g., bonus, market move, large purchase)"
-            value={snapshot.notes ?? ''}
-            maxLength={2000}
-            rows={4}
-            onChange={e => {
-              isDirtyRef.current = true;
-              setSnapshot(prev => prev ? { ...prev, notes: e.target.value } : prev);
-            }}
-          />
+          <>
+            <textarea
+              id="note-textarea"
+              className="note-textarea"
+              placeholder="What changed this month? (e.g., bonus, market move, large purchase)"
+              value={snapshot.notes ?? ''}
+              maxLength={2000}
+              rows={4}
+              onChange={e => {
+                isDirtyRef.current = true;
+                setSnapshot(prev => prev ? { ...prev, notes: e.target.value } : prev);
+              }}
+            />
+            {(snapshot.notes?.length ?? 0) > 1800 && (
+              <span style={{ display: 'block', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-3)' }}>
+                {snapshot.notes?.length ?? 0} / 2000
+              </span>
+            )}
+          </>
         )}
       </div>
 

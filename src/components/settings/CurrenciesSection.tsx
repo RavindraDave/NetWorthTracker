@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { ALL_CURRENCIES } from '../../utils/currencies';
 import { useApp } from '../../context/AppContext';
+import { useToast } from '../common/Toast';
 
 export const CurrenciesSection: React.FC = () => {
-  const { preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences, snapshots } = useApp();
+  const { confirm } = useToast();
   const [currencySearch, setCurrencySearch] = useState('');
+
+  // Count line items using each currency across all snapshots, for a disable-usage warning.
+  const usageMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const snap of snapshots) {
+      for (const cat of snap.categories) {
+        for (const item of cat.items) {
+          map[item.currency] = (map[item.currency] ?? 0) + 1;
+        }
+      }
+    }
+    return map;
+  }, [snapshots]);
 
   if (!preferences) return null;
 
-  const toggleCurrency = (code: string) => {
+  const toggleCurrency = async (code: string) => {
     const enabled = preferences.enabledCurrencies;
     if (code === preferences.baseCurrency) return;
-    const next = enabled.includes(code)
+    const disabling = enabled.includes(code);
+    if (disabling && (usageMap[code] ?? 0) > 0) {
+      const ok = await confirm(
+        `${usageMap[code]} item${usageMap[code] === 1 ? '' : 's'} use ${code}. Disabling hides the rate editor for it but keeps existing data. Continue?`,
+      );
+      if (!ok) return;
+    }
+    const next = disabling
       ? enabled.filter(c => c !== code)
       : [...enabled, code];
     updatePreferences({ enabledCurrencies: next });
@@ -60,13 +82,19 @@ export const CurrenciesSection: React.FC = () => {
         {filteredCurrencies.map(c => {
           const enabled = preferences.enabledCurrencies.includes(c.code);
           const isBase  = c.code === preferences.baseCurrency;
+          const usageCount = usageMap[c.code] ?? 0;
+          const title = isBase
+            ? c.name
+            : (enabled && usageCount > 0)
+              ? `${c.name} — used by ${usageCount} item${usageCount === 1 ? '' : 's'}. Disabling hides the rate editor but keeps existing data.`
+              : c.name;
           return (
             <button
               key={c.code}
               className={`currency-chip${enabled ? ' active' : ''}${isBase ? ' base' : ''}`}
               onClick={() => toggleCurrency(c.code)}
               disabled={isBase}
-              title={c.name}
+              title={title}
               aria-pressed={enabled}
             >
               <span className="currency-chip__code">{c.code}</span>

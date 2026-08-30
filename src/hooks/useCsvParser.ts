@@ -6,7 +6,8 @@ import { CsvFieldName, CsvFieldMapping } from '../types';
 
 type CsvField = CsvFieldName;
 
-export const CSV_FIELDS: CsvField[] = ['Item Name', 'Category', 'Sub-Category', 'Amount', 'Currency', 'Type'];
+export const CSV_FIELDS: CsvField[] =
+  ['Item Name', 'Category', 'Sub-Category', 'Amount', 'Currency', 'Type', 'Notes'];
 
 export const CSV_FIELD_HINTS: Record<CsvField, string> = {
   'Item Name': 'required',
@@ -15,6 +16,7 @@ export const CSV_FIELD_HINTS: Record<CsvField, string> = {
   'Amount':    'required',
   'Currency':  'optional',
   'Type':      'optional',
+  'Notes':     'optional',
 };
 
 const FIELD_ALIASES: Record<CsvField, string[]> = {
@@ -31,6 +33,7 @@ const FIELD_ALIASES: Record<CsvField, string[]> = {
   'Amount':    ['amount', 'value', 'balance', 'closingbalance', 'amt', 'currentvalue', 'marketvalue'],
   'Currency':  ['currency', 'ccy', 'curr', 'currencycode', 'iso'],
   'Type':      ['type', 'assettype', 'liabilitytype', 'kind', 'assetliability'],
+  'Notes':     ['notes', 'note', 'comment', 'comments', 'remarks'],
 };
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -83,8 +86,11 @@ export function useCsvParser(file: File) {
         const hdrs = Object.keys(parsed[0]).filter(
           h => !h.startsWith('__EMPTY') && !DANGEROUS_KEYS.has(h.toLowerCase())
         );
+        // Excel sheets commonly carry fully-blank trailing rows — drop them so they
+        // don't become "Imported Item" line items with a zero amount.
+        const nonBlankRows = parsed.filter(row => hdrs.some(h => String(row[h] ?? '').trim() !== ''));
         setHeaders(hdrs);
-        setRows(parsed);
+        setRows(nonBlankRows);
       } catch {
         setParseError('Could not parse this file. Make sure it is a valid CSV or Excel file.');
       }

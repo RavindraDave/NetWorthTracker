@@ -139,7 +139,8 @@ export interface CategoryTemplate {
 }
 
 // CSV import column mapping (shared between CsvImportModal and saved profiles)
-export type CsvFieldName = 'Item Name' | 'Category' | 'Sub-Category' | 'Amount' | 'Currency' | 'Type';
+export type CsvFieldName =
+  | 'Item Name' | 'Category' | 'Sub-Category' | 'Amount' | 'Currency' | 'Type' | 'Notes';
 export type CsvFieldMapping = Partial<Record<CsvFieldName, string>>;
 
 export type BackupCadence = 'off' | 'daily' | 'weekly' | 'monthly';
@@ -210,6 +211,8 @@ export interface UserPreferences {
   categoryTemplates?: CategoryTemplate[];
   autoBackup?: AutoBackupConfig;
   staleBackupSnoozeUntil?: string;
+  missingSnapshotSnoozeUntil?: string;
+  missingRateSnoozeUntil?: string;
   cloudSync?: CloudSyncConfig;
   appLock?: AppLockConfig;
   notificationReminders?: boolean;

@@ -16,6 +16,12 @@ vi.mock('../../common/CurrencyDisplay', () => ({
 
 const confirmMock = vi.fn(() => Promise.resolve(true));
 
+// LineItemRow reaches for the toast context (loan-recompute notice), so the
+// provider has to be stubbed even though these tests never assert on a toast.
+vi.mock('../../common/Toast', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), confirm: confirmMock }),
+}));
+
 vi.mock('../../../hooks/useAppBase', () => ({
   useAppBase: () => ({
     preferences: { baseCurrency: 'INR', enabledCurrencies: ['INR', 'USD'] },

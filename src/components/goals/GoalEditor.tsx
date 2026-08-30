@@ -5,6 +5,7 @@ import { DEFAULT_TAX_PARAMS } from '../../utils/taxCalculator';
 import { X, Plus, Trash2, EyeOff, ShieldCheck } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
+import { useToast } from '../common/Toast';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
 import { resolveNumberLocale } from '../../utils/currencies';
 import './GoalEditor.css';
@@ -16,6 +17,7 @@ interface GoalEditorProps {
 
 export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => {
   const { saveGoal, preferences, currentSnapshot } = useApp();
+  const { error: toastError } = useToast();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
 
@@ -70,6 +72,15 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (type !== 'fire' && targetAmount <= 0) {
+      toastError('Target amount must be greater than 0.');
+      return;
+    }
+    if (type === 'fire' && annualExpenses <= 0) {
+      toastError('Annual expenses must be greater than 0.');
+      return;
+    }
+
     const goal: Goal = {
       id: editGoal?.id ?? crypto.randomUUID(),
       name: name || (type === 'fire' ? 'FIRE Target' : 'New Goal'),
@@ -123,7 +134,14 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
           <div className="form-row">
             <div className="form-group" style={{ flex: '0 0 180px' }}>
               <label htmlFor="goal-type">Type</label>
-              <select id="goal-type" value={type} onChange={e => setType(e.target.value as GoalType)} className="form-input form-input--sm" disabled={!!editGoal}>
+              <select
+                id="goal-type"
+                value={type}
+                onChange={e => setType(e.target.value as GoalType)}
+                className="form-input form-input--sm"
+                disabled={!!editGoal}
+                title={editGoal ? "Goal type can't be changed after creation — delete and recreate instead" : undefined}
+              >
                 <option value="fire">FIRE</option>
                 <option value="net_worth_target">Net Worth Target</option>
                 <option value="savings">Savings</option>

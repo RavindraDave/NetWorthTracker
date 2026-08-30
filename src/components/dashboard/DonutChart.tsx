@@ -18,17 +18,18 @@ export const DonutChart: React.FC = () => {
   const [view, setView] = useState<'category' | 'currency'>('category');
   const [drillCatId, setDrillCatId] = useState<string | null>(null);
 
-  const categoryData = useMemo(() => {
+  const categoryDataAll = useMemo(() => {
     if (!currentSnapshot) return [];
     return buildAllocationData(currentSnapshot, baseCurrency)
-      .filter(d => d.type === 'asset' && d.value > 0)
-      .slice(0, 9);
+      .filter(d => d.type === 'asset' && d.value > 0);
   }, [currentSnapshot, baseCurrency]);
+  const categoryData = useMemo(() => categoryDataAll.slice(0, 9), [categoryDataAll]);
 
-  const currencyData = useMemo(() => {
+  const currencyDataAll = useMemo(() => {
     if (!currentSnapshot) return [];
-    return buildCurrencyAllocationData(currentSnapshot, baseCurrency).slice(0, 9);
+    return buildCurrencyAllocationData(currentSnapshot, baseCurrency);
   }, [currentSnapshot, baseCurrency]);
+  const currencyData = useMemo(() => currencyDataAll.slice(0, 9), [currencyDataAll]);
 
   /** Categories worth drilling into — one 100% slice would be a pointless click. */
   const drillableIds = useMemo(() => {
@@ -63,7 +64,10 @@ export const DonutChart: React.FC = () => {
   const inCurrencyView = view === 'currency' && showToggle;
 
   const data = isDrilled ? drillData : inCurrencyView ? currencyData : categoryData;
-  const total = data.reduce((s, d) => s + d.value, 0);
+  // Drill data is never truncated — buildSubCategoryAllocationData folds its own tail
+  // into an explicit "Other (N)" slice, so there is nothing hidden to warn about.
+  const dataAll = isDrilled ? drillData : inCurrencyView ? currencyDataAll : categoryDataAll;
+  const hiddenCount = dataAll.length - data.length;
 
   const canDrill = (id: string) => !isDrilled && !inCurrencyView && drillableIds.has(id);
 
@@ -154,12 +158,13 @@ export const DonutChart: React.FC = () => {
       <div className="alloc-legend">
         {data.map((d, i) => {
           const drillable = canDrill(d.id);
-          const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : 0;
+          // The builder's own percentage, never one recomputed over the truncated
+          // array — that is what used to make a truncated legend still sum to 100%.
           const content = (
             <>
               <span className="alloc-leg-dot" style={{ background: COLORS[i % COLORS.length] }} />
               <span className="alloc-leg-name">{d.name}</span>
-              <span className="alloc-leg-pct">{pct}%</span>
+              <span className="alloc-leg-pct">{d.percentage.toFixed(1)}%</span>
             </>
           );
 
@@ -180,6 +185,11 @@ export const DonutChart: React.FC = () => {
             <div key={i} className="alloc-leg-row">{content}</div>
           );
         })}
+        {hiddenCount > 0 && (
+          <div className="alloc-leg-row" style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>
+            +{hiddenCount} more
+          </div>
+        )}
       </div>
     </div>
   );

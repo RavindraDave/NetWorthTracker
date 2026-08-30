@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, KeyRound, Fingerprint, ShieldQuestion } from 'lucide-react';
+import { Lock, KeyRound, Fingerprint, ShieldQuestion, Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
   unlockWithPasskey as passkeyUnlock,
@@ -20,6 +20,7 @@ export const AppLockScreen: React.FC = () => {
 
   const [mode, setMode] = useState<Mode>('passphrase');
   const [passphrase, setPassphrase] = useState('');
+  const [showPassphrase, setShowPassphrase] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -92,16 +93,23 @@ export const AppLockScreen: React.FC = () => {
 
         {mode === 'passphrase' && (
           <form onSubmit={handlePassphrase} className="applock-form">
-            <input
-              type="password"
-              autoFocus
-              className="line-item-input applock-input"
-              placeholder="Passphrase"
-              value={passphrase}
-              onChange={e => setPassphrase(e.target.value)}
-              disabled={busy}
-              aria-label="Passphrase"
-            />
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <input
+                type={showPassphrase ? 'text' : 'password'}
+                autoFocus
+                className="line-item-input applock-input"
+                style={{ flex: 1 }}
+                placeholder="Passphrase"
+                value={passphrase}
+                onChange={e => setPassphrase(e.target.value)}
+                disabled={busy}
+                aria-label="Passphrase"
+              />
+              <button type="button" className="btn-icon" onClick={() => setShowPassphrase(s => !s)}
+                aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'} title={showPassphrase ? 'Hide' : 'Show'}>
+                {showPassphrase ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
             <button type="submit" className="btn btn-primary applock-btn" disabled={busy || !passphrase}>
               {busy ? 'Unlocking…' : 'Unlock'}
             </button>
@@ -162,6 +170,12 @@ export const AppLockScreen: React.FC = () => {
             <button type="button" className="applock-link" onClick={() => { setMode('recover-google'); setError(null); }}>
               <ShieldQuestion size={13} /> Recover via Google
             </button>
+          )}
+          {mode === 'passphrase' && !lock?.recovery.code && !lock?.recovery.googleEscrow && !lock?.webauthnEnabled && (
+            <p className="applock-hint">
+              No recovery method was set up for this lock. If you've forgotten your passphrase,
+              this device's data cannot be unlocked.
+            </p>
           )}
         </div>
       </div>

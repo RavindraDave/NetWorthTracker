@@ -28,6 +28,8 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
   const { snapshots } = useApp();
   const metrics = calcFIREMetrics(goal, currentSnapshot, baseCurrency, snapshots);
   const progressPct = Math.min(Math.max(metrics.progressPercentage, 0), 100);
+  // Derived from fiNumber (not goal.multiplier directly) so it agrees with legacy goals set via withdrawalRate
+  const effectiveMultiplier = goal.annualExpenses ? metrics.fiNumber / goal.annualExpenses : goal.multiplier ?? 25;
 
   const categories = currentSnapshot?.categories ?? [];
   const nonInvestableNames = categories
@@ -96,7 +98,7 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
           <span className="fire-dash-meta">
             Target&nbsp;
             <CurrencyDisplay amount={metrics.fiNumber} currency={baseCurrency} abbreviated />
-            &nbsp;·&nbsp;{goal.multiplier ?? 25}× annual expenses&nbsp;·&nbsp;{metrics.realReturnRate.toFixed(1)}% real return
+            &nbsp;·&nbsp;{effectiveMultiplier % 1 === 0 ? effectiveMultiplier : effectiveMultiplier.toFixed(1)}× annual expenses&nbsp;·&nbsp;{metrics.realReturnRate.toFixed(1)}% real return
           </span>
         </div>
         <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, alignSelf: 'flex-start' }}>
@@ -236,11 +238,10 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
               <input
                 type="number"
                 className="fire-scenario-input"
-                value={scenario.annualExpenses || ''}
+                value={scenario.annualExpenses}
                 onChange={setField('annualExpenses')}
                 min={0}
                 step={10000}
-                placeholder={String(goal.annualExpenses ?? 0)}
               />
             </div>
             <div className="fire-scenario-field">

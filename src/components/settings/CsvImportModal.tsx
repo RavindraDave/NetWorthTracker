@@ -28,7 +28,7 @@ interface CsvImportModalProps {
 
 export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose }) => {
   const { createNewSnapshot, saveSnapshot, snapshots, preferences } = useApp();
-  const { success, error } = useToast();
+  const { success, error, confirm } = useToast();
   const navigate = useNavigate();
 
   const { headers, rows, parseError, autoDetectMapping, profileNames, applyProfile, saveProfile, deleteProfile } = useCsvParser(file);
@@ -48,6 +48,23 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [headers]);
 
+  const handleDeleteProfile = async (name: string) => {
+    const ok = await confirm(`Delete the saved mapping "${name}"?`, 'destructive');
+    if (ok) deleteProfile(name);
+  };
+
+  const handleSaveProfile = async () => {
+    const name = profileNameInput.trim();
+    if (!name) return;
+    if (profileNames.includes(name)) {
+      const ok = await confirm(`A mapping named "${name}" already exists. Overwrite it?`);
+      if (!ok) return;
+    }
+    saveProfile(name, mapping);
+    setShowSaveForm(false);
+    setProfileNameInput('');
+  };
+
   const fileKind    = isExcelFile(file) ? 'Excel' : 'CSV';
   const isValid     = !!mapping['Item Name'] && !!mapping['Amount'];
   const monthConflict = snapshots.some(s => s.month === targetMonth);
@@ -61,17 +78,33 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
       const baseCurrency = preferences?.baseCurrency ?? 'INR';
       const enabledCurrencies = preferences?.enabledCurrencies ?? [baseCurrency];
       const newSnap = { ...createNewSnapshot(), month: targetMonth };
+      let missingNameCount = 0;
+      let badAmountCount = 0;
+      let unknownCurrencyCount = 0;
 
-      for (const row of rows) {
-        const itemName = String(row[mapping['Item Name']!] ?? '').trim() || 'Imported Item';
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (i % 200 === 0) await new Promise(r => setTimeout(r, 0));
+
+        const rawName = String(row[mapping['Item Name']!] ?? '').trim();
+        if (!rawName) missingNameCount++;
+        const itemName = rawName || 'Imported Item';
+
         const catName  = mapping['Category']
           ? (String(row[mapping['Category']] ?? '').trim() || 'Cash & Bank')
           : 'Cash & Bank';
-        const amount  = Math.min(Math.abs(parseAmount(String(row[mapping['Amount']!] ?? '0'))), 1e15);
+
+        const rawAmount = String(row[mapping['Amount']!] ?? '0').trim();
+        const strippedAmount = rawAmount.replace(/[^\d.,-]/g, '');
+        if (rawAmount && (!strippedAmount || strippedAmount === '-')) badAmountCount++;
+        const amount = Math.min(Math.abs(parseAmount(rawAmount)), 1e15);
+
         const rawCurr = mapping['Currency']
           ? String(row[mapping['Currency']] ?? baseCurrency).trim().toUpperCase()
           : baseCurrency;
         const currency = enabledCurrencies.includes(rawCurr) ? rawCurr : baseCurrency;
+        if (mapping['Currency'] && rawCurr && currency !== rawCurr) unknownCurrencyCount++;
+
         const rawType  = mapping['Type']
           ? String(row[mapping['Type']] ?? 'asset').toLowerCase()
           : 'asset';
@@ -111,6 +144,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
           }
         }
 
+        const notes = mapping['Notes'] ? String(row[mapping['Notes']] ?? '').trim() || undefined : undefined;
+
         targetCat.items.push({
           id: crypto.randomUUID(),
           name: itemName,
@@ -118,6 +153,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
           currency,
           excludeFromNetWorth: false,
           ...(subCategoryId ? { subCategoryId } : {}),
+          ...(notes ? { notes } : {}),
         });
       }
 
@@ -128,7 +164,10 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
       onClose();
       navigate(`/editor/${newSnap.id}`, {
         state: {
-          importSummary: { itemCount, categoryCount, month: targetMonth, fileName: file.name },
+          importSummary: {
+            itemCount, categoryCount, month: targetMonth, fileName: file.name,
+            missingNameCount, badAmountCount, unknownCurrencyCount,
+          },
         },
       });
     } catch (err) {
@@ -202,7 +241,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
                     </button>
                     <button
                       className="btn-icon"
-                      onClick={() => deleteProfile(n)}
+                      onClick={() => handleDeleteProfile(n)}
                       title={`Delete mapping "${n}"`}
                       aria-label={`Delete mapping ${n}`}
                       style={{ width: 20, height: 20 }}
@@ -221,14 +260,14 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
                     className="line-item-input"
                     value={profileNameInput}
                     onChange={e => setProfileNameInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { saveProfile(profileNameInput, mapping); setShowSaveForm(false); setProfileNameInput(''); } }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveProfile(); }}
                     placeholder="Mapping name"
                     style={{ maxWidth: 160, fontSize: TEXT.base }}
                     aria-label="Name for this mapping"
                     autoFocus
                   />
                   <button className="btn btn-primary" style={{ fontSize: TEXT.sm, padding: '0.3rem 0.6rem' }}
-                    onClick={() => { saveProfile(profileNameInput, mapping); setShowSaveForm(false); setProfileNameInput(''); }}
+                    onClick={handleSaveProfile}
                     disabled={!profileNameInput.trim()}>
                     Save
                   </button>
@@ -255,6 +294,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
             <div style={{ fontSize: TEXT.sm, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: SPACE.sm }}>
               Column Mapping
             </div>
+            <p className="text-muted" style={{ fontSize: TEXT.xs, marginTop: -4, marginBottom: SPACE.sm }}>
+              Cost basis (purchase price/date, stated return) and loan configuration aren't imported — re-enter those manually after import if your export included them.
+            </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: SPACE.sm }}>
               {CSV_FIELDS.map(field => (
                 <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

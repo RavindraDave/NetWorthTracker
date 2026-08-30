@@ -2,16 +2,17 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { LineItem, SubCategory } from '../../types';
 import { normalizeSubName } from '../../utils/subCategories';
-import { convertToBase } from '../../utils/calculations';
+import { convertToBase, anchorRate } from '../../utils/calculations';
 import { calculateOutstandingBalance, calculateLoanSummary, isLoanConfigComplete } from '../../utils/loanCalculator';
 import { annualisedReturn, monthEndDate } from '../../utils/returns';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { InclusionChips, exclusionStateToInclusion, inclusionToExclusionState } from '../common/InclusionChips';
+import { useToast } from '../common/Toast';
 import { useDecimalInput } from '../../hooks/useDecimalInput';
 import { resolveNumberLocale } from '../../utils/currencies';
 import { CostBasisPanel } from './CostBasisPanel';
 import { LoanConfigPanel } from './LoanConfigPanel';
-import { Trash2, Calculator, TrendingUp } from 'lucide-react';
+import { Trash2, Calculator, TrendingUp, AlertTriangle } from 'lucide-react';
 import './LineItemRow.css';
 
 type ExclusionState = 'all' | 'goals-only' | 'everywhere';
@@ -58,6 +59,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
   item, exchangeRates, snapshotMonth, onChange, onRemove, subCategories, onAssignSubCategory,
 }) => {
   const { preferences } = useApp();
+  const { confirm } = useToast();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const enabledCurrencies = preferences?.enabledCurrencies || ['INR', 'USD', 'EUR', 'GBP', 'SGD'];
   const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
@@ -265,6 +267,14 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
         <div className="line-item-base">
           {item.currency !== baseCurrency && (
             <span className="converted-amount">
+              {(anchorRate(item.currency, exchangeRates) <= 0 || anchorRate(baseCurrency, exchangeRates) <= 0) && (
+                <span
+                  style={{ display: 'inline-flex', marginRight: 3, verticalAlign: -1 }}
+                  title={`No exchange rate set for ${item.currency} — this is being converted 1:1 with ${baseCurrency}`}
+                >
+                  <AlertTriangle size={12} style={{ color: 'var(--amber, #f59e0b)' }} />
+                </span>
+              )}
               ≈ <CurrencyDisplay amount={baseAmount} currency={baseCurrency} />
             </span>
           )}
@@ -272,7 +282,10 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
 
         <button
           className="btn-icon danger line-item-delete"
-          onClick={() => onRemove(item.id)}
+          onClick={async () => {
+            const ok = await confirm(`Remove "${item.name || 'this item'}"?`, 'destructive');
+            if (ok) onRemove(item.id);
+          }}
           title="Remove item"
           aria-label="Remove item"
         >
@@ -327,7 +340,6 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
         <InclusionChips
           value={inclusionVal}
           onChange={next => onChange(applyExclusionState(item, inclusionToExclusionState(next)))}
-          size="sm"
         />
 
         <div className="line-item-toggles">

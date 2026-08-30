@@ -111,7 +111,7 @@ export function buildCategoryRows(cats: Category[], ctx: CategoryRowsContext): s
             </tr>
           </thead>
           <tbody>${itemRows}</tbody>
-        </table>` : '<p style="font-size:12px;color:#9ca3af;margin:4px 8px;">No items in this category.</p>'}
+        </table>` : '<p style="font-size:12px;color:#9ca3af;margin:4px 8px;">All items in this category are excluded from net worth.</p>'}
       </div>`;
   }).join('');
 }
@@ -120,9 +120,9 @@ export function buildCategoryRows(cats: Category[], ctx: CategoryRowsContext): s
  * Open the snapshot as a print-ready HTML report in a new browser window
  * and immediately trigger the print dialog.
  */
-export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, numberFormat?: UserPreferences['numberFormat']): void {
+export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, numberFormat?: UserPreferences['numberFormat']): boolean {
   const win = window.open('', '_blank', 'width=900,height=700');
-  if (!win) return; // popup blocked — fail silently
+  if (!win) return false; // popup blocked — caller surfaces this to the user
 
   const locale = resolveNumberLocale(baseCurrency, numberFormat);
   const { totalAssets, totalLiabilities, netWorth, categoryTotals } = calcNetWorth(snapshot, baseCurrency);
@@ -139,10 +139,10 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
 
   // Build asset section rows
   const assetCats = snapshot.categories.filter(
-    cat => cat.type === 'asset' && (categoryTotals[cat.id] ?? 0) > 0
+    cat => cat.type === 'asset' && cat.items.length > 0
   );
   const liabilityCats = snapshot.categories.filter(
-    cat => cat.type === 'liability' && (categoryTotals[cat.id] ?? 0) > 0
+    cat => cat.type === 'liability' && cat.items.length > 0
   );
 
   const rowsCtx: CategoryRowsContext = { categoryTotals, snapshot, baseCurrency, locale };
@@ -279,7 +279,6 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
   <div style="margin-top:32px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
     <span style="font-size:11px;color:#9ca3af;">WealthPulse &middot; ${escHtml(label)} &middot; All values in ${escHtml(baseCurrency)}</span>
     <a href="https://r2dsolutions.com" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:6px;text-decoration:none;opacity:0.6;">
-      <img src="https://extensions.r2dsolutions.com/logo.png" alt="R2DSolutions" style="width:14px;height:14px;border-radius:3px;object-fit:contain;" />
       <span style="font-size:11px;color:#6b7280;font-weight:500;">R2DSolutions</span>
     </a>
   </div>
@@ -290,6 +289,7 @@ export function printSnapshotReport(snapshot: Snapshot, baseCurrency: string, nu
   win.document.close();
   win.focus();
   win.print();
+  return true;
 }
 
 /** Escape HTML special characters to prevent injection. */

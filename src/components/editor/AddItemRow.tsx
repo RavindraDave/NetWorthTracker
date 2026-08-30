@@ -30,12 +30,17 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
   const [amount, setAmount] = useState(0);
   const amountRef = useRef(0);
   const nameRef = useRef<HTMLInputElement>(null);
+  // Escape triggers reset() then blur(), which synchronously fires the amount field's
+  // own onBlur — but reset()'s setName('') hasn't landed yet, so that handler's `name`
+  // closure still sees the pre-Escape text and would wrongly commit. This flag skips it.
+  const skipBlurCommitRef = useRef(false);
 
   const amountInput = useDecimalInput({
     value: amount,
     onCommit: next => { amountRef.current = next; setAmount(next); },
     precision: 2,
     min: 0,
+    blankZero: true,
     locale,
   });
 
@@ -47,7 +52,8 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
     // the hook's value-changed resync never fires and the typed figure would linger
     // on screen while the next commit would actually use 0.
     amountInput.reset(0);
-    setCurrency(baseCurrency);
+    // Currency deliberately left as-is — entering several consecutive items in the
+    // same foreign currency shouldn't require reselecting it every time.
   };
 
   const commit = () => {
@@ -73,6 +79,7 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
     if (e.key === 'Enter') {
       commit();
     } else if (e.key === 'Escape') {
+      skipBlurCommitRef.current = true;
       reset();
       (e.target as HTMLInputElement).blur();
     }
@@ -109,7 +116,11 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
           placeholder="0.00"
           aria-label={`New item amount in ${currency}${inGroup}`}
           onKeyDown={handleKeyDown}
-          onBlur={() => { amountInput.inputProps.onBlur(); if (name.trim()) commit(); }}
+          onBlur={() => {
+            amountInput.inputProps.onBlur();
+            if (skipBlurCommitRef.current) { skipBlurCommitRef.current = false; return; }
+            if (name.trim()) commit();
+          }}
         />
 
         <button
