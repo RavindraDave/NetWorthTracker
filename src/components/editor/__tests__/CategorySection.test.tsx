@@ -16,6 +16,11 @@ vi.mock('../../common/CurrencyDisplay', () => ({
 
 const confirmMock = vi.fn(() => Promise.resolve(true));
 
+// Mutable so the "missing preferences" test can null it out for one render.
+const appBasePrefs: { current: { baseCurrency: string; enabledCurrencies: string[] } | undefined } = {
+  current: { baseCurrency: 'INR', enabledCurrencies: ['INR', 'USD'] },
+};
+
 // LineItemRow reaches for the toast context (loan-recompute notice), so the
 // provider has to be stubbed even though these tests never assert on a toast.
 vi.mock('../../common/Toast', () => ({
@@ -24,7 +29,7 @@ vi.mock('../../common/Toast', () => ({
 
 vi.mock('../../../hooks/useAppBase', () => ({
   useAppBase: () => ({
-    preferences: { baseCurrency: 'INR', enabledCurrencies: ['INR', 'USD'] },
+    preferences: appBasePrefs.current,
     confirm: confirmMock,
   }),
 }));
@@ -61,6 +66,7 @@ const baseProps = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  appBasePrefs.current = { baseCurrency: 'INR', enabledCurrencies: ['INR', 'USD'] };
 });
 
 // ---------------------------------------------------------------------------
@@ -395,6 +401,189 @@ describe('CategorySection with sub-categories', () => {
     const next: Category = onChange.mock.calls[0][0];
     expect(next.items).toHaveLength(3);
     expect(next.items.filter(i => i.subCategoryId === 'sub-mf')).toHaveLength(0);
+  });
+
+  it('does not delete a group with items when the user declines the confirmation', async () => {
+    confirmMock.mockResolvedValueOnce(false);
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Options for group Mutual Funds'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Delete group/ }));
+
+    await vi.waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('uses singular wording when exactly one item would move to Ungrouped', async () => {
+    const onChange = vi.fn();
+    const cat = category({
+      subCategories: [{ id: 'sub-mf', name: 'Mutual Funds' }, { id: 'sub-stocks', name: 'Stocks' }],
+      items: [item({ id: 'a', subCategoryId: 'sub-mf' })],
+    });
+    render(<CategorySection {...baseProps} category={cat} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Options for group Mutual Funds'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Delete group/ }));
+
+    expect(confirmMock).toHaveBeenCalledWith(expect.stringContaining('1 item moves'), 'destructive');
+  });
+
+  it('edits an item field through the row and folds it into the category onChange', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.change(screen.getByDisplayValue('Item a'), { target: { value: 'Renamed fund' } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const updated = onChange.mock.calls[0][0].items.find((i: LineItem) => i.id === 'a');
+    expect(updated.name).toBe('Renamed fund');
+  });
+
+  it('removes an item through the row and folds it into the category onChange', async () => {
+    confirmMock.mockResolvedValueOnce(true);
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.click(screen.getAllByRole('button', { name: /remove item/i })[0]);
+
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls[0][0].items.some((i: LineItem) => i.id === 'a')).toBe(false);
+  });
+
+  it('re-expands a collapsed group', () => {
+    render(<CategorySection {...baseProps} category={grouped()} onChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText('Collapse Mutual Funds'));
+    expect(screen.queryByLabelText('New item name in Mutual Funds')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Expand Mutual Funds'));
+    expect(screen.getByLabelText('New item name in Mutual Funds')).toBeInTheDocument();
+  });
+
+  it('discards the footer group-name draft on Escape without creating a group', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Add a sub-group to Investments'));
+    const input = screen.getByLabelText('New sub-group in Investments');
+    fireEvent.change(input, { target: { value: 'Discard me' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('New sub-group in Investments')).toBeNull();
+  });
+
+  it('creates no group when the footer input is committed blank', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Add a sub-group to Investments'));
+    const input = screen.getByLabelText('New sub-group in Investments');
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('ignores an ordinary keystroke in the footer group-name input', () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Add a sub-group to Investments'));
+    const input = screen.getByLabelText('New sub-group in Investments');
+    fireEvent.change(input, { target: { value: 'Sti' } });
+    fireEvent.keyDown(input, { key: 'a' });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('New sub-group in Investments')).toBeInTheDocument();
+  });
+
+  it('offers to merge when a rename collides with an existing group name, and merges on confirm', async () => {
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Rename group Mutual Funds'));
+    fireEvent.change(screen.getByLabelText('Rename Mutual Funds'), { target: { value: 'Stocks' } });
+    fireEvent.keyDown(screen.getByLabelText('Rename Mutual Funds'), { key: 'Enter' });
+
+    await vi.waitFor(() => expect(confirmMock).toHaveBeenCalledWith(expect.stringContaining('Merge this group into it?')));
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalled());
+    const next: Category = onChange.mock.calls[0][0];
+    expect(next.subCategories).toHaveLength(1); // merged down to one
+  });
+
+  it('leaves both groups intact when the user declines the merge', async () => {
+    confirmMock.mockResolvedValueOnce(false);
+    const onChange = vi.fn();
+    render(<CategorySection {...baseProps} category={grouped()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText('Rename group Mutual Funds'));
+    fireEvent.change(screen.getByLabelText('Rename Mutual Funds'), { target: { value: 'Stocks' } });
+    fireEvent.keyDown(screen.getByLabelText('Rename Mutual Funds'), { key: 'Enter' });
+
+    await vi.waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Category-level chrome: collapse, liability styling, exclusion counts
+// ---------------------------------------------------------------------------
+
+describe('CategorySection — category header', () => {
+  it('collapses and re-expands the whole category on header click', () => {
+    render(
+      <CategorySection {...baseProps} category={category({ items: [item({ id: 'a' })] })} onChange={vi.fn()} />,
+    );
+    expect(screen.getByLabelText('New item name')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Investments'));
+    expect(screen.queryByLabelText('New item name')).toBeNull();
+
+    fireEvent.click(screen.getByText('Investments'));
+    expect(screen.getByLabelText('New item name')).toBeInTheDocument();
+  });
+
+  it('styles a liability category negatively rather than positively', () => {
+    const { container } = render(
+      <CategorySection
+        {...baseProps}
+        category={category({ type: 'liability', name: 'Home Loan', items: [item({ id: 'a' })] })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('liability')).toBeInTheDocument();
+    expect(container.querySelector('.category-section__total.negative')).not.toBeNull();
+  });
+
+  it('shows "X of Y items counted" when an item is excluded from net worth', () => {
+    render(
+      <CategorySection
+        {...baseProps}
+        category={category({ items: [
+          item({ id: 'a' }),
+          item({ id: 'b', excludeFromNetWorth: true }),
+        ] })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('1 of 2 items counted')).toBeInTheDocument();
+  });
+});
+
+describe('CategorySection — missing preferences', () => {
+  it('falls back to INR and the default currency list when preferences are unset', () => {
+    appBasePrefs.current = undefined;
+    render(
+      <CategorySection
+        {...baseProps}
+        category={category({ items: [item({ id: 'a', amount: 1000 })] })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Investments')).toBeInTheDocument();
+    // Default currency list fallback reaches the add-item row's currency <select>.
+    const currencySelect = screen.getByLabelText('New item currency') as HTMLSelectElement;
+    expect(Array.from(currencySelect.options).map(o => o.value)).toEqual(['INR', 'USD', 'EUR', 'GBP', 'SGD']);
   });
 });
 

@@ -34,6 +34,13 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
   // own onBlur — but reset()'s setName('') hasn't landed yet, so that handler's `name`
   // closure still sees the pre-Escape text and would wrongly commit. This flag skips it.
   const skipBlurCommitRef = useRef(false);
+  // A blur-triggered commit() ends by refocusing the name field. If the amount field
+  // was the genuinely-focused element (real browser focus, not just a synthetic blur
+  // event), that refocus forces a second native blur on it mid-commit — and since
+  // `reset()`'s setName('') hasn't flushed yet, the resulting onBlur call still sees
+  // the old `name` and would silently commit a duplicate item. This flag marks
+  // "already committing" so that re-entrant blur is ignored.
+  const isCommittingRef = useRef(false);
 
   const amountInput = useDecimalInput({
     value: amount,
@@ -59,6 +66,7 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
   const commit = () => {
     const trimmed = name.trim();
     if (!trimmed) { reset(); return; }
+    isCommittingRef.current = true;
     onAdd({
       id: crypto.randomUUID(),
       name: trimmed,
@@ -69,6 +77,7 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
     });
     reset();
     nameRef.current?.focus();
+    isCommittingRef.current = false;
   };
 
   // Suffix only named groups. The ungrouped bucket keeps "New item name" / "Add item"
@@ -119,6 +128,7 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({
           onBlur={() => {
             amountInput.inputProps.onBlur();
             if (skipBlurCommitRef.current) { skipBlurCommitRef.current = false; return; }
+            if (isCommittingRef.current) return; // re-entrant blur from commit()'s own refocus
             if (name.trim()) commit();
           }}
         />

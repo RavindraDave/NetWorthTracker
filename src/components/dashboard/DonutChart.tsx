@@ -31,7 +31,18 @@ export const DonutChart: React.FC = () => {
   }, [currentSnapshot, baseCurrency]);
   const currencyData = useMemo(() => currencyDataAll.slice(0, 9), [currencyDataAll]);
 
-  /** Categories worth drilling into — one 100% slice would be a pointless click. */
+  /**
+   * Categories worth drilling into — one 100% slice would be a pointless click.
+   *
+   * A category with subCategories but zero visible value can't actually reach the
+   * legend in the first place: `buildSubCategoryAllocationData`'s total is the sum
+   * of `groupItemsBySubCategory`'s per-group totals, which by construction always
+   * equals `calcCategoryTotal` for that category (the groups plus the ungrouped
+   * bucket partition every item) — the exact figure `buildAllocationData` uses to
+   * decide whether the category is even in `categoryData`. So "visible in the
+   * legend" and "has something to show when drilled into" can never disagree;
+   * checking `hasSubCategories` alone is enough.
+   */
   const drillableIds = useMemo(() => {
     if (!currentSnapshot) return new Set<string>();
     return new Set(
