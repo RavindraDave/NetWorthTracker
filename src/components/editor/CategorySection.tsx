@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useAppBase } from '../../hooks/useAppBase';
-import { Category, LineItem } from '../../types';
+import { Category, LineItem, Tag } from '../../types';
 import { calcCategoryTotal } from '../../utils/calculations';
 import {
   groupItemsBySubCategory,
@@ -28,9 +28,12 @@ interface CategorySectionProps {
   exchangeRates: Record<string, number>;
   snapshotMonth: string;
   onChange: (updated: Category) => void;
+  /** Snapshot-wide tag registry — cross-category, so it lives above this component. */
+  tags?: Tag[];
+  onAssignTags?: (itemId: string, target: { toggleId: string } | { newName: string }) => void;
 }
 
-export const CategorySection: React.FC<CategorySectionProps> = ({ category, exchangeRates, snapshotMonth, onChange }) => {
+export const CategorySection: React.FC<CategorySectionProps> = ({ category, exchangeRates, snapshotMonth, onChange, tags, onAssignTags }) => {
   const { preferences, confirm } = useAppBase();
   const baseCurrency = preferences?.baseCurrency || 'INR';
   const enabledCurrencies = preferences?.enabledCurrencies || ['INR', 'USD', 'EUR', 'GBP', 'SGD'];
@@ -162,6 +165,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
       onRemove={handleRemoveItem}
       subCategories={grouped ? category.subCategories : undefined}
       onAssignSubCategory={grouped ? handleAssignSubCategory : undefined}
+      tags={tags}
+      onAssignTags={onAssignTags}
     />
   ));
 

@@ -289,6 +289,41 @@
   }
 }
 
+/* Tag toggle — highlighted when the item carries at least one tag */
+.btn-icon.tag-active { color: #8b5cf6; }
+.tag-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 120px;
+}
+.tag-btn .cost-basis-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tag picker panel — reuses .cost-basis-config's border/spacing */
+.tag-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 8px;
+}
+.tag-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--text-2, var(--text-3));
+  cursor: pointer;
+}
+.tag-picker-note {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
 [data-theme="light"] .line-item-wrap { border-bottom-color: rgba(0,0,0,0.07); }
 [data-theme="light"] .line-item-input,
 [data-theme="light"] .line-item-select { background: rgba(0,0,0,0.04); }

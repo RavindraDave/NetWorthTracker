@@ -3,6 +3,8 @@ import {
   calcWithdrawalTax,
   grossForNetWithdrawal,
   DEFAULT_TAX_PARAMS,
+  TAX_PRESETS,
+  matchTaxJurisdiction,
 } from '../taxCalculator';
 import type { TaxParams } from '../../types';
 
@@ -195,5 +197,30 @@ describe('grossForNetWithdrawal', () => {
     const target = 300_000;
     const gross = grossForNetWithdrawal(target, zeroTax, 1);
     expect(Math.abs(gross - target)).toBeLessThan(2);
+  });
+});
+
+describe('TAX_PRESETS', () => {
+  it('india preset is exactly DEFAULT_TAX_PARAMS — no silent divergence', () => {
+    expect(TAX_PRESETS.india).toBe(DEFAULT_TAX_PARAMS);
+  });
+
+  it('us_approx has no cess and no LTCG exemption, unlike India', () => {
+    expect(TAX_PRESETS.us_approx.cess).toBe(0);
+    expect(TAX_PRESETS.us_approx.ltcgExemption).toBe(0);
+  });
+});
+
+describe('matchTaxJurisdiction', () => {
+  it('matches the india preset', () => {
+    expect(matchTaxJurisdiction(DEFAULT_TAX_PARAMS)).toBe('india');
+  });
+
+  it('matches the us_approx preset', () => {
+    expect(matchTaxJurisdiction(TAX_PRESETS.us_approx)).toBe('us_approx');
+  });
+
+  it('falls back to custom for hand-edited values', () => {
+    expect(matchTaxJurisdiction({ ...DEFAULT_TAX_PARAMS, ltcgRate: 99 })).toBe('custom');
   });
 });

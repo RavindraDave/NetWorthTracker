@@ -3,6 +3,7 @@ import { Goal, Snapshot } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { calcFIREMetrics } from '../../utils/fireCalculator';
 import { calcWithdrawalTax } from '../../utils/taxCalculator';
+import { FIREProjectionChart } from './FIREProjectionChart';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { InfoTooltip } from '../common/InfoTooltip';
 import { HELP } from '../common/dashboardHelp';
@@ -25,7 +26,7 @@ type ScenarioState = {
 };
 
 export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnapshot, baseCurrency, onEdit, onDelete }) => {
-  const { snapshots } = useApp();
+  const { snapshots, preferences } = useApp();
   const metrics = calcFIREMetrics(goal, currentSnapshot, baseCurrency, snapshots);
   const progressPct = Math.min(Math.max(metrics.progressPercentage, 0), 100);
   // Derived from fiNumber (not goal.multiplier directly) so it agrees with legacy goals set via withdrawalRate
@@ -381,6 +382,13 @@ export const FIREDashboard: React.FC<FIREDashboardProps> = ({ goal, currentSnaps
           </p>
         </div>
       )}
+
+      <FIREProjectionChart
+        goal={goal}
+        snapshot={currentSnapshot}
+        baseCurrency={baseCurrency}
+        numberFormat={preferences?.numberFormat}
+      />
     </div>
   );
 };

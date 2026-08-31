@@ -72,7 +72,7 @@ export function getMissingRateCurrencies(snapshot: Snapshot, baseCurrency: strin
 /**
  * Filter categories by view mode.
  */
-function filterByViewMode(categories: Category[], viewMode: ViewMode): Category[] {
+export function filterByViewMode(categories: Category[], viewMode: ViewMode): Category[] {
   if (viewMode === 'overall') return categories;
   if (viewMode === 'liquid') return categories.filter(c => c.isLiquid);
   if (viewMode === 'investable') return categories.filter(c => c.isInvestable);

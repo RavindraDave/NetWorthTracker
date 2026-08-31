@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { LineItem, SubCategory } from '../../types';
+import { LineItem, SubCategory, Tag } from '../../types';
 import { normalizeSubName } from '../../utils/subCategories';
 import { convertToBase, anchorRate } from '../../utils/calculations';
 import { calculateOutstandingBalance, calculateLoanSummary, isLoanConfigComplete } from '../../utils/loanCalculator';
@@ -12,7 +12,8 @@ import { useDecimalInput } from '../../hooks/useDecimalInput';
 import { resolveNumberLocale } from '../../utils/currencies';
 import { CostBasisPanel } from './CostBasisPanel';
 import { LoanConfigPanel } from './LoanConfigPanel';
-import { Trash2, Calculator, TrendingUp, AlertTriangle } from 'lucide-react';
+import { TagPickerPanel } from './TagPickerPanel';
+import { Trash2, Calculator, TrendingUp, AlertTriangle, Tag as TagIcon } from 'lucide-react';
 import './LineItemRow.css';
 
 type ExclusionState = 'all' | 'goals-only' | 'everywhere';
@@ -53,10 +54,19 @@ interface LineItemRowProps {
    * overwrite the first.
    */
   onAssignSubCategory?: (itemId: string, target: { id: string } | { newName: string }) => void;
+  /** Snapshot-wide tag registry. Optional — when absent the tag toggle doesn't render. */
+  tags?: Tag[];
+  /**
+   * Assigning a *new* tag is two mutations (add the definition to the snapshot,
+   * point the item at it) that must land in one update, for the same reason
+   * `onAssignSubCategory` does — two `onChange`-style calls in one tick would
+   * each read the same stale state and the second would clobber the first.
+   */
+  onAssignTags?: (itemId: string, target: { toggleId: string } | { newName: string }) => void;
 }
 
 const LineItemRowBase: React.FC<LineItemRowProps> = ({
-  item, exchangeRates, snapshotMonth, onChange, onRemove, subCategories, onAssignSubCategory,
+  item, exchangeRates, snapshotMonth, onChange, onRemove, subCategories, onAssignSubCategory, tags, onAssignTags,
 }) => {
   const { preferences } = useApp();
   const { confirm } = useToast();
@@ -72,6 +82,14 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
 
   const [loanOpen, setLoanOpen] = useState(() => hasLoanConfig);
   const [costOpen, setCostOpen] = useState(() => hasCostBasis || hasStatedRate);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  // A defined (even empty) tags array means the feature is wired in — an empty
+  // array still needs the toggle available so the first tag can be created.
+  const showTagToggle = tags !== undefined && !!onAssignTags;
+  const itemTagNames = useMemo(
+    () => (item.tagIds ?? []).map(id => tags?.find(t => t.id === id)?.name).filter((n): n is string => !!n),
+    [item.tagIds, tags],
+  );
 
   const showPicker = !!subCategories?.length && !!onAssignSubCategory;
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -343,6 +361,20 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
         />
 
         <div className="line-item-toggles">
+          {showTagToggle && (
+            <button
+              className={`btn-icon tag-btn${itemTagNames.length ? ' tag-active' : ''}`}
+              onClick={() => setTagsOpen(o => !o)}
+              title={tagsOpen ? 'Hide tags' : 'Tag this item (spans categories, for reporting only)'}
+              aria-label="Toggle tags"
+              aria-expanded={tagsOpen}
+            >
+              <TagIcon size={14} />
+              {itemTagNames.length > 0 && (
+                <span className="cost-basis-label">{itemTagNames.length === 1 ? itemTagNames[0] : `${itemTagNames.length} tags`}</span>
+              )}
+            </button>
+          )}
           <button
             className={`btn-icon cost-basis-btn${(hasCostBasis || hasStatedRate) ? ' cost-active' : ''}`}
             onClick={() => setCostOpen(o => !o)}
@@ -365,6 +397,15 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
           </button>
         </div>
       </div>
+
+      {tagsOpen && showTagToggle && (
+        <TagPickerPanel
+          tags={tags!}
+          selectedIds={item.tagIds ?? []}
+          onToggle={id => onAssignTags!(item.id, { toggleId: id })}
+          onCreate={name => onAssignTags!(item.id, { newName: name })}
+        />
+      )}
 
       {costOpen && (
         <CostBasisPanel

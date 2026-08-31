@@ -5,13 +5,15 @@ import { Snapshot, Category } from '../types';
 import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { calcNetWorth } from '../utils/calculations';
 import { pruneOrphanSubCategoryIds } from '../utils/subCategories';
+import { ensureTag, pruneOrphanTagIds } from '../utils/tags';
 import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
 import { CategorySection } from '../components/editor/CategorySection';
+import { TagManager } from '../components/editor/TagManager';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { useDecimalInput } from '../hooks/useDecimalInput';
 import { resolveNumberLocale } from '../utils/currencies';
 import { isLoanConfigComplete } from '../utils/loanCalculator';
-import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer, CheckCircle2, X } from 'lucide-react';
+import { Save, Download, FileText, ChevronDown, FileSpreadsheet, Printer, CheckCircle2, X, Tags } from 'lucide-react';
 import { InfoTooltip } from '../components/common/InfoTooltip';
 import { exportSnapshotToCSV, downloadFile, exportSnapshotToExcel } from '../utils/importExport';
 import { printSnapshotReport } from '../utils/printReport';
@@ -51,6 +53,7 @@ export const SnapshotEditor: React.FC = () => {
     () => localStorage.getItem('wp_chips_intro_seen') === '1'
   );
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const isDirtyRef = useRef(false);
@@ -192,6 +195,55 @@ export const SnapshotEditor: React.FC = () => {
     setSnapshot({ ...snapshot, categories: snapshot.categories.map(c => c.id === updated.id ? updated : c) });
   };
 
+  /**
+   * Assigning a NEW tag is one update over both `snapshot.tags` and the target
+   * item's `tagIds` — same reason as `handleAssignSubCategory` in
+   * `CategorySection`: two separate state writes in one tick would each read
+   * the same stale `snapshot` and the second would clobber the first.
+   */
+  const handleAssignTags = (
+    categoryId: string,
+    itemId: string,
+    target: { toggleId: string } | { newName: string },
+  ) => {
+    isDirtyRef.current = true;
+    setSnapshot(prev => {
+      if (!prev) return prev;
+
+      const applyToItem = (base: Snapshot, tagId: string, toggle: boolean): Snapshot => ({
+        ...base,
+        categories: base.categories.map(c => {
+          if (c.id !== categoryId) return c;
+          return {
+            ...c,
+            items: c.items.map(i => {
+              if (i.id !== itemId) return i;
+              const has = i.tagIds?.includes(tagId) ?? false;
+              if (toggle && has) {
+                const next = (i.tagIds ?? []).filter(id => id !== tagId);
+                const { tagIds: _dropped, ...rest } = i;
+                return next.length > 0 ? { ...rest, tagIds: next } : rest;
+              }
+              if (has) return i; // already tagged, e.g. re-typing an existing tag's name
+              return { ...i, tagIds: [...(i.tagIds ?? []), tagId] };
+            }),
+          };
+        }),
+      });
+
+      if ('newName' in target) {
+        const { snapshot: withTag, id } = ensureTag(prev, target.newName);
+        return applyToItem(withTag, id, false);
+      }
+      return applyToItem(prev, target.toggleId, true);
+    });
+  };
+
+  const handleTagsChange = (updated: Snapshot) => {
+    isDirtyRef.current = true;
+    setSnapshot(updated);
+  };
+
   const handleSave = async () => {
     // Parsed as local (not `new Date(month + '-01')`, which is UTC midnight and can
     // roll to the previous month's label west of UTC) since this drives user-facing copy.
@@ -208,7 +260,7 @@ export const SnapshotEditor: React.FC = () => {
       // Self-heal any sub-category reference whose definition is gone (an old backup,
       // hand-edited JSON). Returns the same object when nothing is orphaned, so this
       // is a no-op on virtually every save.
-      const cleaned = pruneOrphanSubCategoryIds(snapshot);
+      const cleaned = pruneOrphanTagIds(pruneOrphanSubCategoryIds(snapshot));
       await saveSnapshot({ ...cleaned, updatedAt: new Date().toISOString() });
       navigate('/');
     } catch (e) {
@@ -303,6 +355,14 @@ export const SnapshotEditor: React.FC = () => {
               className={`live-preview-val${breakdown.netWorth < 0 ? ' neg' : ''}`}
             />
           </div>
+          <button
+            className="btn btn-outline"
+            onClick={() => setTagManagerOpen(true)}
+            title="Manage this month's tags"
+          >
+            <Tags size={15} />
+            <span>Tags{(snapshot.tags?.length ?? 0) > 0 ? ` (${snapshot.tags!.length})` : ''}</span>
+          </button>
           <div className="export-menu-wrap" ref={exportMenuRef}>
             <button
               className="btn btn-outline"
@@ -465,7 +525,15 @@ export const SnapshotEditor: React.FC = () => {
             </span>
           </div>
           {assets.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} snapshotMonth={snapshot.month} onChange={handleCategoryChange} />
+            <CategorySection
+              key={cat.id}
+              category={cat}
+              exchangeRates={snapshot.exchangeRates}
+              snapshotMonth={snapshot.month}
+              onChange={handleCategoryChange}
+              tags={snapshot.tags ?? []}
+              onAssignTags={(itemId, target) => handleAssignTags(cat.id, itemId, target)}
+            />
           ))}
         </div>
 
@@ -477,7 +545,15 @@ export const SnapshotEditor: React.FC = () => {
             </span>
           </div>
           {liabilities.map(cat => (
-            <CategorySection key={cat.id} category={cat} exchangeRates={snapshot.exchangeRates} snapshotMonth={snapshot.month} onChange={handleCategoryChange} />
+            <CategorySection
+              key={cat.id}
+              category={cat}
+              exchangeRates={snapshot.exchangeRates}
+              snapshotMonth={snapshot.month}
+              onChange={handleCategoryChange}
+              tags={snapshot.tags ?? []}
+              onAssignTags={(itemId, target) => handleAssignTags(cat.id, itemId, target)}
+            />
           ))}
         </div>
       </div>
@@ -515,6 +591,13 @@ export const SnapshotEditor: React.FC = () => {
           </span>
         </div>
       </div>
+      {tagManagerOpen && (
+        <TagManager
+          snapshot={snapshot}
+          onChange={handleTagsChange}
+          onClose={() => setTagManagerOpen(false)}
+        />
+      )}
     </div>
   );
 };

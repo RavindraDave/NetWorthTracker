@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Lock, KeyRound, Fingerprint, ShieldQuestion, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, KeyRound, Fingerprint, ShieldQuestion, Eye, EyeOff, Hourglass } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
   unlockWithPasskey as passkeyUnlock,
   recoverWithCode,
   recoverWithGoogle,
 } from '../../utils/appLock';
+import { isLockedOut, secondsRemaining } from '../../utils/appLockThrottle';
 import './AppLockScreen.css';
 
 type Mode = 'passphrase' | 'recover-code' | 'recover-google';
@@ -24,10 +25,31 @@ export const AppLockScreen: React.FC = () => {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [, forceTick] = useState(0);
+
+  // A local, per-device attempt lockout — see `appLockThrottle.ts` for what
+  // this does and does not defend against. Ticks the countdown once a second
+  // while active, and self-stops once it expires rather than ticking forever.
+  //
+  // Deliberately depends only on `lockedUntilISO`, not the whole `lock`
+  // object: `lock` is a new object reference on every `preferences` update
+  // (e.g. other App Lock settings changing), which would tear down and
+  // restart this interval far more often than the one thing it actually
+  // needs to react to — a new lockout deadline being set.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!isLockedOut(lock)) { clearInterval(id); return; }
+      forceTick(t => t + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [lock?.lockedUntilISO]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const lockedOut = isLockedOut(lock);
+  const remaining = secondsRemaining(lock);
 
   const handlePassphrase = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passphrase) return;
+    if (!passphrase || lockedOut) return;
     setBusy(true);
     setError(null);
     try {
@@ -102,7 +124,7 @@ export const AppLockScreen: React.FC = () => {
                 placeholder="Passphrase"
                 value={passphrase}
                 onChange={e => setPassphrase(e.target.value)}
-                disabled={busy}
+                disabled={busy || lockedOut}
                 aria-label="Passphrase"
               />
               <button type="button" className="btn-icon" onClick={() => setShowPassphrase(s => !s)}
@@ -110,9 +132,15 @@ export const AppLockScreen: React.FC = () => {
                 {showPassphrase ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-            <button type="submit" className="btn btn-primary applock-btn" disabled={busy || !passphrase}>
-              {busy ? 'Unlocking…' : 'Unlock'}
+            <button type="submit" className="btn btn-primary applock-btn" disabled={busy || lockedOut || !passphrase}>
+              {lockedOut ? `Try again in ${remaining}s` : busy ? 'Unlocking…' : 'Unlock'}
             </button>
+
+            {lockedOut && (
+              <p className="applock-hint" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Hourglass size={12} /> Too many attempts. This is a per-device pause, not extra security against someone with direct access to this device's files.
+              </p>
+            )}
 
             {lock?.webauthnEnabled && (
               <button type="button" className="btn btn-outline applock-btn" onClick={handlePasskey} disabled={busy}>

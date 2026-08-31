@@ -6,6 +6,7 @@ import { TrendChart } from '../components/dashboard/TrendChart';
 import { PerformanceChart } from '../components/dashboard/PerformanceChart';
 import { DonutChart } from '../components/dashboard/DonutChart';
 import { CashflowChart } from '../components/dashboard/CashflowChart';
+import { TagAllocationPanel } from '../components/dashboard/TagAllocationPanel';
 import { GoalCard } from '../components/goals/GoalCard';
 import { useAppBase } from '../hooks/useAppBase';
 import { StaleBackupBanner } from '../components/common/StaleBackupBanner';
@@ -79,6 +80,7 @@ export const Dashboard: React.FC = () => {
 
           <PerformanceChart />
           <CashflowChart />
+          <TagAllocationPanel />
 
           {goals.length > 0 && (
             <div className="goals-section">

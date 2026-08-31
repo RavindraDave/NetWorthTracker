@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Goal, GoalType, Milestone, TaxParams } from '../../types';
-import { DEFAULT_TAX_PARAMS } from '../../utils/taxCalculator';
+import { DEFAULT_TAX_PARAMS, TAX_PRESETS, TAX_PRESET_LABELS, TaxJurisdiction, matchTaxJurisdiction } from '../../utils/taxCalculator';
 import { X, Plus, Trash2, EyeOff, ShieldCheck } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
@@ -43,9 +43,19 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
   const [taxEnabled, setTaxEnabled] = useState(!!editGoal?.taxParams);
   const [showTaxSection, setShowTaxSection] = useState(!!editGoal?.taxParams);
   const [taxParams, setTaxParams] = useState<TaxParams>(editGoal?.taxParams ?? DEFAULT_TAX_PARAMS);
+  // Transient UI convenience only — never persisted. Nothing downstream
+  // (`calcWithdrawalTax`, `FIREDashboard`) needs to know which preset seeded
+  // these numbers, only the numbers themselves, which stay editable either way.
+  const [taxJurisdiction, setTaxJurisdiction] = useState<TaxJurisdiction>(
+    () => editGoal?.taxParams ? matchTaxJurisdiction(editGoal.taxParams) : 'india',
+  );
   const setTaxField = (field: keyof TaxParams) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseFloat(e.target.value);
-    if (Number.isFinite(v) && v >= 0) setTaxParams(prev => ({ ...prev, [field]: v }));
+    if (Number.isFinite(v) && v >= 0) { setTaxParams(prev => ({ ...prev, [field]: v })); setTaxJurisdiction('custom'); }
+  };
+  const applyTaxPreset = (jurisdiction: TaxJurisdiction) => {
+    setTaxJurisdiction(jurisdiction);
+    if (jurisdiction !== 'custom') setTaxParams(TAX_PRESETS[jurisdiction]);
   };
 
   const assetCategories = currentSnapshot?.categories.filter(c => c.type === 'asset') ?? [];
@@ -271,6 +281,27 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
                     <span>Show post-tax income in FIRE dashboard</span>
                   </label>
                   {taxEnabled && (
+                    <>
+                    <div className="form-group" style={{ marginBottom: '0.6rem' }}>
+                      <label className="form-label-sm" htmlFor="tax-jurisdiction">Jurisdiction preset</label>
+                      <select
+                        id="tax-jurisdiction"
+                        className="form-input form-input--sm"
+                        value={taxJurisdiction}
+                        onChange={e => applyTaxPreset(e.target.value as TaxJurisdiction)}
+                      >
+                        {(Object.keys(TAX_PRESET_LABELS) as TaxJurisdiction[]).map(j => (
+                          <option key={j} value={j}>{TAX_PRESET_LABELS[j]}</option>
+                        ))}
+                      </select>
+                      {taxJurisdiction === 'us_approx' && (
+                        <p className="form-hint" style={{ marginTop: '0.3rem' }}>
+                          Rough stand-in — the US has no LTCG/STCG split or health cess like India's model.
+                          These numbers approximate federal long/short-term capital-gains rates only;
+                          no state tax is modelled.
+                        </p>
+                      )}
+                    </div>
                     <div className="fire-tax-grid">
                       <div className="form-group">
                         <label className="form-label-sm" htmlFor="tax-equity-pct">Equity % of corpus</label>
@@ -302,7 +333,13 @@ export const GoalEditor: React.FC<GoalEditorProps> = ({ onClose, editGoal }) => 
                         <input id="tax-exemption" type="number" className="form-input form-input--sm"
                           value={taxParams.ltcgExemption} onChange={setTaxField('ltcgExemption')} min={0} step={25000} />
                       </div>
+                      <div className="form-group">
+                        <label className="form-label-sm" htmlFor="tax-cess">Cess %</label>
+                        <input id="tax-cess" type="number" className="form-input form-input--sm"
+                          value={taxParams.cess} onChange={setTaxField('cess')} min={0} max={20} step={0.5} />
+                      </div>
                     </div>
+                    </>
                   )}
                   <p className="form-hint" style={{ marginTop: '0.35rem' }}>
                     Defaults: India Budget 2024 (LTCG 12.5% above ₹1.25L, STCG 20%, debt at slab, 4% cess).

@@ -10,6 +10,26 @@ export interface Snapshot {
   notes?: string;
   monthlyIncome?: number;
   monthlyExpenses?: number;
+  /** Ordered tag definitions, cross-category. Absent = no tags defined yet. See `Tag`. */
+  tags?: Tag[];
+}
+
+/**
+ * A user-defined label that can span multiple categories/sub-categories, for
+ * reporting only — never affects net-worth totals. Lives on `Snapshot` (like
+ * `SubCategory` lives on `Category`) rather than in `UserPreferences`, for the
+ * same reason: preferences never sync, snapshots do (whole-object merge keyed
+ * by month), so a global registry would let two devices mint different ids
+ * for the same tag name with no reconciliation path.
+ *
+ * Scope, by design: a tag created in one month's snapshot is not retroactively
+ * available on earlier snapshots — consistent with how `SubCategory` already
+ * behaves.
+ */
+export interface Tag {
+  id: string;
+  name: string;
+  color?: string;
 }
 
 /**
@@ -76,6 +96,8 @@ export interface LineItem {
   // (savings, FD, PPF, bonds). When set, it is the account's reported return
   // in reports, overriding any computed cost-basis CAGR.
   statedReturnRate?: number;    // % p.a. e.g. 5 for a 5% FD
+  /** References ids in `Snapshot.tags`. Many-to-many — an item can carry several. */
+  tagIds?: string[];
 }
 
 export type GoalType = 'net_worth_target' | 'fire' | 'savings' | 'debt_freedom' | 'custom';
@@ -205,6 +227,10 @@ export interface AppLockConfig {
   recovery: { code: boolean; googleEscrow: boolean };
   /** Passkey (WebAuthn) unlock registered. */
   webauthnEnabled?: boolean;
+  /** Consecutive failed passphrase-unlock attempts since the last success. Absent = 0. */
+  failedAttempts?: number;
+  /** ISO timestamp; unlock attempts are refused until this passes. Absent = not locked out. */
+  lockedUntilISO?: string;
 }
 
 export interface UserPreferences {

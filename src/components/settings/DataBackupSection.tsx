@@ -191,11 +191,11 @@ export const DataBackupSection: React.FC = () => {
         <div className="data-action-card">
           <div className="data-action-card__info">
             <h3 className="text-h3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FileText size={18} className="text-blue" /> Import from CSV / Excel
+              <FileText size={18} className="text-blue" /> Import from CSV / Excel / OFX / QIF
             </h3>
-            <p className="text-muted text-sm">Import line items from any bank, broker, or WealthPulse export (.csv or .xlsx). Map columns visually, pick the snapshot month, then review before saving.</p>
+            <p className="text-muted text-sm">Import line items or account balances from any bank, broker, or WealthPulse export (.csv, .xlsx, .ofx, .qfx, .qif). Map columns visually, pick the snapshot month, then review before saving.</p>
           </div>
-          <input type="file" accept=".csv,.xlsx" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
+          <input type="file" accept=".csv,.xlsx,.ofx,.qfx,.qif" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
           <button className="btn btn-outline" onClick={() => csvInputRef.current?.click()}>Upload file</button>
         </div>
 

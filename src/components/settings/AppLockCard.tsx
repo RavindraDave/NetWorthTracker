@@ -49,9 +49,16 @@ export const AppLockCard: React.FC = () => {
   };
 
   const handleToggleRecoveryCode = async (next: boolean) => {
+    // Computed BEFORE the confirm dialog (not just after, for the toast) so the
+    // warning itself can say plainly when this is the LAST recovery method —
+    // that's the one moment removing a factor is actually risky, versus
+    // removing one of several.
+    const otherRecoveryLeft = lock?.recovery.googleEscrow || lock?.webauthnEnabled;
     if (!next) {
       const ok = await confirm(
-        'Remove your recovery code? If you forget your passphrase afterward, your data cannot be recovered.',
+        otherRecoveryLeft
+          ? 'Remove your recovery code? If you forget your passphrase afterward, your data cannot be recovered.'
+          : 'This is your only recovery method. Removing it means a forgotten passphrase permanently locks your data. Continue?',
         'destructive',
       );
       if (!ok) return;
@@ -61,7 +68,6 @@ export const AppLockCard: React.FC = () => {
       const code = await setRecoveryCode(next);
       if (next && code) setRecoveryCodeValue(code);
       else if (!next) {
-        const otherRecoveryLeft = lock?.recovery.googleEscrow || lock?.webauthnEnabled;
         success(otherRecoveryLeft ? 'Recovery code removed.' : 'Recovery code removed — no recovery method remains.');
       }
     } catch (err) {
@@ -72,26 +78,30 @@ export const AppLockCard: React.FC = () => {
   };
 
   const handleToggleGoogleEscrow = async (next: boolean) => {
+    const otherRecoveryLeft = lock?.recovery.code || lock?.webauthnEnabled;
     if (!next) {
       const ok = await confirm(
-        'Turn off Google recovery? If you forget your passphrase afterward, your data cannot be recovered.',
+        otherRecoveryLeft
+          ? 'Turn off Google recovery? If you forget your passphrase afterward, your data cannot be recovered.'
+          : 'This is your only recovery method. Turning it off means a forgotten passphrase permanently locks your data. Continue?',
         'destructive',
       );
       if (!ok) return;
     }
-    const otherRecoveryLeft = lock?.recovery.code || lock?.webauthnEnabled;
     run(() => setGoogleEscrow(next), next ? 'Google recovery on.' : (otherRecoveryLeft ? 'Google recovery off.' : 'Google recovery off — no recovery method remains.'));
   };
 
   const handleTogglePasskey = async (next: boolean) => {
+    const otherRecoveryLeft = lock?.recovery.code || lock?.recovery.googleEscrow;
     if (!next) {
       const ok = await confirm(
-        'Remove passkey unlock? If you forget your passphrase afterward, your data cannot be recovered.',
+        otherRecoveryLeft
+          ? 'Remove passkey unlock? If you forget your passphrase afterward, your data cannot be recovered.'
+          : 'This is your only recovery method. Removing it means a forgotten passphrase permanently locks your data. Continue?',
         'destructive',
       );
       if (!ok) return;
     }
-    const otherRecoveryLeft = lock?.recovery.code || lock?.recovery.googleEscrow;
     run(() => setPasskey(next), next ? 'Passkey added.' : (otherRecoveryLeft ? 'Passkey removed.' : 'Passkey removed — no recovery method remains.'));
   };
 

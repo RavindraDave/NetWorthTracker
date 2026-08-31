@@ -11,6 +11,49 @@ export const DEFAULT_TAX_PARAMS: TaxParams = {
   cess: 4,
 };
 
+/**
+ * Seed values for the jurisdiction picker in `GoalEditor`. `TaxParams`'s
+ * 7-field shape (LTCG/STCG split + a flat exemption + a cess) is India's
+ * model, not a generic one — it cannot represent US tax brackets or state
+ * tax. `us_approx` is a labelled approximation only (see `TAX_PRESET_LABELS`),
+ * not a real US withdrawal-tax model; ship it anyway rather than omitting a
+ * US option entirely, since the alternative just pushes US users toward
+ * hand-guessed, unlabelled numbers with no honesty caveat at all.
+ */
+export type TaxJurisdiction = 'india' | 'us_approx' | 'custom';
+
+export const TAX_PRESETS: Record<Exclude<TaxJurisdiction, 'custom'>, TaxParams> = {
+  india: DEFAULT_TAX_PARAMS,
+  us_approx: {
+    ltcgRate: 15,      // federal long-term capital gains, middle bracket
+    stcgRate: 24,      // short-term gains taxed as ordinary income, approximated flat
+    ltcgExemption: 0,  // no equivalent to India's ₹1.25L LTCG exemption
+    equityPct: 80,
+    ltcgPct: 70,
+    debtRate: 24,
+    cess: 0,           // no health/education cess in the US system
+  },
+};
+
+export const TAX_PRESET_LABELS: Record<TaxJurisdiction, string> = {
+  india: 'India (Budget 2024 — LTCG/STCG)',
+  us_approx: 'US — approximate (long/short-term gains, no state tax, no cess)',
+  custom: 'Custom',
+};
+
+/**
+ * Which preset (if any) a stored `TaxParams` matches exactly — used only to
+ * seed the jurisdiction dropdown when opening an existing goal, so it doesn't
+ * misleadingly show "India" for a goal actually configured with the US preset
+ * (or hand-edited values). `TaxParams` is never restructured to remember its
+ * own origin — this just re-derives it from the numbers.
+ */
+export function matchTaxJurisdiction(params: TaxParams): TaxJurisdiction {
+  const entry = (Object.entries(TAX_PRESETS) as [Exclude<TaxJurisdiction, 'custom'>, TaxParams][])
+    .find(([, preset]) => Object.keys(preset).every(k => preset[k as keyof TaxParams] === params[k as keyof TaxParams]));
+  return entry ? entry[0] : 'custom';
+}
+
 export interface TaxBreakdown {
   annualGross: number;
   equityLtcgGains: number;

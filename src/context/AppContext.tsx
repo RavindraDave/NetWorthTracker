@@ -11,6 +11,7 @@ import { RATE_ANCHOR } from '../utils/calculations';
 import { migrateToAnchorRates } from '../utils/ratesMigration';
 import * as secureStore from '../utils/secureStore';
 import * as appLock from '../utils/appLock';
+import { isLockedOut, recordFailure, recordSuccess } from '../utils/appLockThrottle';
 import { getSessionDEK, setSessionDEK, lockSession } from '../utils/cloudSync/keyVault';
 import { setPassphrase } from '../utils/cloudSync/encryption';
 
@@ -50,7 +51,7 @@ interface AppContextType {
   deleteSnapshot: (id: string) => Promise<void>;
   saveGoal: (goal: Goal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
-  updatePreferences: (prefs: Partial<UserPreferences>) => Promise<void>;
+  updatePreferences: (prefs: Partial<UserPreferences>, opts?: { skipBackup?: boolean }) => Promise<void>;
   createNewSnapshot: () => Snapshot;
   cloneLatestSnapshot: () => Snapshot;
   restoreBackup: (data: BackupData) => Promise<void>;
@@ -279,7 +280,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     debouncedCloudSync();
   };
 
-  const updatePreferences = async (prefs: Partial<UserPreferences>) => {
+  /**
+   * `skipBackup` exists for one reason: App Lock's failed-attempt counter
+   * writes on every rejected unlock, including a scripted brute-force loop.
+   * Routing that through the normal auto-backup path would let such a loop
+   * evict every real recovery backup (`recordAutoBackup` prunes to a fixed
+   * cap). Any future caller with the same "cheap, frequent, non-user-content"
+   * write shape should pass this too, rather than growing a second bypass
+   * function — one shared choke point is easier to keep correct than two.
+   */
+  const updatePreferences = async (prefs: Partial<UserPreferences>, opts?: { skipBackup?: boolean }) => {
     const current = await db.preferences.get(1);
     const base: UserPreferencesRecord = current ?? {
       baseCurrency: 'INR',
@@ -293,7 +303,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (prefs.categoryTemplates) {
       setSnapshots(prev => rehydrateFlags(prev, prefs.categoryTemplates!));
     }
-    recordAutoBackup('preferences', snapshotsRef.current, goalsRef.current, updated).catch(() => {});
+    if (!opts?.skipBackup) {
+      recordAutoBackup('preferences', snapshotsRef.current, goalsRef.current, updated).catch(() => {});
+    }
   };
 
   const restoreAutoBackup = async (record: AutoBackupRecord) => {
@@ -319,9 +331,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await load();
   };
 
+  /**
+   * Reads lock state directly from Dexie rather than `prefsRef` — a
+   * sequential brute-force loop must see its own immediately-preceding write
+   * on the very next call, and `prefsRef` only updates on React's next
+   * render/effect pass, not synchronously with `updatePreferences`'s resolve.
+   */
   const unlockWithPassphrase = async (passphrase: string): Promise<boolean> => {
+    const lock = (await db.preferences.get(1))?.appLock;
+    // Reject-early: an active lockout must not itself record another failure,
+    // or the backoff never actually throttles anything.
+    if (isLockedOut(lock)) return false;
+
     const dek = await appLock.unlockWithPassphrase(passphrase);
-    if (!dek) return false;
+    if (!dek) {
+      if (lock) {
+        await updatePreferences({ appLock: { ...lock, ...recordFailure(lock) } }, { skipBackup: true });
+      }
+      return false;
+    }
+
+    if (lock && (lock.failedAttempts || lock.lockedUntilISO)) {
+      await updatePreferences({ appLock: { ...lock, ...recordSuccess() } }, { skipBackup: true });
+    }
     // Reuse the same secret for Drive backup encryption so one entry covers both.
     setPassphrase(passphrase);
     await unlockWithDEK(dek);

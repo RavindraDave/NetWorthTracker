@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/common/Toast';
 import { CsvFieldName, CsvFieldMapping } from '../types';
+import { parseOfx } from '../utils/ofxParser';
+import { parseQif } from '../utils/qifParser';
 
 type CsvField = CsvFieldName;
 
@@ -45,6 +47,16 @@ export function isExcelFile(file: File): boolean {
     || file.type === 'application/vnd.ms-excel';
 }
 
+/** True for bank/investment statement exports (Quicken/Money-style, incl. Quicken's .qfx variant). */
+export function isOfxFile(file: File): boolean {
+  return /\.(ofx|qfx)$/i.test(file.name);
+}
+
+/** True for Quicken Interchange Format exports. */
+export function isQifFile(file: File): boolean {
+  return /\.qif$/i.test(file.name);
+}
+
 export function normalize(s: string): string {
   return s.toLowerCase().replace(/[\s_()\-.]/g, '');
 }
@@ -72,9 +84,24 @@ export function useCsvParser(file: File) {
       return;
     }
     const excel = isExcelFile(file);
+    const ofx = isOfxFile(file);
+    const qif = isQifFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
+        if (ofx || qif) {
+          const text = e.target?.result as string;
+          const defaultName = file.name.replace(/\.[^.]+$/, '');
+          const { headers: hdrs, rows: parsedRows } = ofx ? parseOfx(text) : parseQif(text, defaultName);
+          if (parsedRows.length === 0) {
+            setParseError(`No account balances found in this ${ofx ? 'OFX' : 'QIF'} file.`);
+            return;
+          }
+          setHeaders(hdrs);
+          setRows(parsedRows);
+          return;
+        }
+
         // Excel workbooks are binary and must be read as an ArrayBuffer;
         // CSVs are plain text. XLSX.read handles both given the right type.
         const wb = excel
@@ -92,7 +119,7 @@ export function useCsvParser(file: File) {
         setHeaders(hdrs);
         setRows(nonBlankRows);
       } catch {
-        setParseError('Could not parse this file. Make sure it is a valid CSV or Excel file.');
+        setParseError(`Could not parse this file. Make sure it is a valid ${ofx ? 'OFX' : qif ? 'QIF' : 'CSV or Excel'} file.`);
       }
     };
     reader.onerror = () => setParseError('Could not read file.');

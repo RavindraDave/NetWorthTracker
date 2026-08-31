@@ -1,0 +1,25 @@
+.tag-alloc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tag-alloc-row__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+}
+.tag-alloc-row__name { color: var(--text-2, var(--text-1)); }
+.tag-alloc-row__value { font-family: var(--font-numeric); color: var(--text-3); }
+.tag-alloc-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(139, 92, 246, 0.12);
+  overflow: hidden;
+}
+.tag-alloc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #8b5cf6;
+}

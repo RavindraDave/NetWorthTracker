@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Category, CsvFieldMapping } from '../../types';
 import { parseAmount } from '../../utils/numberFormat';
 import { findSubCategoryIdByName } from '../../utils/subCategories';
-import { useCsvParser, isExcelFile, CSV_FIELDS, CSV_FIELD_HINTS } from '../../hooks/useCsvParser';
+import { useCsvParser, isExcelFile, isOfxFile, isQifFile, CSV_FIELDS, CSV_FIELD_HINTS } from '../../hooks/useCsvParser';
 
 /** Returns the first month >= `from` that has no existing snapshot. */
 function findNextEmptyMonth(existingMonths: Set<string>, from: string): string {
@@ -65,7 +65,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
     setProfileNameInput('');
   };
 
-  const fileKind    = isExcelFile(file) ? 'Excel' : 'CSV';
+  const fileKind    = isExcelFile(file) ? 'Excel' : isOfxFile(file) ? 'OFX' : isQifFile(file) ? 'QIF' : 'CSV';
   const isValid     = !!mapping['Item Name'] && !!mapping['Amount'];
   const monthConflict = snapshots.some(s => s.month === targetMonth);
   const previewRows = rows.slice(0, 5);
