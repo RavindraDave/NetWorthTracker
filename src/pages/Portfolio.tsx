@@ -8,8 +8,27 @@ import { Badge } from '../components/common/Badge';
 import { DonutChart } from '../components/dashboard/DonutChart';
 import { InfoTooltip } from '../components/common/InfoTooltip';
 import { MissingRateBanner } from '../components/common/MissingRateBanner';
-import { LayoutGrid, Edit2 } from 'lucide-react';
+import { LayoutGrid, ChevronRight, Edit2 } from 'lucide-react';
+import { subCategoryName } from '../utils/subCategories';
 import './Portfolio.css';
+
+/**
+ * Category, plus its sub-group when the item has one. Deliberately a second badge
+ * in the existing cell rather than a sixth column: the table's whole point is
+ * "biggest holdings first across everything", and a new column would cost layout
+ * work on every breakpoint to show a value most rows leave blank.
+ */
+const CategoryCell: React.FC<{ name: string; sub?: string }> = ({ name, sub }) => (
+  <span className="portfolio-cat-cell">
+    <Badge variant="default">{name}</Badge>
+    {sub && (
+      <>
+        <ChevronRight size={11} className="portfolio-cat-cell__sep" aria-hidden="true" />
+        <Badge variant="default" className="portfolio-cat-cell__sub">{sub}</Badge>
+      </>
+    )}
+  </span>
+);
 
 export const Portfolio: React.FC = () => {
   const { currentSnapshot, baseCurrency } = useAppBase();
@@ -22,11 +41,20 @@ export const Portfolio: React.FC = () => {
     
     const assetsList: FlattenedItem[] = currentSnapshot.categories
       .filter(c => c.type === 'asset')
-      .flatMap(c => c.items.map(i => ({ ...i, categoryName: c.name, isLiquid: c.isLiquid })));
+      .flatMap(c => c.items.map(i => ({
+        ...i,
+        categoryName: c.name,
+        subCategoryName: subCategoryName(c, i.subCategoryId),
+        isLiquid: c.isLiquid,
+      })));
 
     const liabList: FlattenedItem[] = currentSnapshot.categories
       .filter(c => c.type === 'liability')
-      .flatMap(c => c.items.map(i => ({ ...i, categoryName: c.name })));
+      .flatMap(c => c.items.map(i => ({
+        ...i,
+        categoryName: c.name,
+        subCategoryName: subCategoryName(c, i.subCategoryId),
+      })));
 
     const sortByAmountDesc = (a: FlattenedItem, b: FlattenedItem) => {
       const aAmt = convertToBase(a.amount, a.currency, baseCurrency, currentSnapshot.exchangeRates);
@@ -106,7 +134,7 @@ export const Portfolio: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td><Badge variant="default">{asset.categoryName}</Badge></td>
+                    <td><CategoryCell name={asset.categoryName} sub={asset.subCategoryName} /></td>
                     <td className="text-right">
                       {asset.currency !== baseCurrency ? (
                         <span className="text-muted"><CurrencyDisplay amount={asset.amount} currency={asset.currency} /></span>
@@ -177,7 +205,7 @@ export const Portfolio: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      <td><Badge variant="default">{liability.categoryName}</Badge></td>
+                      <td><CategoryCell name={liability.categoryName} sub={liability.subCategoryName} /></td>
                       <td className="text-right">
                         {liability.currency !== baseCurrency ? (
                           <span className="text-muted"><CurrencyDisplay amount={liability.amount} currency={liability.currency} /></span>

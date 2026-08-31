@@ -1,0 +1,117 @@
+.suggest-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.suggest-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.suggest-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.suggest-selectall {
+  /* Pin left regardless of how the modal lays its children out. */
+  display: block;
+  align-self: flex-start;
+  margin-right: auto;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: var(--accent, #0ea58a);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.suggest-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggest-row {
+  border-radius: 6px;
+}
+
+.suggest-row:hover:not(.suggest-row--already) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.suggest-row--already {
+  opacity: 0.55;
+}
+
+.suggest-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+.suggest-row--already .suggest-label {
+  cursor: default;
+}
+
+.suggest-label input[type='checkbox'] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--accent, #0ea58a);
+}
+
+.suggest-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.suggest-name {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+
+.suggest-already {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.suggest-desc {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.suggest-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+[data-theme='light'] .suggest-row:hover:not(.suggest-row--already) {
+  background: rgba(0, 0, 0, 0.04);
+}

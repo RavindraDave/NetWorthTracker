@@ -10,9 +10,19 @@ interface AddItemRowProps {
   baseCurrency: string;
   enabledCurrencies: string[];
   onAdd: (item: LineItem) => void;
+  /** Group the new item is filed into. Absent = ungrouped. */
+  subCategoryId?: string;
+  /**
+   * Group name, used only to disambiguate the aria-labels when a category shows
+   * several add rows. Absent for the ungrouped bucket, which deliberately keeps the
+   * plain labels so existing selectors (and the e2e helpers) still resolve.
+   */
+  subCategoryName?: string;
 }
 
-export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCurrencies, onAdd }) => {
+export const AddItemRow: React.FC<AddItemRowProps> = ({
+  baseCurrency, enabledCurrencies, onAdd, subCategoryId, subCategoryName,
+}) => {
   const { preferences } = useApp();
   const locale = resolveNumberLocale(preferences?.baseCurrency ?? 'INR', preferences?.numberFormat);
   const [name, setName] = useState('');
@@ -24,6 +34,13 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
   // own onBlur — but reset()'s setName('') hasn't landed yet, so that handler's `name`
   // closure still sees the pre-Escape text and would wrongly commit. This flag skips it.
   const skipBlurCommitRef = useRef(false);
+  // A blur-triggered commit() ends by refocusing the name field. If the amount field
+  // was the genuinely-focused element (real browser focus, not just a synthetic blur
+  // event), that refocus forces a second native blur on it mid-commit — and since
+  // `reset()`'s setName('') hasn't flushed yet, the resulting onBlur call still sees
+  // the old `name` and would silently commit a duplicate item. This flag marks
+  // "already committing" so that re-entrant blur is ignored.
+  const isCommittingRef = useRef(false);
 
   const amountInput = useDecimalInput({
     value: amount,
@@ -38,6 +55,10 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
     setName('');
     setAmount(0);
     amountRef.current = 0;
+    // Clear the visible text too. `amount` goes 120000 -> 0 within one batch, so
+    // the hook's value-changed resync never fires and the typed figure would linger
+    // on screen while the next commit would actually use 0.
+    amountInput.reset(0);
     // Currency deliberately left as-is — entering several consecutive items in the
     // same foreign currency shouldn't require reselecting it every time.
   };
@@ -45,10 +66,23 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
   const commit = () => {
     const trimmed = name.trim();
     if (!trimmed) { reset(); return; }
-    onAdd({ id: crypto.randomUUID(), name: trimmed, amount: amountRef.current, currency, excludeFromNetWorth: false });
+    isCommittingRef.current = true;
+    onAdd({
+      id: crypto.randomUUID(),
+      name: trimmed,
+      amount: amountRef.current,
+      currency,
+      excludeFromNetWorth: false,
+      ...(subCategoryId ? { subCategoryId } : {}),
+    });
     reset();
     nameRef.current?.focus();
+    isCommittingRef.current = false;
   };
+
+  // Suffix only named groups. The ungrouped bucket keeps "New item name" / "Add item"
+  // so selectors written before sub-categories existed still match exactly one row.
+  const inGroup = subCategoryName ? ` in ${subCategoryName}` : '';
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -71,14 +105,14 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
           onChange={e => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="+ Add item"
-          aria-label="New item name"
+          aria-label={`New item name${inGroup}`}
         />
 
         <select
           className="line-item-select"
           value={currency}
           onChange={e => setCurrency(e.target.value)}
-          aria-label="New item currency"
+          aria-label={`New item currency${inGroup}`}
         >
           {enabledCurrencies.map(c => (
             <option key={c} value={c}>{c}</option>
@@ -89,11 +123,12 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
           {...amountInput.inputProps}
           className="line-item-input amount-input"
           placeholder="0.00"
-          aria-label={`New item amount in ${currency}`}
+          aria-label={`New item amount in ${currency}${inGroup}`}
           onKeyDown={handleKeyDown}
           onBlur={() => {
             amountInput.inputProps.onBlur();
             if (skipBlurCommitRef.current) { skipBlurCommitRef.current = false; return; }
+            if (isCommittingRef.current) return; // re-entrant blur from commit()'s own refocus
             if (name.trim()) commit();
           }}
         />
@@ -103,8 +138,8 @@ export const AddItemRow: React.FC<AddItemRowProps> = ({ baseCurrency, enabledCur
           className="add-item-btn"
           onClick={commit}
           disabled={!name.trim()}
-          aria-label="Add item"
-          title="Add item"
+          aria-label={subCategoryName ? `Add item to ${subCategoryName}` : 'Add item'}
+          title={subCategoryName ? `Add item to ${subCategoryName}` : 'Add item'}
         >
           <Plus size={16} />
         </button>

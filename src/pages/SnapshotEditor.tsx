@@ -4,6 +4,7 @@ import { useAppBase } from '../hooks/useAppBase';
 import { Snapshot, Category } from '../types';
 import { DEFAULT_CATEGORY_TEMPLATES, buildCategoryFromTemplate } from '../utils/defaultCategories';
 import { calcNetWorth } from '../utils/calculations';
+import { pruneOrphanSubCategoryIds } from '../utils/subCategories';
 import { ExchangeRateBar } from '../components/editor/ExchangeRateBar';
 import { CategorySection } from '../components/editor/CategorySection';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
@@ -204,7 +205,11 @@ export const SnapshotEditor: React.FC = () => {
     isDirtyRef.current = false;
     setIsSaving(true);
     try {
-      await saveSnapshot({ ...snapshot, updatedAt: new Date().toISOString() });
+      // Self-heal any sub-category reference whose definition is gone (an old backup,
+      // hand-edited JSON). Returns the same object when nothing is orphaned, so this
+      // is a no-op on virtually every save.
+      const cleaned = pruneOrphanSubCategoryIds(snapshot);
+      await saveSnapshot({ ...cleaned, updatedAt: new Date().toISOString() });
       navigate('/');
     } catch (e) {
       if (e instanceof Error && e.message.startsWith('duplicate_month:')) {

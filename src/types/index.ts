@@ -12,14 +12,42 @@ export interface Snapshot {
   monthlyExpenses?: number;
 }
 
+/**
+ * A named group of line items within a category — e.g. "Mutual Funds" under
+ * Investments, or "NRE/NRO" under Cash & Bank Accounts.
+ *
+ * Definitions live on the snapshot's Category rather than on CategoryTemplate,
+ * for three reasons: preferences never sync (`syncEngine.ts` always keeps the
+ * local copy), preferences are deliberately plaintext so app-lock config is
+ * readable before unlock, and snapshot-resident defs travel with the items that
+ * reference them through the whole-snapshot merge — so cross-device orphans are
+ * structurally near-impossible.
+ */
+export interface SubCategory {
+  id: string;
+  name: string;
+  /**
+   * What belongs in this group. Seeded from the suggestion catalogue when the user
+   * accepts one in the picker, then freely editable. Absent is normal.
+   */
+  description?: string;
+}
+
 export interface Category {
   id: string;
   name: string;
   type: 'asset' | 'liability';
   icon: string;
+  /**
+   * Flat, one level. Sub-category membership is a reference on the item
+   * (`LineItem.subCategoryId`), never a nested array — that is what lets every
+   * total, chart and export keep working without knowing groups exist.
+   */
   items: LineItem[];
   isLiquid: boolean;
   isInvestable: boolean;
+  /** Ordered group definitions. Array position IS the display order. */
+  subCategories?: SubCategory[];
 }
 
 export interface LineItem {
@@ -30,6 +58,12 @@ export interface LineItem {
   notes?: string;
   excludeFromNetWorth?: boolean;
   excludeFromGoals?: boolean;
+  /**
+   * References an id in the parent `Category.subCategories`. Absent = ungrouped.
+   * Deliberately an id and never a typed name, so a rename touches one place and
+   * a typo can't fragment one group into several across months.
+   */
+  subCategoryId?: string;
   // Loan amortisation — when all four are set, outstanding balance is auto-computed
   loanPrincipal?: number;       // Original principal in item.currency
   annualInterestRate?: number;  // % e.g. 8.5
@@ -93,6 +127,8 @@ export interface Goal {
 
 export interface FlattenedItem extends LineItem {
   categoryName: string;
+  /** Resolved from the parent category at flatten time; absent when ungrouped. */
+  subCategoryName?: string;
   isLiquid?: boolean;
 }
 
@@ -108,7 +144,8 @@ export interface CategoryTemplate {
 }
 
 // CSV import column mapping (shared between CsvImportModal and saved profiles)
-export type CsvFieldName = 'Item Name' | 'Category' | 'Amount' | 'Currency' | 'Type' | 'Notes';
+export type CsvFieldName =
+  | 'Item Name' | 'Category' | 'Sub-Category' | 'Amount' | 'Currency' | 'Type' | 'Notes';
 export type CsvFieldMapping = Partial<Record<CsvFieldName, string>>;
 
 export type BackupCadence = 'off' | 'daily' | 'weekly' | 'monthly';

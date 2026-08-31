@@ -32,6 +32,53 @@
   align-items: center;
 }
 
+/* Grouped rows place the group picker in the existing second row. Note that
+   grid-template-columns is deliberately NOT redefined here (or at the 640px
+   breakpoint below): every column keeps its width, so grouped and ungrouped rows
+   in the same category still line their amounts up. */
+.line-item-row--grouped {
+  grid-template-areas:
+    "name currency amount base delete"
+    "subcat chips chips toggles toggles";
+}
+
+.line-item-row .line-item-subcat {
+  grid-area: subcat;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.line-item-subcat__select {
+  max-width: 11rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.line-item-subcat__input {
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  max-width: 11rem;
+}
+
+.line-item-subcat__hint {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="light"] .line-item-subcat__input { background: rgba(0, 0, 0, 0.05); }
+
 .li-excluded {
   opacity: 0.45;
 }
@@ -263,6 +310,17 @@
     row-gap: 6px;
     padding: 10px 0;
   }
+  /* Columns unchanged — the picker gets its own full-width row instead. */
+  .line-item-row--grouped {
+    grid-template-areas:
+      "name name name"
+      "currency amount delete"
+      "base base base"
+      "subcat subcat subcat"
+      "chips chips toggles";
+  }
+  .line-item-subcat__select,
+  .line-item-subcat__input { max-width: 100%; }
   .line-item-row .line-item-base {
     display: block;
     text-align: left;

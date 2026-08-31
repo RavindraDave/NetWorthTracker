@@ -33,6 +33,8 @@ test.describe('Snapshot Editor', () => {
   test('can remove a line item', async ({ page }) => {
     await addLineItem(page, 'To Remove', '1000');
     await page.locator('button[aria-label="Remove item"]').last().click();
+    // Removing an item now asks for confirmation.
+    await page.locator('.confirm-dialog button:has-text("Delete")').click();
     await expect(page.locator('input[aria-label="Item name"]')).toHaveCount(0);
   });
 

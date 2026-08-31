@@ -30,7 +30,12 @@ export const MissingSnapshotBanner: React.FC = () => {
     .toLocaleString('default', { month: 'long', year: 'numeric' });
 
   const handleCreate = async () => {
-    const snap = snapshots.length > 0 ? cloneLatestSnapshot() : createNewSnapshot();
+    // Clone the latest snapshot for its balances, but pin the month to the one this
+    // banner actually offered. cloneLatestSnapshot() returns "latest + 1", which is
+    // only the current month when the user is exactly one month behind — two months
+    // behind and the banner would promise August and open July.
+    const base = snapshots.length > 0 ? cloneLatestSnapshot() : createNewSnapshot();
+    const snap = { ...base, month: currentMonth };
     const existing = snapshots.find(s => s.month === snap.month);
     if (existing) {
       navigate(`/editor/${existing.id}`);

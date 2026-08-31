@@ -1,6 +1,7 @@
 import { Snapshot, LineItem } from '../types';
 import { calculateXIRR } from './xirr';
 import { convertToBase } from './calculations';
+import { subCategoryName } from './subCategories';
 
 /** Last calendar day of a "YYYY-MM" month, as a Date (local time). */
 export function monthEndDate(month: string): Date {
@@ -48,6 +49,8 @@ export type ReturnBasis = 'Stated' | 'CAGR';
 
 export interface AccountReturnRow {
   category: string;
+  /** Sub-group within the category; absent when the item is ungrouped. */
+  subCategory?: string;
   account: string;
   currency: string;
   currentValueBase: number;
@@ -90,6 +93,7 @@ export function buildAccountReturns(snapshot: Snapshot, baseCurrency: string): A
       const currentValueBase = Math.round(convertToBase(item.amount, item.currency, baseCurrency, snapshot.exchangeRates));
       const row: AccountReturnRow = {
         category: cat.name,
+        subCategory: subCategoryName(cat, item.subCategoryId),
         account: item.name,
         currency: item.currency,
         currentValueBase,

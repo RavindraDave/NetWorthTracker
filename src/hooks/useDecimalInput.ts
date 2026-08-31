@@ -23,6 +23,18 @@ interface UseDecimalInputReturn {
     onBlur: () => void;
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   };
+  /**
+   * Force the display back to `value`'s formatted form.
+   *
+   * Needed because the resync effect below is driven by `value` *changing*. A
+   * caller that commits and clears in the same tick (the add-item row: blur
+   * commits 120000, then the commit resets to 0) leaves `value` at 0 both before
+   * and after, so the effect never fires and the typed text lingers on screen.
+   *
+   * Pass the target explicitly when clearing, so the result does not depend on
+   * whether a render landed between the commit and the clear.
+   */
+  reset: (to?: number) => void;
 }
 
 export function useDecimalInput({
@@ -96,6 +108,12 @@ export function useDecimalInput({
     if (e.key === 'Enter') e.currentTarget.blur();
   };
 
+  const reset = (to: number = value) => {
+    const next = (blankZero && to === 0) ? '' : fmt(to);
+    setDisplay(next);
+    rawRef.current = next;
+  };
+
   return {
     inputProps: {
       type: 'text',
@@ -106,5 +124,6 @@ export function useDecimalInput({
       onBlur,
       onKeyDown,
     },
+    reset,
   };
 }

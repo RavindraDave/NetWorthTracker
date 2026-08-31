@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { LineItem } from '../../types';
+import { LineItem, SubCategory } from '../../types';
+import { normalizeSubName } from '../../utils/subCategories';
 import { convertToBase, anchorRate } from '../../utils/calculations';
 import { calculateOutstandingBalance, calculateLoanSummary, isLoanConfigComplete } from '../../utils/loanCalculator';
 import { annualisedReturn, monthEndDate } from '../../utils/returns';
@@ -30,15 +31,33 @@ function applyExclusionState(item: LineItem, state: ExclusionState): LineItem {
   };
 }
 
+/** Sentinel select values — real group ids are UUIDs, so these can't collide. */
+const NO_GROUP = '__none__';
+const NEW_GROUP = '__new__';
+
 interface LineItemRowProps {
   item: LineItem;
   exchangeRates: Record<string, number>;
   snapshotMonth: string;
   onChange: (updated: LineItem) => void;
   onRemove: (id: string) => void;
+  /**
+   * Groups available on the parent category. Optional — when absent (or empty) the
+   * row renders exactly as it did before sub-categories existed.
+   */
+  subCategories?: SubCategory[];
+  /**
+   * Assigning to a *new* group is two mutations (add the definition, point the item
+   * at it). They must be applied together by the parent, because two `onChange`
+   * calls in one tick would both read the same stale category and the second would
+   * overwrite the first.
+   */
+  onAssignSubCategory?: (itemId: string, target: { id: string } | { newName: string }) => void;
 }
 
-const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snapshotMonth, onChange, onRemove }) => {
+const LineItemRowBase: React.FC<LineItemRowProps> = ({
+  item, exchangeRates, snapshotMonth, onChange, onRemove, subCategories, onAssignSubCategory,
+}) => {
   const { preferences } = useApp();
   const { confirm } = useToast();
   const baseCurrency = preferences?.baseCurrency || 'INR';
@@ -53,6 +72,31 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
 
   const [loanOpen, setLoanOpen] = useState(() => hasLoanConfig);
   const [costOpen, setCostOpen] = useState(() => hasCostBasis || hasStatedRate);
+
+  const showPicker = !!subCategories?.length && !!onAssignSubCategory;
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+
+  // Typing the name of a group that already exists is the common case this feature
+  // is meant to survive, so surface it as a neutral hint rather than an error — the
+  // commit below converges on the existing group either way.
+  const willReuseGroup = useMemo(() => {
+    const key = normalizeSubName(newGroupName);
+    if (!key) return undefined;
+    return subCategories?.find(s => normalizeSubName(s.name) === key)?.name;
+  }, [newGroupName, subCategories]);
+
+  const commitNewGroup = () => {
+    const trimmed = newGroupName.trim();
+    if (trimmed) onAssignSubCategory?.(item.id, { newName: trimmed });
+    setNewGroupName('');
+    setCreatingGroup(false);
+  };
+
+  const handlePickerChange = (value: string) => {
+    if (value === NEW_GROUP) { setCreatingGroup(true); return; }
+    onAssignSubCategory?.(item.id, { id: value === NO_GROUP ? '' : value });
+  };
 
   const baseAmount = convertToBase(item.amount, item.currency, baseCurrency, exchangeRates);
 
@@ -190,7 +234,7 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
 
   return (
     <div className="line-item-wrap">
-      <div className={`line-item-row${exclusionState === 'everywhere' ? ' li-excluded' : ''}`}>
+      <div className={`line-item-row${showPicker ? ' line-item-row--grouped' : ''}${exclusionState === 'everywhere' ? ' li-excluded' : ''}`}>
         <input
           type="text"
           className="line-item-input name-input"
@@ -247,6 +291,51 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({ item, exchangeRates, snap
         >
           <Trash2 size={14} />
         </button>
+
+        {showPicker && (
+          <div className="line-item-subcat">
+            {creatingGroup ? (
+              <>
+                <input
+                  autoFocus
+                  type="text"
+                  className="line-item-subcat__input"
+                  value={newGroupName}
+                  onChange={e => setNewGroupName(e.target.value)}
+                  onBlur={commitNewGroup}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') commitNewGroup();
+                    else if (e.key === 'Escape') { setNewGroupName(''); setCreatingGroup(false); }
+                  }}
+                  placeholder="New group name"
+                  aria-label={`New group for ${item.name || 'item'}`}
+                />
+                {willReuseGroup && (
+                  <span className="line-item-subcat__hint">Using existing “{willReuseGroup}”</span>
+                )}
+              </>
+            ) : (
+              <select
+                className="line-item-select line-item-subcat__select"
+                /* An orphaned id has no matching <option>, which would render blank.
+                   Show it as ungrouped — the same place groupItemsBySubCategory puts it. */
+                value={
+                  item.subCategoryId && subCategories!.some(s => s.id === item.subCategoryId)
+                    ? item.subCategoryId
+                    : NO_GROUP
+                }
+                onChange={e => handlePickerChange(e.target.value)}
+                aria-label={`Group for ${item.name || 'item'}`}
+              >
+                <option value={NO_GROUP}>— No group —</option>
+                {subCategories!.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+                <option value={NEW_GROUP}>+ New group…</option>
+              </select>
+            )}
+          </div>
+        )}
 
         <InclusionChips
           value={inclusionVal}
