@@ -27,6 +27,9 @@ interface ImportSummary {
   missingNameCount?: number;
   badAmountCount?: number;
   unknownCurrencyCount?: number;
+  /** Present only for an "update existing month" import — absent means a plain new-snapshot import. */
+  updatedCount?: number;
+  insertedCount?: number;
 }
 
 export const SnapshotEditor: React.FC = () => {
@@ -406,8 +409,17 @@ export const SnapshotEditor: React.FC = () => {
         }}>
           <CheckCircle2 size={16} style={{ color: 'var(--accent-green, #34d399)', flexShrink: 0 }} />
           <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-            Imported <strong>{importSummary.itemCount}</strong> item{importSummary.itemCount === 1 ? '' : 's'} across{' '}
-            <strong>{importSummary.categoryCount}</strong> categor{importSummary.categoryCount === 1 ? 'y' : 'ies'} from{' '}
+            {importSummary.updatedCount !== undefined ? (
+              <>
+                Updated <strong>{importSummary.updatedCount}</strong> item{importSummary.updatedCount === 1 ? '' : 's'} and added{' '}
+                <strong>{importSummary.insertedCount}</strong> new one{importSummary.insertedCount === 1 ? '' : 's'} from{' '}
+              </>
+            ) : (
+              <>
+                Imported <strong>{importSummary.itemCount}</strong> item{importSummary.itemCount === 1 ? '' : 's'} across{' '}
+                <strong>{importSummary.categoryCount}</strong> categor{importSummary.categoryCount === 1 ? 'y' : 'ies'} from{' '}
+              </>
+            )}
             <span style={{ wordBreak: 'break-all' }}>{importSummary.fileName}</span>. Review and save below.
             {(!!importSummary.missingNameCount || !!importSummary.badAmountCount || !!importSummary.unknownCurrencyCount) && (
               <span style={{ display: 'block', marginTop: '0.3rem', color: 'var(--amber, #f59e0b)' }}>

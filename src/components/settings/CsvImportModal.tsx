@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../common/Modal';
 import { TEXT, SPACE } from '../common/theme';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../common/Toast';
 import { X, Save, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Category, CsvFieldMapping } from '../../types';
-import { parseAmount } from '../../utils/numberFormat';
-import { findSubCategoryIdByName } from '../../utils/subCategories';
+import { CsvFieldMapping } from '../../types';
+import { applyImportRows } from '../../utils/importRowMerge';
 import { useCsvParser, isExcelFile, isOfxFile, isQifFile, CSV_FIELDS, CSV_FIELD_HINTS } from '../../hooks/useCsvParser';
 
 /** Returns the first month >= `from` that has no existing snapshot. */
@@ -41,6 +40,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
   const [importing, setImporting]           = useState(false);
   const [showSaveForm, setShowSaveForm]     = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
+  const [mode, setMode] = useState<'new' | 'update'>('new');
 
   // Apply auto-detected mapping when the file is first parsed
   useEffect(() => {
@@ -67,106 +67,53 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
 
   const fileKind    = isExcelFile(file) ? 'Excel' : isOfxFile(file) ? 'OFX' : isQifFile(file) ? 'QIF' : 'CSV';
   const isValid     = !!mapping['Item Name'] && !!mapping['Amount'];
-  const monthConflict = snapshots.some(s => s.month === targetMonth);
+  const existingSnapshotForMonth = snapshots.find(s => s.month === targetMonth);
+  // "new" mode needs an empty month (today's original behaviour); "update"
+  // mode needs the opposite — a month that already has something to update.
+  const monthConflict = mode === 'new' && !!existingSnapshotForMonth;
+  const monthMissing  = mode === 'update' && !existingSnapshotForMonth;
   const previewRows = rows.slice(0, 5);
   const mappedFields = CSV_FIELDS.filter(f => mapping[f]);
 
+  const importOptions = useMemo(() => ({
+    enabledCurrencies: preferences?.enabledCurrencies ?? [preferences?.baseCurrency ?? 'INR'],
+    baseCurrency: preferences?.baseCurrency ?? 'INR',
+  }), [preferences]);
+
+  // Computed only in update mode, against the REAL target snapshot, purely to
+  // label the preview's Action column — applyImportRows never mutates its
+  // input, so this throws its result away without touching app state.
+  const previewResult = useMemo(() => {
+    if (mode !== 'update' || !existingSnapshotForMonth || !isValid || previewRows.length === 0) return null;
+    return applyImportRows(existingSnapshotForMonth, previewRows, mapping, importOptions);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, existingSnapshotForMonth, isValid, previewRows, mapping, importOptions]);
+
   const handleImport = async () => {
-    if (!isValid || importing || monthConflict) return;
+    if (!isValid || importing || monthConflict || monthMissing) return;
     setImporting(true);
     try {
-      const baseCurrency = preferences?.baseCurrency ?? 'INR';
-      const enabledCurrencies = preferences?.enabledCurrencies ?? [baseCurrency];
-      const newSnap = { ...createNewSnapshot(), month: targetMonth };
-      let missingNameCount = 0;
-      let badAmountCount = 0;
-      let unknownCurrencyCount = 0;
+      const baseSnapshot = mode === 'update'
+        ? existingSnapshotForMonth!
+        : { ...createNewSnapshot(), month: targetMonth };
 
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (i % 200 === 0) await new Promise(r => setTimeout(r, 0));
+      const result = applyImportRows(baseSnapshot, rows, mapping, importOptions);
+      await saveSnapshot(result.snapshot);
 
-        const rawName = String(row[mapping['Item Name']!] ?? '').trim();
-        if (!rawName) missingNameCount++;
-        const itemName = rawName || 'Imported Item';
-
-        const catName  = mapping['Category']
-          ? (String(row[mapping['Category']] ?? '').trim() || 'Cash & Bank')
-          : 'Cash & Bank';
-
-        const rawAmount = String(row[mapping['Amount']!] ?? '0').trim();
-        const strippedAmount = rawAmount.replace(/[^\d.,-]/g, '');
-        if (rawAmount && (!strippedAmount || strippedAmount === '-')) badAmountCount++;
-        const amount = Math.min(Math.abs(parseAmount(rawAmount)), 1e15);
-
-        const rawCurr = mapping['Currency']
-          ? String(row[mapping['Currency']] ?? baseCurrency).trim().toUpperCase()
-          : baseCurrency;
-        const currency = enabledCurrencies.includes(rawCurr) ? rawCurr : baseCurrency;
-        if (mapping['Currency'] && rawCurr && currency !== rawCurr) unknownCurrencyCount++;
-
-        const rawType  = mapping['Type']
-          ? String(row[mapping['Type']] ?? 'asset').toLowerCase()
-          : 'asset';
-        const catType: 'asset' | 'liability' = rawType.includes('liab') ? 'liability' : 'asset';
-
-        let targetCat = newSnap.categories.find(
-          c => c.name.toLowerCase() === catName.toLowerCase()
-        );
-        if (!targetCat) {
-          const newCat: Category = {
-            id: crypto.randomUUID(),
-            name: catName,
-            type: catType,
-            icon: '📦',
-            items: [],
-            isLiquid: false,
-            isInvestable: false,
-          };
-          newSnap.categories.push(newCat);
-          targetCat = newCat;
-        }
-
-        // Find-or-create the sub-group by case-insensitive name, mirroring the
-        // category handling above. Never skip a row because its group didn't
-        // match something that already exists — that is how the old Excel path
-        // silently dropped data. A blank or unmapped cell simply leaves the item
-        // ungrouped; we do not invent an "Uncategorised" group to clean up later.
-        let subCategoryId: string | undefined;
-        const subName = mapping['Sub-Category']
-          ? String(row[mapping['Sub-Category']] ?? '').trim()
-          : '';
-        if (subName) {
-          subCategoryId = findSubCategoryIdByName(targetCat, subName);
-          if (!subCategoryId) {
-            subCategoryId = crypto.randomUUID();
-            targetCat.subCategories = [...(targetCat.subCategories ?? []), { id: subCategoryId, name: subName }];
-          }
-        }
-
-        const notes = mapping['Notes'] ? String(row[mapping['Notes']] ?? '').trim() || undefined : undefined;
-
-        targetCat.items.push({
-          id: crypto.randomUUID(),
-          name: itemName,
-          amount,
-          currency,
-          excludeFromNetWorth: false,
-          ...(subCategoryId ? { subCategoryId } : {}),
-          ...(notes ? { notes } : {}),
-        });
-      }
-
-      await saveSnapshot(newSnap);
-      const itemCount = newSnap.categories.reduce((sum, c) => sum + c.items.length, 0);
-      const categoryCount = newSnap.categories.filter(c => c.items.length > 0).length;
-      success(`Imported ${itemCount} items as new snapshot for ${targetMonth}.`);
+      const { updatedCount, insertedCount, missingNameCount, badAmountCount, unknownCurrencyCount } = result.summary;
+      const itemCount = updatedCount + insertedCount;
+      const categoryCount = result.snapshot.categories.filter(c => c.items.length > 0).length;
+      const summarySentence = mode === 'update'
+        ? `Updated ${updatedCount}, added ${insertedCount} new item${insertedCount === 1 ? '' : 's'} for ${targetMonth}.`
+        : `Imported ${itemCount} items as new snapshot for ${targetMonth}.`;
+      success(summarySentence);
       onClose();
-      navigate(`/editor/${newSnap.id}`, {
+      navigate(`/editor/${result.snapshot.id}`, {
         state: {
           importSummary: {
             itemCount, categoryCount, month: targetMonth, fileName: file.name,
             missingNameCount, badAmountCount, unknownCurrencyCount,
+            ...(mode === 'update' ? { updatedCount, insertedCount } : {}),
           },
         },
       });
@@ -204,6 +151,32 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
         </div>
       ) : (
         <>
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.lg, marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+            <label style={{ fontSize: TEXT.md, fontWeight: 500, minWidth: 130 }}>Import as</label>
+            <div style={{ display: 'flex', gap: SPACE.sm }}>
+              <button
+                type="button"
+                className={`btn ${mode === 'new' ? 'btn-primary' : 'btn-outline'}`}
+                style={{ fontSize: TEXT.sm, padding: '0.3rem 0.7rem' }}
+                onClick={() => setMode('new')}
+                aria-pressed={mode === 'new'}
+              >
+                Add as new snapshot
+              </button>
+              <button
+                type="button"
+                className={`btn ${mode === 'update' ? 'btn-primary' : 'btn-outline'}`}
+                style={{ fontSize: TEXT.sm, padding: '0.3rem 0.7rem' }}
+                onClick={() => setMode('update')}
+                aria-pressed={mode === 'update'}
+                title="Match rows to existing items by name within each category and update their amount/currency in place; unmatched rows are added as new. Nothing existing is ever removed."
+              >
+                Update existing month
+              </button>
+            </div>
+          </div>
+
           {/* Month picker */}
           <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.lg, marginBottom: '1.25rem', flexWrap: 'wrap' }}>
             <label style={{ fontSize: TEXT.md, fontWeight: 500, minWidth: 130 }}>Snapshot Month</label>
@@ -216,7 +189,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
             />
             {monthConflict && (
               <span style={{ fontSize: TEXT.sm, color: 'var(--rose)' }}>
-                A snapshot already exists for this month — choose a different month above
+                A snapshot already exists for this month — choose a different month above, or switch to "Update existing month"
+              </span>
+            )}
+            {monthMissing && (
+              <span style={{ fontSize: TEXT.sm, color: 'var(--rose)' }}>
+                No snapshot exists for this month yet — switch to "Add as new snapshot", or pick a different month
               </span>
             )}
           </div>
@@ -334,6 +312,11 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
                 <table style={{ width: '100%', fontSize: TEXT.sm, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
+                      {previewResult && (
+                        <th style={{ textAlign: 'left', padding: '5px 8px', borderBottom: '1px solid var(--border)', color: 'var(--text-3)', fontWeight: 500, whiteSpace: 'nowrap', background: 'rgba(0,0,0,0.15)' }}>
+                          Action
+                        </th>
+                      )}
                       {mappedFields.map(f => (
                         <th key={f} style={{ textAlign: 'left', padding: '5px 8px', borderBottom: '1px solid var(--border)', color: 'var(--text-3)', fontWeight: 500, whiteSpace: 'nowrap', background: 'rgba(0,0,0,0.15)' }}>
                           {f}
@@ -344,6 +327,17 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
                   <tbody>
                     {previewRows.map((row, i) => (
                       <tr key={i} style={{ borderBottom: i < previewRows.length - 1 ? '1px solid var(--border)' : undefined }}>
+                        {previewResult && (
+                          <td style={{ padding: '5px 8px', whiteSpace: 'nowrap' }}>
+                            <span style={{
+                              fontSize: TEXT.xs, padding: '2px 6px', borderRadius: 'var(--radius-sm)',
+                              color: previewResult.rowActions[i] === 'updated' ? 'var(--accent-text)' : 'var(--text-3)',
+                              background: previewResult.rowActions[i] === 'updated' ? 'var(--accent-soft, rgba(16,185,129,0.12))' : 'rgba(127,127,127,0.12)',
+                            }}>
+                              {previewResult.rowActions[i] === 'updated' ? 'Update' : 'New'}
+                            </span>
+                          </td>
+                        )}
                         {mappedFields.map(f => (
                           <td key={f} style={{ padding: '5px 8px', color: 'var(--text-2)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {String(row[mapping[f]!] ?? '')}
@@ -369,9 +363,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ file, onClose })
           <button
             className="btn btn-primary"
             onClick={handleImport}
-            disabled={!isValid || importing || !!parseError || headers.length === 0 || monthConflict}
+            disabled={!isValid || importing || !!parseError || headers.length === 0 || monthConflict || monthMissing}
           >
-            {importing ? 'Importing…' : `Import ${rows.length} items`}
+            {importing ? 'Importing…' : mode === 'update' ? `Update ${rows.length} items` : `Import ${rows.length} items`}
           </button>
         </div>
       </div>
