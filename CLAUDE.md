@@ -35,6 +35,48 @@ passphrase lock encrypts the financial data **at rest** and gates the app on boo
 - Orchestration in `appLock.ts`; UI in `AppLockCard.tsx`/`AppLockSection.tsx`. Asymmetric keys were
   evaluated and rejected for the core (single user = no encrypt/decrypt separation benefit); the only
   asymmetric use is the passkey unlock factor.
+- **Attempt throttling (2026-09-01, shipped):** exponential backoff on the passphrase unlock
+  screen (`appLockThrottle.ts`) — free for 2 attempts, then 10s→300s cap, resets on success.
+  State lives in plaintext `preferences.appLock` (readable pre-unlock) via a `skipBackup` flag
+  on `updatePreferences()` — routing it through the normal path would let a brute-force loop
+  spam-evict the 90-cap auto-backup table. Recovery-slot removal now warns harder only when
+  it's the LAST slot; enabling App Lock still never requires one (zero-knowledge passphrase-only
+  is a deliberate, legitimate choice). Threat model: defends the shared-PC/nosy-family-member
+  case, not a DevTools-capable attacker — stated explicitly in-app, not oversold.
+
+## Tags — cross-category labels (2026-08-31, shipped)
+
+A `Tag` lives on `Snapshot` (sibling of `categories`), **not** in `UserPreferences` — preferences
+never sync, snapshots do (three-way merge), so a global tag registry would let two devices mint
+different ids for the same tag name with no reconciliation path. Same tradeoff `SubCategory`
+already made; tags are scoped per-snapshot by the same design (a tag made in August isn't
+retroactively on July's snapshot). `LineItem.tagIds?: string[]` is many-to-many — an item can
+carry several, and allocation totals across tags can legitimately exceed net worth (it's a
+reporting lens, never a partition). `src/utils/tags.ts` mirrors `subCategories.ts`'s API but
+`deleteTag` is snapshot-wide (a tag is cross-category, unlike a sub-group). Dashboard's "By Tag"
+panel is a bar list, deliberately not a donut — a pie implies its slices sum to a whole, which
+overlapping tag totals would misrepresent. The tag toggle on a line item shows a bounded "N tags"
+label, never the raw tag name (a single-tag rendering bug once showed the raw name and overflowed
+its fixed-width slot — fixed 2026-09-01, see `LineItemRow.tsx`'s `tag-btn` comment).
+
+## Category ID reconciliation (2026-09-01, shipped)
+
+Root cause fixed: `suggestedSubCategories()` used to look up suggestions strictly by
+`category.id`, with no fallback to name+type — unlike `SnapshotEditor`'s category backfill and
+`buildCategoryTrendData`, which already tolerate a category whose stored id predates (or
+otherwise doesn't match) the current `default-*` template ids. A category unmistakably "Cash &
+Bank Accounts" by name and type was silently getting zero suggestions because of that one
+inconsistency. `categoryReconciliation.ts`'s `reconcileCategoryIds()` is the actual fix, not just
+a patch to that one symptom: finds categories with a drifted id that unambiguously matches a
+template, rewrites the id everywhere it appears across every snapshot, and keeps
+`Goal.excludedCategoryIds` in sync in the same pass. Ambiguous cases (same-snapshot collisions,
+inconsistent cross-snapshot mappings) are deliberately left unfixed and reported as conflicts —
+never auto-resolved, since guessing wrong could silently merge two different categories. Runs
+automatically on load (silent unless it finds something — one-shot toast) and via a manual
+"Check category IDs" button in Settings → Categories. **If a category-identity bug surfaces
+again, check here first** — this is now the second/third place this exact id-drift class of bug
+has been found (suggestions, and theoretically `Goal.excludedCategoryIds` across multi-device
+sync histories that predate stable ids — unconfirmed, not fixed, noted as a known residual risk).
 
 ## Notion documentation (permanent reference)
 
@@ -85,12 +127,42 @@ https://www.notion.so/37394476928181f9bdfbf3d90f86c155
     rewritten against the current UI — 60 tests green; `screenshots.spec.ts` is docs
     tooling gated behind `SCREENSHOTS=1`. Page roots now carry `dashboard-page` /
     `history-page` / `portfolio-page` classes for stable test hooks.
+  - **Latest pass (2026-08-31 → 2026-09-01, Securo feature-parity audit + follow-on fixes):**
+    an audit against Securo (a full transaction-ledger, multi-user, server-backed finance app)
+    identified 5 features that fit WealthPulse's local-first identity — everything else
+    (bank sync, transactions/budgets, multi-user/OIDC, AI chat) was rejected as scope creep
+    against the "Do NOT build" list below. Shipped: **Tags** (see dedicated section above),
+    **per-item FIRE growth projection** (`itemProjection.ts` — a second "Per-item" line beside
+    the existing blended-rate projection; unrated items held flat at 0%, never backfilled with
+    the blended rate), **jurisdiction tax presets** (`TAX_PRESETS` in `taxCalculator.ts` — India
+    Budget-2024 + a labelled-approximate US model, seeds `GoalEditor`'s existing per-goal
+    `TaxParams` fields, nothing new persisted; also fixed a pre-existing gap where `cess` had no
+    input field), **balance-only OFX/QIF import** (`ofxParser.ts`/`qifParser.ts`, hand-rolled —
+    structurally never read OFX's `<STMTTRN>` transaction tags; both emit the same
+    `{headers,rows}` shape `useCsvParser.ts` already produces, so `CsvImportModal` needed no
+    changes), and **App Lock attempt throttling** (see App Lock section above). Follow-on same
+    session: fixed `CashflowChart`'s gap-blindness (`buildCashflowData` was filtering out
+    zero-data months before windowing to "last 12," collapsing non-adjacent months into
+    adjacent-looking bars — now windows first, renders gaps as explicit nulls); added
+    downloadable sample CSV/Excel templates to the import card (`sampleImport.ts`, header
+    derived from `CSV_FIELDS` so it can't drift); fixed the tags/sub-groups overlap confusion
+    with a hint at the sub-group creation point pointing to tags for cross-category grouping;
+    the category-ID reconciliation system (see dedicated section above); and **recurring
+    monthly import** — `CsvImportModal` gained an explicit "Add as new snapshot" / "Update
+    existing month" toggle (`importRowMerge.ts`'s `applyImportRows`, mode-agnostic — case-
+    insensitive name match within a category updates amount/currency only, no match inserts,
+    an unmatched existing item is never touched let alone deleted; preview shows an Update/New
+    Action column per row before commit).
   - **Earlier pass (2026-06-29):** backup retention 30→90 (local + Drive); first-run UX —
     deferred the exchange-rate error wall until a foreign-currency item exists, explicit
     "+ Add item" button, stale-backup grace period, trend-chart pluralization, "Goals NW"
     tooltip, friendlier Live Rates error, offline-safe brand logo, softer Cloud Sync copy.
   - **Do NOT build:** budget-vs-actual/expense categories, real-time price feeds, social
     features, native wrappers, broker APIs, server accounts, AI categorisation.
+  - **Scope guardrail (2026-09-01):** "Update existing month" import mode (above) refreshes
+    existing item balances by name-match — it is still snapshot/balance semantics, not a
+    transaction history. Do not extend it toward per-transaction tracking; that's the same
+    "Do NOT build" line above, just reachable from a different feature this time.
 
 ## Session memory (available to all sessions)
 
@@ -120,9 +192,9 @@ Persistent knowledge lives in `.claude/memory/` — always read these at session
 - `src/components/common/StaleBackupBanner.tsx` — cadence-aware nag with new-user grace period
 - `src/hooks/useAutoBackup.ts` — local auto-backup tick (extended to call cloud sync)
 - `src/utils/printReport.ts` — print report HTML generator (raw string, not React)
-- `src/utils/taxCalculator.ts` — E3 withdrawal-tax model (`calcWithdrawalTax`; India Budget-2024 defaults, all configurable via `TaxParams`)
-- `src/components/dashboard/CashflowChart.tsx` — E4 income/expenses bars + savings-rate strip (two stacked panels sharing the month axis — never dual-axis)
-- `src/hooks/useCsvParser.ts` — shared CSV **and** Excel import parsing (`isExcelFile`); both formats feed `CsvImportModal`
+- `src/utils/taxCalculator.ts` — E3 withdrawal-tax model (`calcWithdrawalTax`; India Budget-2024 defaults, all configurable via `TaxParams`). `TAX_PRESETS`/`TAX_PRESET_LABELS`/`matchTaxJurisdiction` (2026-09-01) seed `GoalEditor`'s fields from a jurisdiction picker — India or a labelled-approximate US model — transient UI convenience only, never persisted onto `Goal`
+- `src/components/dashboard/CashflowChart.tsx` — E4 income/expenses bars + savings-rate strip (two stacked panels sharing the month axis — never dual-axis). `buildCashflowData` in `calculations.ts` windows the last 12 snapshots first, then renders no-data months as explicit gaps (fixed 2026-09-01 — used to filter zero-data months out before windowing, which collapsed non-adjacent months into adjacent-looking bars)
+- `src/hooks/useCsvParser.ts` — shared CSV **and** Excel import parsing (`isExcelFile`); also branches to `ofxParser`/`qifParser` (`isOfxFile`/`isQifFile`, 2026-08-31) — all four formats feed the same `CsvImportModal` unchanged
 - `src/utils/subCategories.ts` — sub-category pure core: `groupItemsBySubCategory` (the
   conservation invariants), `ensureSubCategory` (case-insensitive dedupe), rename/merge/
   delete/move, `pruneOrphanSubCategoryIds`, `buildSubCategoryAllocationData`. All immutable —
@@ -132,3 +204,14 @@ Persistent knowledge lives in `.claude/memory/` — always read these at session
 - `src/components/editor/SuggestGroupsModal.tsx` — the checklist picker (nothing ticked
   by default; already-present groups shown ticked + disabled)
 - `src/components/editor/SubCategoryGroupHeader.tsx` — group header (subtotal, rename, ⋯ menu)
+- `src/utils/tags.ts` — tag pure core, mirrors `subCategories.ts`; `deleteTag` is snapshot-wide
+- `src/utils/tagAggregation.ts` — `buildTagAllocationData`/`buildTagTrendData` (overlap-aware, no partition)
+- `src/components/editor/TagPickerPanel.tsx` / `TagManager.tsx` — per-item tag toggle panel; per-snapshot tag CRUD
+- `src/components/dashboard/TagAllocationPanel.tsx` — bar-list "By Tag" panel (never a donut — see Tags section)
+- `src/utils/itemProjection.ts` — `buildFireProjection` (blended vs per-item lines), `projectItemValue`
+- `src/components/goals/FIREProjectionChart.tsx` — renders the two-line projection on the FIRE Dashboard
+- `src/utils/ofxParser.ts` / `qifParser.ts` — hand-rolled balance-only parsers; QIF proxies balance via last transaction (documented heuristic, `ponytail:` comment)
+- `src/utils/sampleImport.ts` — sample CSV/Excel generator for the import card; header derived from `CSV_FIELDS`
+- `src/utils/importRowMerge.ts` — `applyImportRows`, shared by "new" and "update" import modes; case-insensitive name-match-within-category, never deletes
+- `src/utils/categoryReconciliation.ts` — `reconcileCategoryIds` (see Category ID reconciliation section above)
+- `src/utils/appLockThrottle.ts` — App Lock backoff curve (`backoffSeconds`, `isLockedOut`, `recordFailure`/`recordSuccess`)
