@@ -365,13 +365,21 @@ const LineItemRowBase: React.FC<LineItemRowProps> = ({
             <button
               className={`btn-icon tag-btn${itemTagNames.length ? ' tag-active' : ''}`}
               onClick={() => setTagsOpen(o => !o)}
-              title={tagsOpen ? 'Hide tags' : 'Tag this item (spans categories, for reporting only)'}
+              title={
+                tagsOpen ? 'Hide tags'
+                : itemTagNames.length ? `Tagged: ${itemTagNames.join(', ')}`
+                : 'Tag this item (spans categories, for reporting only)'
+              }
               aria-label="Toggle tags"
               aria-expanded={tagsOpen}
             >
               <TagIcon size={14} />
+              {/* Always a short, fixed-format count — never the raw tag name, which is
+                  unbounded user text and would blow the same fixed-width budget
+                  "Return"/"Loan" rely on being short, fixed words. The name is still
+                  one hover (title above) or one click (the panel) away. */}
               {itemTagNames.length > 0 && (
-                <span className="cost-basis-label">{itemTagNames.length === 1 ? itemTagNames[0] : `${itemTagNames.length} tags`}</span>
+                <span className="cost-basis-label">{itemTagNames.length === 1 ? '1 tag' : `${itemTagNames.length} tags`}</span>
               )}
             </button>
           )}

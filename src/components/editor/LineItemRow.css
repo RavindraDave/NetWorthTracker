@@ -289,18 +289,14 @@
   }
 }
 
-/* Tag toggle — highlighted when the item carries at least one tag */
+/* Tag toggle — highlighted when the item carries at least one tag. The label
+   is always "1 tag"/"N tags" (never the raw tag name), so unlike the picker
+   panel's own text this never needs its own overflow handling. */
 .btn-icon.tag-active { color: #8b5cf6; }
 .tag-btn {
   display: flex;
   align-items: center;
   gap: 2px;
-  max-width: 120px;
-}
-.tag-btn .cost-basis-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Tag picker panel — reuses .cost-basis-config's border/spacing */

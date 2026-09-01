@@ -211,8 +211,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
       )}
       {grouped && (
         <span className="subcat-add__hint">
-          Sub-groups organise items. Liquid/Investable is set per category in Settings;
-          goal exclusions are set per item with the Σ chips.
+          Sub-groups organise items within {category.name}. Liquid/Investable is set per category
+          in Settings; goal exclusions are set per item with the Σ chips. Want the same group to
+          span multiple categories instead (e.g. "Retirement accounts" across Investments and Cash
+          &amp; Bank)? Use a tag on those items — sub-groups can't cross categories, but tags do.
         </span>
       )}
     </div>

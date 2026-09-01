@@ -10,6 +10,7 @@ import { StorageStatusCard } from './StorageStatusCard';
 import { InstallPwaCard } from '../common/InstallPwaCard';
 import { NotificationPermissionCard } from './NotificationPermissionCard';
 import { CsvImportModal } from './CsvImportModal';
+import { downloadSampleCsv, downloadSampleExcel } from '../../utils/sampleImport';
 
 export const DataBackupSection: React.FC = () => {
   const { preferences, updatePreferences, snapshots, goals, restoreBackup,
@@ -194,6 +195,22 @@ export const DataBackupSection: React.FC = () => {
               <FileText size={18} className="text-blue" /> Import from CSV / Excel / OFX / QIF
             </h3>
             <p className="text-muted text-sm">Import line items or account balances from any bank, broker, or WealthPulse export (.csv, .xlsx, .ofx, .qfx, .qif). Map columns visually, pick the snapshot month, then review before saving.</p>
+            <p className="text-muted text-sm" style={{ marginTop: '0.35rem' }}>
+              Not sure of the format? Download a sample:{' '}
+              <button
+                onClick={downloadSampleCsv}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-text)', textDecoration: 'underline', fontSize: 'inherit' }}
+              >
+                CSV
+              </button>
+              {' · '}
+              <button
+                onClick={downloadSampleExcel}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-text)', textDecoration: 'underline', fontSize: 'inherit' }}
+              >
+                Excel
+              </button>
+            </p>
           </div>
           <input type="file" accept=".csv,.xlsx,.ofx,.qfx,.qif" style={{ display: 'none' }} ref={csvInputRef} onChange={handleImportCsv} />
           <button className="btn btn-outline" onClick={() => csvInputRef.current?.click()}>Upload file</button>
