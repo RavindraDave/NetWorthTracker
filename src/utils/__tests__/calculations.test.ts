@@ -10,6 +10,7 @@ import {
   getMissingRateCurrencies,
   calcSavingsRate,
   avgMonthlyCashflow,
+  buildCashflowData,
   anchorRate,
   RATE_ANCHOR,
 } from '../calculations';
@@ -745,5 +746,53 @@ describe('avgMonthlyCashflow', () => {
   it('window larger than available data averages what exists', () => {
     const result = avgMonthlyCashflow([snap('2025-01', 100, 40)], 6);
     expect(result).toEqual({ income: 100, expenses: 40 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildCashflowData
+// ---------------------------------------------------------------------------
+
+describe('buildCashflowData', () => {
+  const snap = (month: string, income?: number, expenses?: number): Snapshot =>
+    makeSnapshot({ id: month, month, monthlyIncome: income, monthlyExpenses: expenses });
+
+  it('represents a month with no recorded cash flow as an explicit gap, not a zero', () => {
+    const data = buildCashflowData([snap('2025-01', 100, 40), snap('2025-02'), snap('2025-03', 300, 80)]);
+    expect(data[1].income).toBeNull();
+    expect(data[1].expenses).toBeNull();
+    expect(data[1].rate).toBeNull();
+  });
+
+  it('does NOT drop the gap month — the previous bug collapsed non-adjacent months together', () => {
+    const data = buildCashflowData([snap('2025-01', 100, 40), snap('2025-02'), snap('2025-03', 300, 80)]);
+    expect(data).toHaveLength(3);
+    expect(data.map(d => d.label)).toEqual(['Jan 25', 'Feb 25', 'Mar 25']);
+  });
+
+  it('computes the savings rate for months that do have data', () => {
+    const data = buildCashflowData([snap('2025-01', 100, 40)]);
+    expect(data[0].rate).toBe(60);
+  });
+
+  it('treats an explicitly-entered 0 income as real data, not a gap', () => {
+    const data = buildCashflowData([snap('2025-01', 0, 0)]);
+    expect(data[0].income).toBe(0);
+    expect(data[0].expenses).toBe(0);
+    expect(data[0].rate).toBe(0); // calcSavingsRate's own zero-income guard
+  });
+
+  it('keeps only the last 12 snapshots, matching every other dashboard chart\'s window', () => {
+    const fifteen = [
+      ...Array.from({ length: 12 }, (_, i) => snap(`2025-${String(i + 1).padStart(2, '0')}`, 100, 50)),
+      ...Array.from({ length: 3 }, (_, i) => snap(`2026-${String(i + 1).padStart(2, '0')}`, 100, 50)),
+    ];
+    const data = buildCashflowData(fifteen);
+    expect(data).toHaveLength(12);
+    expect(data[0].label).toBe('Apr 25'); // the oldest 3 months (Jan-Mar) were dropped
+  });
+
+  it('returns an empty array for no snapshots', () => {
+    expect(buildCashflowData([])).toEqual([]);
   });
 });

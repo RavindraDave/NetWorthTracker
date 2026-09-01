@@ -302,6 +302,40 @@ export function calcSavingsRate(income: number, expenses: number): number {
   return ((income - expenses) / income) * 100;
 }
 
+export interface CashflowPoint {
+  label: string;
+  /** null = no cash-flow data recorded this month — an explicit gap, not a zero. */
+  income: number | null;
+  expenses: number | null;
+  rate: number | null;
+}
+
+/**
+ * Cash-flow series for the last 12 snapshots — including ones with no
+ * recorded income/expenses, kept as an explicit gap (`null`) rather than
+ * dropped. Dropping them (the previous behaviour) let a month entered in
+ * January and one entered in June render as adjacent points, misrepresenting
+ * a 5-month gap as a single month's change. Matches every other dashboard
+ * chart's "last 12 snapshots" window, so the cash-flow chart's x-axis lines
+ * up with the trend/allocation charts instead of silently picking its own.
+ */
+export function buildCashflowData(snapshots: Snapshot[]): CashflowPoint[] {
+  return [...snapshots]
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .slice(-12)
+    .map(s => {
+      const [year, month] = s.month.split('-');
+      const date = new Date(Number(year), Number(month) - 1);
+      const hasData = typeof s.monthlyIncome === 'number' || typeof s.monthlyExpenses === 'number';
+      return {
+        label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        income: hasData ? (s.monthlyIncome ?? 0) : null,
+        expenses: hasData ? (s.monthlyExpenses ?? 0) : null,
+        rate: hasData ? parseFloat(calcSavingsRate(s.monthlyIncome ?? 0, s.monthlyExpenses ?? 0).toFixed(1)) : null,
+      };
+    });
+}
+
 /**
  * Average monthly income/expenses over the last `windowMonths` snapshots that
  * actually carry cash-flow data (a bonus month or a forgotten field would

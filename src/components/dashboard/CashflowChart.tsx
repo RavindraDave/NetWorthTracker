@@ -4,7 +4,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
-import { calcSavingsRate } from '../../utils/calculations';
+import { buildCashflowData } from '../../utils/calculations';
 import { formatCompactNumber } from '../../utils/numberFormat';
 import { resolveNumberLocale } from '../../utils/currencies';
 import './CashflowChart.css';
@@ -15,13 +15,6 @@ import './CashflowChart.css';
 const INCOME_COLOR  = 'var(--accent)';
 const EXPENSE_COLOR = 'var(--rose)';
 const RATE_COLOR    = '#8b5cf6';
-
-interface CashflowPoint {
-  label: string;
-  income: number;
-  expenses: number;
-  rate: number; // savings rate %
-}
 
 /**
  * E4 — monthly cash-flow summary: income vs expenses bars with a separate
@@ -34,26 +27,14 @@ export const CashflowChart: React.FC = () => {
   const baseCurrency = preferences?.baseCurrency ?? 'INR';
   const numberLocale = resolveNumberLocale(baseCurrency, preferences?.numberFormat);
 
-  const data = useMemo<CashflowPoint[]>(() => {
-    return [...snapshots]
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .filter(s => (s.monthlyIncome ?? 0) > 0 || (s.monthlyExpenses ?? 0) > 0)
-      .slice(-12)
-      .map(s => {
-        const [year, month] = s.month.split('-');
-        const date = new Date(Number(year), Number(month) - 1);
-        return {
-          label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-          income: s.monthlyIncome ?? 0,
-          expenses: s.monthlyExpenses ?? 0,
-          rate: parseFloat(calcSavingsRate(s.monthlyIncome ?? 0, s.monthlyExpenses ?? 0).toFixed(1)),
-        };
-      });
-  }, [snapshots]);
+  const data = useMemo(() => buildCashflowData(snapshots), [snapshots]);
 
-  const hasNegativeRate = data.some(d => d.rate < 0);
+  // A month with no recorded cash flow is a gap (null), not a zero — so this
+  // only counts months that actually have data.
+  const hasAnyData = data.some(d => d.rate !== null);
+  const hasNegativeRate = data.some(d => d.rate !== null && d.rate < 0);
 
-  if (data.length === 0) {
+  if (!hasAnyData) {
     return (
       <div className="wp-card section-card">
         <div className="chart-head">
@@ -104,8 +85,8 @@ export const CashflowChart: React.FC = () => {
           <Tooltip
             cursor={{ fill: 'rgba(127,127,127,0.06)' }}
             contentStyle={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-            formatter={(val: number, name: string) => [
-              new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }).format(val),
+            formatter={(val, name) => [
+              typeof val === 'number' ? new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }).format(val) : 'No data',
               name,
             ]}
           />
@@ -127,11 +108,12 @@ export const CashflowChart: React.FC = () => {
           {hasNegativeRate && <ReferenceLine y={0} stroke="var(--text-3)" strokeDasharray="3 3" />}
           <Tooltip
             contentStyle={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-            formatter={(val: number) => [`${val.toFixed(1)}%`, 'Savings rate']}
+            formatter={(val) => [typeof val === 'number' ? `${val.toFixed(1)}%` : 'No data', 'Savings rate']}
           />
           <Line
             type="monotone" dataKey="rate" name="Savings rate"
             stroke={RATE_COLOR} strokeWidth={2} dot={false}
+            connectNulls={false}
             activeDot={{ r: 4, fill: RATE_COLOR, stroke: 'var(--bg-card-solid)', strokeWidth: 2 }}
           />
         </LineChart>
