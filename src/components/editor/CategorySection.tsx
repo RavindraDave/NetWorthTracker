@@ -45,7 +45,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ category, exch
 
   const total = calcCategoryTotal(category, baseCurrency, exchangeRates);
   const grouped = hasSubCategories(category);
-  const suggestions = suggestedSubCategories(category.id);
+  const suggestions = suggestedSubCategories(category);
   // The trigger stays available once a category already has groups, so the picker
   // can be used to top up later — it just hides when nothing is left to add.
   const unusedSuggestions = suggestions.filter(s => !findSubCategoryIdByName(category, s.name));

@@ -4,7 +4,8 @@ import { CategoryTemplate } from '../../types';
 import { DEFAULT_CATEGORY_TEMPLATES } from '../../utils/defaultCategories';
 import { InfoTooltip } from '../common/InfoTooltip';
 import { HELP } from '../common/dashboardHelp';
-import { Plus, Trash2, Pencil, Check, EyeOff, Eye } from 'lucide-react';
+import { useToast } from '../common/Toast';
+import { Plus, Trash2, Pencil, Check, EyeOff, Eye, ShieldCheck } from 'lucide-react';
 import './CategoryManager.css';
 
 const ICONS = [
@@ -14,7 +15,28 @@ const ICONS = [
 ];
 
 export const CategoryManager: React.FC = () => {
-  const { preferences, updatePreferences, snapshots } = useApp();
+  const { preferences, updatePreferences, snapshots, checkCategoryIds } = useApp();
+  const { success, warning } = useToast();
+  const [checkingIds, setCheckingIds] = useState(false);
+
+  const handleCheckCategoryIds = async () => {
+    setCheckingIds(true);
+    try {
+      const result = await checkCategoryIds();
+      if (result.fixed.length === 0 && result.conflicts.length === 0) {
+        success('Nothing to fix — every category ID already matches.');
+        return;
+      }
+      if (result.fixed.length > 0) {
+        success(`Fixed ${result.fixed.length} category ID${result.fixed.length === 1 ? '' : 's'}: ${result.fixed.map(f => f.categoryName).join(', ')}.`);
+      }
+      if (result.conflicts.length > 0) {
+        warning(`${result.conflicts.length} conflict${result.conflicts.length === 1 ? '' : 's'} found, left unchanged: ${result.conflicts.map(c => c.reason).join(' ')}`);
+      }
+    } finally {
+      setCheckingIds(false);
+    }
+  };
 
   const [name, setName]           = useState('');
   const [type, setType]           = useState<'asset' | 'liability'>('asset');
@@ -180,7 +202,18 @@ export const CategoryManager: React.FC = () => {
   return (
     <div className="cat-manager">
       <div className="cat-manager__header">
-        <h2 className="text-h2" style={{ marginBottom: 0 }}>Categories</h2>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h2 className="text-h2" style={{ marginBottom: 0 }}>Categories</h2>
+          <button
+            className="btn btn-outline"
+            style={{ fontSize: '0.78rem', padding: '0.35rem 0.7rem' }}
+            onClick={handleCheckCategoryIds}
+            disabled={checkingIds}
+            title="Finds a built-in category whose internal id doesn't match its name (e.g. from older data) and fixes it, keeping any goal exclusions in sync"
+          >
+            <ShieldCheck size={13} /> {checkingIds ? 'Checking…' : 'Check category IDs'}
+          </button>
+        </div>
         <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
           Configure which categories appear in new snapshots and how they count in calculations.
         </p>

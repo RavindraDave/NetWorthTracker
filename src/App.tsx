@@ -1,8 +1,8 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { AppProvider } from './context/AppContext';
-import { ToastProvider } from './components/common/Toast';
+import { ToastProvider, useToast } from './components/common/Toast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { RouteSkeleton } from './components/common/RouteSkeleton';
 import { Dashboard } from './pages/Dashboard';
@@ -48,6 +48,32 @@ const SyncConflictManager: React.FC = () => {
   );
 };
 
+/**
+ * Surfaces the auto-on-load category-id reconciliation pass — silent unless
+ * it actually found something (see `applyCategoryReconciliation`'s doc
+ * comment in AppContext). One-shot: dismisses itself right after showing,
+ * since there's nothing to re-show — a re-run (the manual Settings button)
+ * always recomputes fresh from the same deterministic source data.
+ */
+const CategoryFixManager: React.FC = () => {
+  const { categoryFix, dismissCategoryFix } = useApp();
+  const { success, warning } = useToast();
+
+  useEffect(() => {
+    if (!categoryFix) return;
+    if (categoryFix.fixed.length > 0) {
+      success(`Fixed ${categoryFix.fixed.length} category ID${categoryFix.fixed.length === 1 ? '' : 's'}.`);
+    }
+    if (categoryFix.conflicts.length > 0) {
+      warning(`${categoryFix.conflicts.length} category ID conflict${categoryFix.conflicts.length === 1 ? '' : 's'} need attention — see Settings → Categories.`);
+    }
+    dismissCategoryFix();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryFix]);
+
+  return null;
+};
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -71,6 +97,7 @@ function App() {
           <AutoBackupManager />
           <SnapshotReminderManager />
           <SyncConflictManager />
+          <CategoryFixManager />
           <RouterProvider router={router} />
         </ToastProvider>
       </AppProvider>

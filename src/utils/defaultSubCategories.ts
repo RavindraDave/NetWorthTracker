@@ -16,6 +16,8 @@
  * you would rather group by jurisdiction than by asset type, and keep each holding in
  * one place or the other, never both.
  */
+import { DEFAULT_CATEGORY_TEMPLATES } from './defaultCategories';
+
 export interface SubCategorySuggestion {
   name: string;
   description: string;
@@ -117,7 +119,24 @@ export const DEFAULT_SUB_CATEGORIES: Record<string, SubCategorySuggestion[]> = {
   ],
 };
 
-/** Suggested groups for a category, or [] when we have no opinion (custom categories). */
-export function suggestedSubCategories(categoryId: string): SubCategorySuggestion[] {
-  return DEFAULT_SUB_CATEGORIES[categoryId] ?? [];
+/**
+ * Suggested groups for a category, or [] when we have no opinion (custom categories).
+ *
+ * Looks up by id first, then falls back to name+type against
+ * `DEFAULT_CATEGORY_TEMPLATES` — the same fallback `SnapshotEditor`'s
+ * category backfill and `buildCategoryTrendData` already use. A category
+ * that's unmistakably "Cash & Bank Accounts" by name and type shouldn't lose
+ * its suggestions just because its stored id predates (or otherwise doesn't
+ * match) the current built-in template ids; this is a read-only lookup
+ * fallback, not a data migration — nothing about the stored category is
+ * ever rewritten.
+ */
+export function suggestedSubCategories(category: { id: string; name: string; type: 'asset' | 'liability' }): SubCategorySuggestion[] {
+  const direct = DEFAULT_SUB_CATEGORIES[category.id];
+  if (direct) return direct;
+
+  const matchedTemplate = DEFAULT_CATEGORY_TEMPLATES.find(
+    t => t.name === category.name && t.type === category.type,
+  );
+  return matchedTemplate ? (DEFAULT_SUB_CATEGORIES[matchedTemplate.id] ?? []) : [];
 }

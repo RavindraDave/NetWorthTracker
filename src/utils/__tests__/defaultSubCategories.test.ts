@@ -58,12 +58,38 @@ describe('DEFAULT_SUB_CATEGORIES', () => {
 });
 
 describe('suggestedSubCategories', () => {
-  it('returns the catalogue entry for a built-in category', () => {
-    expect(suggestedSubCategories('default-investments').map(s => s.name))
+  it('returns the catalogue entry for a built-in category, matched by id', () => {
+    expect(suggestedSubCategories({ id: 'default-investments', name: 'Investments', type: 'asset' }).map(s => s.name))
       .toContain('Mutual Funds');
   });
 
   it('returns [] for a user-created category we have no opinion about', () => {
-    expect(suggestedSubCategories(crypto.randomUUID())).toEqual([]);
+    expect(suggestedSubCategories({ id: crypto.randomUUID(), name: 'My Weird Category', type: 'asset' })).toEqual([]);
+  });
+
+  /**
+   * The bug this guards against: a category whose stored id predates (or
+   * otherwise doesn't match) the current `default-*` template ids — e.g.
+   * older data, or anything created before stable ids existed — was
+   * silently getting zero suggestions despite being unmistakably "Cash &
+   * Bank Accounts" by name and type. `SnapshotEditor`'s backfill and
+   * `buildCategoryTrendData` already tolerate this same mismatch via a
+   * name+type fallback; this must too.
+   */
+  it('falls back to name+type when the id does not match any template', () => {
+    const legacyIdCategory = { id: crypto.randomUUID(), name: 'Cash & Bank Accounts', type: 'asset' as const };
+    expect(suggestedSubCategories(legacyIdCategory).map(s => s.name)).toContain('Fixed Deposits');
+  });
+
+  it('does not fall back across a type mismatch — same name, different type is a different category', () => {
+    const wrongType = { id: crypto.randomUUID(), name: 'Cash & Bank Accounts', type: 'liability' as const };
+    expect(suggestedSubCategories(wrongType)).toEqual([]);
+  });
+
+  it('prefers the direct id match over name+type when both could apply', () => {
+    // A category correctly id'd as Investments but (hypothetically) renamed
+    // should still get Investments' suggestions, not be misled by its name.
+    const renamed = { id: 'default-investments', name: 'My Portfolio', type: 'asset' as const };
+    expect(suggestedSubCategories(renamed).map(s => s.name)).toContain('Mutual Funds');
   });
 });

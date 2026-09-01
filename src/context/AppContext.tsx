@@ -12,6 +12,7 @@ import { migrateToAnchorRates } from '../utils/ratesMigration';
 import * as secureStore from '../utils/secureStore';
 import * as appLock from '../utils/appLock';
 import { isLockedOut, recordFailure, recordSuccess } from '../utils/appLockThrottle';
+import { reconcileCategoryIds, ReconciliationResult } from '../utils/categoryReconciliation';
 import { getSessionDEK, setSessionDEK, lockSession } from '../utils/cloudSync/keyVault';
 import { setPassphrase } from '../utils/cloudSync/encryption';
 
@@ -65,6 +66,12 @@ interface AppContextType {
   resolveConflicts: (resolutions: Map<string, 'local' | 'remote'>) => Promise<void>;
   dismissSyncConflicts: () => Promise<void>;
   isLoading: boolean;
+  // ── Category id reconciliation ──
+  /** Set only when the last reconciliation (auto or manual) actually found something. */
+  categoryFix: ReconciliationResult | null;
+  dismissCategoryFix: () => void;
+  /** Manual trigger (Settings → Category Manager) — re-runs the same check on demand. */
+  checkCategoryIds: () => Promise<ReconciliationResult>;
   // ── App lock ──
   isLocked: boolean;
   unlockWithPassphrase: (passphrase: string) => Promise<boolean>;
@@ -87,6 +94,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [viewMode, setViewMode] = useState<ViewMode>('overall');
   const [isLoading, setIsLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const [categoryFix, setCategoryFix] = useState<ReconciliationResult | null>(null);
 
   const snapshotsRef = useRef<Snapshot[]>([]);
   const goalsRef = useRef<Goal[]>([]);
@@ -101,6 +109,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       configureClientId(preferences.cloudSync.clientId);
     }
   }, [preferences?.cloudSync?.clientId]);
+
+  /**
+   * Shared by the auto-on-load pass and the manual "Check category IDs"
+   * button — persists only the snapshots/goals `reconcileCategoryIds`
+   * actually changed (identified by reference, since it returns the same
+   * object back when there's nothing to do for it) and updates state to
+   * match. Returns the raw result so callers can react to it (auto-load
+   * only surfaces a toast when something happened; the manual button always
+   * shows a result, including "nothing to fix").
+   */
+  const applyCategoryReconciliation = async (snaps: Snapshot[], gs: Goal[]): Promise<ReconciliationResult> => {
+    const result = reconcileCategoryIds(snaps, gs);
+    const changedSnapshots = result.snapshots.filter((s, i) => s !== snaps[i]);
+    const changedGoals = result.goals.filter((g, i) => g !== gs[i]);
+    if (changedSnapshots.length > 0) await secureStore.bulkPutSnapshots(changedSnapshots);
+    for (const g of changedGoals) await secureStore.putGoal(g);
+    setSnapshots(result.snapshots);
+    setGoals(result.goals);
+    return result;
+  };
+
+  const checkCategoryIds = async (): Promise<ReconciliationResult> => {
+    const result = await applyCategoryReconciliation(snapshotsRef.current, goalsRef.current);
+    setCategoryFix(result.fixed.length > 0 || result.conflicts.length > 0 ? result : null);
+    return result;
+  };
+
+  const dismissCategoryFix = () => setCategoryFix(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -138,7 +174,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         secureStore.readSnapshots(),
         secureStore.readGoals(),
       ]);
-      setGoals(gs);
 
       const baseCurrency = finalPrefs?.baseCurrency ?? 'INR';
       const sorted = [...snaps].sort((a, b) => a.month.localeCompare(b.month));
@@ -148,7 +183,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const rehydrated = finalPrefs?.categoryTemplates
         ? rehydrateFlags(normalizedSnaps, finalPrefs.categoryTemplates)
         : normalizedSnaps;
-      setSnapshots(rehydrated);
+
+      // Silent unless it actually finds something — see applyCategoryReconciliation's doc comment.
+      const reconciliation = await applyCategoryReconciliation(rehydrated, gs);
+      if (reconciliation.fixed.length > 0 || reconciliation.conflicts.length > 0) {
+        setCategoryFix(reconciliation);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -511,6 +551,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       syncConflicts,
       resolveConflicts,
       dismissSyncConflicts,
+      categoryFix,
+      dismissCategoryFix,
+      checkCategoryIds,
       isLoading,
       isLocked,
       unlockWithPassphrase,
